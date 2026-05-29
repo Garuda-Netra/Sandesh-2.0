@@ -1,0 +1,518 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Sandesh – Real-time, secure messaging." />
+  <title>{% block title %}Sandesh{% endblock %}</title>
+
+  <!-- Tailwind CSS (CDN – swap for compiled build in production) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            divine: {
+              gold:    '#a855f7',
+              amber:   '#818cf8',
+              saffron: '#c084fc',
+              deep:    '#000000',
+              surface: '#0a0a0a',
+              card:    '#121212',
+              border:  '#1f1f22',
+              text:    '#f5f5f7',
+              muted:   '#86868b',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          animation: {
+            'pulse-gold': 'pulseGold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'glow':       'glow 2.5s ease-in-out infinite alternate',
+            'float':      'float 4s ease-in-out infinite',
+            'slide-in':   'slideIn 0.3s ease-out',
+            'msg-appear': 'msgAppear 0.35s cubic-bezier(0.34,1.4,0.64,1)',
+            'badge-pop':  'badgePop 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+            'fade-in-up': 'fadeInUp 0.5s ease-out',
+          },
+          keyframes: {
+            pulseGold: {
+              '0%, 100%': { opacity: '1' },
+              '50%':      { opacity: '0.5' },
+            },
+            glow: {
+              '0%':   { boxShadow: '0 0 5px #a855f7, 0 0 20px #a855f7, 0 0 40px #818cf8' },
+              '100%': { boxShadow: '0 0 10px #818cf8, 0 0 40px #818cf8, 0 0 80px #a855f7' },
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%':      { transform: 'translateY(-8px)' },
+            },
+            slideIn: {
+              '0%':   { opacity: '0', transform: 'translateY(12px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            msgAppear: {
+              '0%':   { opacity: '0', transform: 'scale(0.92) translateY(8px)' },
+              '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+            },
+            fadeInUp: {
+              '0%':   { opacity: '0', transform: 'translateY(16px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            badgePop: {
+              '0%':   { transform: 'scale(0)', opacity: '0' },
+              '60%':  { transform: 'scale(1.15)', opacity: '1' },
+              '100%': { transform: 'scale(1)', opacity: '1' },
+            }
+          },
+          boxShadow: {
+            'divine':    '0 0 30px rgba(168, 85, 247, 0.18)',
+            'glow-sm':   '0 0 8px rgba(168, 85, 247, 0.45)',
+            'glow-gold': '0 0 18px rgba(168, 85, 247, 0.4)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{% static 'css/custom.css' %}?v=7" />
+
+  <style>
+    /* Theme Transition API */
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation: none;
+      mix-blend-mode: normal;
+    }
+    ::view-transition-old(root) { z-index: 1; }
+    ::view-transition-new(root) { z-index: 9999; }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+
+  <script>
+    // ── SDH Global Namespace ──────────────────────────────────
+    window.SDH = window.SDH || {};
+
+    // Theme management
+    SDH.THEME_KEY = 'sandesh_theme';
+    SDH.applyTheme = function(theme) {
+      const root = document.documentElement;
+      if (theme === 'light') {
+        root.classList.remove('dark');
+        root.setAttribute('data-theme', 'light');
+      } else {
+        root.classList.add('dark');
+        root.setAttribute('data-theme', 'dark');
+      }
+      
+      // We might be in head where icons don't exist yet, so we use DOMContentLoaded
+      // to update the icons later, but apply the classes immediately.
+      const iconDark = document.getElementById('iconDark');
+      const iconLight = document.getElementById('iconLight');
+      if (iconDark && iconLight) {
+        iconDark.classList.toggle('hidden', theme !== 'light');
+        iconLight.classList.toggle('hidden', theme === 'light');
+      }
+      localStorage.setItem(SDH.THEME_KEY, theme);
+    };
+
+    // Init theme synchronously on load to prevent FOUC
+    (function() {
+      const saved = localStorage.getItem(SDH.THEME_KEY) || 'dark';
+      SDH.applyTheme(saved);
+    })();
+  </script>
+</head>
+
+<body class="bg-divine-deep text-divine-text font-sans min-h-screen antialiased">
+
+  <!-- ── Top Navigation Bar ─────────────────────────────────── -->
+  {% if user.is_authenticated %}
+  <nav class="fixed top-0 left-0 right-0 z-50 h-14 bg-divine-surface/90 backdrop-blur-md border-b border-divine-border flex items-center justify-between px-4 sm:px-6">
+
+    <!-- Logo -->
+    <a href="{% url 'users:index' %}" class="flex items-center gap-2 group">
+      <span class="sandesh-nav-brand text-xl font-bold tracking-wider">
+        ✦ Sandesh
+      </span>
+      <span class="hidden sm:block text-divine-muted text-xs uppercase tracking-widest">
+        Sandesh Messenger
+      </span>
+    </a>
+
+    <!-- Nav Actions -->
+    <div class="flex items-center gap-4">
+
+      {% block nav_actions %}{% endblock %}
+
+      <!-- Theme Toggle -->
+      <button id="themeToggle" onclick="SDH.toggleTheme(event)"
+              class="sdh-icon-btn p-2 rounded-full"
+              title="Toggle theme">
+        <svg id="iconDark" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <svg id="iconLight" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+      </button>
+
+      <button id="sdhBotToggle" class="sdh-liquid-btn btn-ancient !rounded-full !px-4 !py-2 flex items-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all hover:scale-105" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Open Axiom">
+        <svg class="w-4 h-4 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h12a4 4 0 014 4v4a4 4 0 01-4 4H9l-5 4v-4H4a4 4 0 01-4-4V9a4 4 0 014-4z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11h6M8 14h4" />
+        </svg>
+        <span class="hidden sm:inline-block text-xs font-bold tracking-widest uppercase relative z-10">Axiom</span>
+      </button>
+
+      <!-- User Menu -->
+      <div class="relative" id="userMenuContainer">
+        <button onclick="document.getElementById('userDropdown').classList.toggle('hidden')"
+                class="flex items-center gap-2 group">
+          <div class="w-8 h-8 rounded-full bg-divine-gold/20 border border-divine-gold/40 flex items-center justify-center text-divine-gold text-sm font-semibold">
+            {{ user.username|slice:":1"|upper }}
+          </div>
+          <span class="hidden sm:block text-sm text-divine-muted group-hover:text-divine-text transition-colors">
+            {{ user.username }}
+          </span>
+        </button>
+
+        <!-- Dropdown -->
+        <div id="userDropdown"
+             class="hidden absolute right-0 top-full mt-2 w-44 bg-divine-card border border-divine-border rounded-xl shadow-2xl overflow-hidden z-50">
+          <a href="{% url 'users:profile' %}"
+             class="flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            Profile
+          </a>
+          <div class="border-t border-divine-border"></div>
+          <a href="{% url 'users:logout' %}"
+             class="flex items-center gap-2 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:bg-divine-surface transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            Sign Out
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </nav>
+  {% endif %}
+
+  <!-- ── Flash Messages ─────────────────────────────────────── -->
+  {% if messages %}
+  <div id="flashMessages" class="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-sm">
+    {% for message in messages %}
+    <div class="flash-msg px-4 py-3 rounded-xl border text-sm font-medium shadow-lg animate-slide-in
+                {% if message.tags == 'error' or message.tags == 'danger' %}
+                  bg-red-100 border-red-400 text-red-700 dark:bg-red-900/80 dark:border-red-700 dark:text-red-200
+                {% elif message.tags == 'success' %}
+                  bg-green-100 border-green-400 text-green-700 dark:bg-green-900/80 dark:border-green-700 dark:text-green-200
+                {% elif message.tags == 'warning' %}
+                  bg-yellow-100 border-yellow-400 text-yellow-700 dark:bg-yellow-900/80 dark:border-yellow-700 dark:text-yellow-200
+                {% else %}
+                  bg-divine-card border-divine-border text-divine-text
+                {% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  <script>
+    setTimeout(() => {
+      document.querySelectorAll('.flash-msg').forEach(el => {
+        el.style.transition = 'opacity 0.5s';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 500);
+      });
+    }, 4000);
+  </script>
+  {% endif %}
+
+  <!-- ── Main Content ───────────────────────────────────────── -->
+  <main class="{% if user.is_authenticated %}pt-14{% endif %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Footer (shown only on public pages) ────────────────── -->
+  {% block footer %}{% endblock %}
+
+  {% if user.is_authenticated %}
+  <!-- Chatbot Widget -->
+  <div id="sdhBotPanel" class="sdh-bot-panel" role="dialog" aria-modal="false" aria-labelledby="sdhBotTitle" aria-hidden="true">
+    <div class="sdh-bot-card relative overflow-hidden backdrop-blur-xl bg-divine-surface/80 border border-divine-gold/30 rounded-2xl shadow-[0_0_40px_rgba(168,85,247,0.15)] flex flex-col h-full">
+      <!-- Ambient Glows -->
+      <div class="absolute -top-20 -left-20 w-40 h-40 bg-divine-gold/20 blur-3xl rounded-full pointer-events-none"></div>
+      <div class="absolute -bottom-20 -right-20 w-40 h-40 bg-divine-amber/20 blur-3xl rounded-full pointer-events-none"></div>
+      
+      <div class="sdh-bot-header relative z-10 border-b border-divine-gold/20 bg-divine-card/50 backdrop-blur-md px-4 py-3 flex justify-between items-center">
+        <div class="sdh-bot-brand flex items-center gap-3">
+          <span class="sdh-bot-mark w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-divine-gold to-divine-amber shadow-[inset_0_0_10px_rgba(255,255,255,0.2)] text-white" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3l2.2 4.4L19 9l-4.8 1.6L12 15l-2.2-4.4L5 9l4.8-1.6L12 3z" />
+            </svg>
+          </span>
+          <div>
+            <div id="sdhBotTitle" class="sdh-bot-title text-sm font-bold tracking-wide text-divine-text drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">Axiom AI</div>
+            <div class="sdh-bot-subtitle text-[10px] text-divine-gold/80 uppercase tracking-widest">Intelligent Assistant</div>
+          </div>
+        </div>
+        <div class="sdh-bot-actions flex gap-2">
+          <button id="sdhBotClear" class="sdh-liquid-btn btn-secondary !p-2 !rounded-lg" type="button" title="Clear chat" aria-label="Clear chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4 relative z-10">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M9 6V4h6v2m-1 3v9m-4-9v9" />
+            </svg>
+          </button>
+          <button id="sdhBotClose" class="sdh-liquid-btn btn-danger !p-2 !rounded-lg" type="button" title="Close" aria-label="Close chatbot">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4 relative z-10">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6l-12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="sdhBotMessages" class="sdh-bot-messages flex-1 overflow-y-auto p-4 space-y-3 relative z-10" aria-live="polite"></div>
+
+      <div id="sdhBotSuggestions" class="sdh-bot-suggestions px-4 py-2 flex flex-wrap gap-2 relative z-10">
+        <button class="sdh-bot-suggestion sdh-liquid-btn btn-ancient !py-1 !px-3 !rounded-full text-[10px] tracking-wide" type="button" data-prompt="Summarize this idea for me"><span class="relative z-10">Summarize</span></button>
+        <button class="sdh-bot-suggestion sdh-liquid-btn btn-ancient !py-1 !px-3 !rounded-full text-[10px] tracking-wide" type="button" data-prompt="Help me brainstorm creative ideas"><span class="relative z-10">Brainstorm</span></button>
+        <button class="sdh-bot-suggestion sdh-liquid-btn btn-ancient !py-1 !px-3 !rounded-full text-[10px] tracking-wide" type="button" data-prompt="Draft a professional message"><span class="relative z-10">Draft</span></button>
+        <button class="sdh-bot-suggestion sdh-liquid-btn btn-ancient !py-1 !px-3 !rounded-full text-[10px] tracking-wide" type="button" data-prompt="Explain a concept in simple terms"><span class="relative z-10">Explain</span></button>
+      </div>
+
+      <div class="sdh-bot-input p-4 border-t border-divine-gold/20 bg-divine-card/50 backdrop-blur-md flex items-end gap-2 relative z-10">
+        <textarea id="sdhBotInput" rows="1" class="flex-1 bg-divine-surface/80 border border-divine-gold/30 rounded-xl px-4 py-3 text-sm text-divine-text placeholder-divine-muted focus:outline-none focus:border-divine-gold focus:ring-1 focus:ring-divine-gold resize-none" style="min-height:44px; max-height:120px;" placeholder="Ask Axiom anything..." aria-label="Chatbot message"></textarea>
+        <button id="sdhBotSend" class="sdh-liquid-btn btn-ancient !py-3 !px-5 !rounded-xl flex-shrink-0" type="button"><span class="relative z-10 font-bold">Send</span></button>
+      </div>
+
+      <div class="sdh-bot-footer px-4 py-2 text-[10px] text-center text-divine-muted/70 bg-divine-card/50 relative z-10">Tip: Use Shift+Enter for a new line. Axiom is ready to assist.</div>
+    </div>
+  </div>
+
+  {% endif %}
+
+  <!-- ── Global JS ──────────────────────────────────────────── -->
+  <script>
+    SDH.toggleTheme = function(event) {
+      const current = localStorage.getItem(SDH.THEME_KEY) || 'dark';
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+
+      // Fallback for browsers that don't support View Transitions
+      if (!document.startViewTransition || !event) {
+        SDH.applyTheme(nextTheme);
+        return;
+      }
+
+      // Calculate the expanding circle radius
+      const x = event.clientX;
+      const y = event.clientY;
+      const endRadius = Math.hypot(
+        Math.max(x, innerWidth - x),
+        Math.max(y, innerHeight - y)
+      );
+
+      // Start the view transition
+      const transition = document.startViewTransition(() => {
+        SDH.applyTheme(nextTheme);
+      });
+
+      // Wait for the pseudo-elements to be created, then animate
+      transition.ready.then(() => {
+        document.documentElement.animate(
+          {
+            clipPath: [
+              `circle(0px at ${x}px ${y}px)`,
+              `circle(${endRadius}px at ${x}px ${y}px)`
+            ]
+          },
+          {
+            duration: 600,
+            easing: 'ease-out',
+            pseudoElement: '::view-transition-new(root)'
+          }
+        );
+      });
+    };
+
+    // Update theme icons if they exist now that DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      const saved = localStorage.getItem(SDH.THEME_KEY) || 'dark';
+      const iconDark = document.getElementById('iconDark');
+      const iconLight = document.getElementById('iconLight');
+      if (iconDark && iconLight) {
+        iconDark.classList.toggle('hidden', saved !== 'light');
+        iconLight.classList.toggle('hidden', saved === 'light');
+      }
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', function(e) {
+      const container = document.getElementById('userMenuContainer');
+      const dropdown = document.getElementById('userDropdown');
+      if (container && dropdown && !container.contains(e.target)) {
+        dropdown.classList.add('hidden');
+      }
+    });
+  </script>
+
+  {% if not user.is_authenticated %}
+  <!-- Firebase App & Auth v10 SDK (ES Module) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "{{ FIREBASE_API_KEY }}",
+      authDomain: "{{ FIREBASE_AUTH_DOMAIN }}",
+      projectId: "{{ FIREBASE_PROJECT_ID }}",
+      appId: "{{ FIREBASE_APP_ID }}"
+    };
+
+    if (firebaseConfig.apiKey) {
+      try {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        window.firebaseAuth = { auth, signInWithPopup, GoogleAuthProvider };
+      } catch (err) {
+        console.error("Failed to initialize Firebase:", err);
+      }
+    } else {
+      console.warn("Firebase configuration is missing in environment.");
+    }
+  </script>
+  {% endif %}
+
+  {% block extra_js %}{% endblock %}
+
+  {% if user.is_authenticated %}
+  <script>
+    window.SDH_CHATBOT = {
+      apiUrl: "{% url 'messaging:chatbot_reply' %}",
+      userName: "{{ user.username|default:''|escapejs }}",
+    };
+  </script>
+  <script src="{% static 'js/chatbot.js' %}?v=1"></script>
+  {% endif %}
+
+  <!-- ── Global Cursor Trail Animation ── -->
+  <canvas id="globalCursorTrail" class="fixed inset-0 pointer-events-none z-[40]"></canvas>
+  <script>
+    (function() {
+      const canvas = document.getElementById('globalCursorTrail');
+      const ctx = canvas.getContext('2d');
+      
+      let width, height;
+      let particles = [];
+      let mouse = { x: -1000, y: -1000, moved: false };
+
+      const colors = [
+        'rgba(245, 158, 11, 0.8)', // Amber
+        'rgba(249, 115, 22, 0.8)', // Orange
+        'rgba(239, 68, 68, 0.8)',  // Red
+        'rgba(252, 211, 77, 0.8)'  // Yellow-amber
+      ];
+
+      function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      }
+
+      window.addEventListener('resize', resize);
+      window.addEventListener('mousemove', (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+        mouse.moved = true;
+        createParticles(mouse.x, mouse.y, 2);
+      });
+      window.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) {
+          mouse.x = e.touches[0].clientX;
+          mouse.y = e.touches[0].clientY;
+          mouse.moved = true;
+          createParticles(mouse.x, mouse.y, 2);
+        }
+      }, { passive: true });
+
+      resize();
+
+      class Particle {
+        constructor(x, y) {
+          this.x = x;
+          this.y = y;
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 2.5 + 0.5;
+          this.vx = Math.cos(angle) * speed;
+          this.vy = Math.sin(angle) * speed;
+          this.radius = Math.random() * 4 + 2; 
+          this.color = colors[Math.floor(Math.random() * colors.length)];
+          this.life = 1.0; 
+          this.decay = Math.random() * 0.03 + 0.015; 
+        }
+
+        update() {
+          this.x += this.vx;
+          this.y += this.vy;
+          this.life -= this.decay;
+          this.radius *= 0.95; 
+        }
+
+        draw(ctx) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = this.color.replace('0.8)', `${this.life})`);
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = this.color;
+          ctx.fill();
+        }
+      }
+
+      function createParticles(x, y, count) {
+        for (let i = 0; i < count; i++) {
+          particles.push(new Particle(x, y));
+        }
+      }
+
+      function animate() {
+        ctx.clearRect(0, 0, width, height);
+
+        if (mouse.moved && Math.random() > 0.8) {
+          createParticles(mouse.x, mouse.y, 1);
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.update();
+          if (p.life <= 0 || p.radius <= 0.1) {
+            particles.splice(i, 1);
+          } else {
+            p.draw(ctx);
+          }
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    })();
+  </script>
+
+</body>
+</html>

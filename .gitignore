@@ -1,0 +1,76 @@
+# ── Python ──────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pycache
+
+# ── Virtual environments ─────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Environment & secrets ─────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Django runtime data ──────────────────────────────────────────
+db.sqlite3
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+
+# ── Agent / IDE Data ──────────────────────────────────────────────
+.gemini/
+
+# ── Uploaded files (user content, stored on Cloudinary in prod) ──
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.odp
+*.zip
+*.rar
+*.7z
+
+# ── Packaging & build ────────────────────────────────────────────
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+build/
+dist/
+
+# ── Testing & coverage ───────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ── Logs ─────────────────────────────────────────────────────────
+*.log
+
+# ── OS files ─────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+
+# ── IDE / editor ─────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── 🌌 Cosmic Dust (Things we leave behind) ───────────────────────
+# "Not everything that wanders needs to be tracked." 
+# These are temporary files and artifacts we don't want polluting 
+# the beautiful Sandesh ecosystem.
+.env.local
+.env.development
+.DS_Store

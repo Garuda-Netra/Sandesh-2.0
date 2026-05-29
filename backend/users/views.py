@@ -1,0 +1,821 @@
+"""
+Users Views
+
+Landing page, Registration, Login, Logout, Profile management.
+Friend requests, blocking, unblocking.
+"""
+
+import json
+import requests
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login, logout, alogin, alogout
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.views.decorators.http import require_POST, require_GET
+from django.http import JsonResponse
+from django.contrib import messages
+from django.conf import settings
+from django.urls import reverse
+from django.utils import timezone
+from django.db.models import Q
+from asgiref.sync import sync_to_async
+
+from .forms import SDHRegistrationForm, SDHLoginForm, ProfileUpdateForm
+from .models import UserProfile, FriendRequest, Friendship
+
+
+# ---------------------------------------------------------------------------
+# Landing Page
+# ---------------------------------------------------------------------------
+def index(request):
+    """
+    Public landing page with OM particle animation.
+    Redirects authenticated users directly to chat.
+    """
+    if request.user.is_authenticated:
+        return redirect('messaging:chat')
+    return render(request, 'index.html')
+
+
+# ---------------------------------------------------------------------------
+# Registration
+# ---------------------------------------------------------------------------
+@csrf_protect
+def register_view(request):
+    if request.user.is_authenticated:
+        return redirect('messaging:chat')
+        
+    if request.method == 'POST':
+        form = SDHRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user, backend='users.backends.EmailPhoneUsernameBackend')
+            return redirect('messaging:chat')
+    else:
+        form = SDHRegistrationForm()
+        
+    return render(request, 'register.html', {'form': form})
+
+
+# ---------------------------------------------------------------------------
+# Login
+# ---------------------------------------------------------------------------
+@csrf_protect
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('messaging:chat')
+        
+    if request.method == 'POST':
+        form = SDHLoginForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            return redirect('messaging:chat')
+    else:
+        form = SDHLoginForm()
+        
+    return render(request, 'login.html', {'form': form})
+
+
+# ---------------------------------------------------------------------------
+# Firebase Authentication API
+# ---------------------------------------------------------------------------
+@csrf_protect
+@require_POST
+def firebase_login_view(request):
+    """
+    Endpoint for Firebase ID token verification and user login/registration.
+    Accepts: POST {"id_token": "<token>"}
+    Returns: JSON {"status": "success", "redirect_url": "/messaging/chat/"} or error message.
+    """
+    try:
+        body = json.loads(request.body)
+        id_token = body.get('id_token')
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'status': 'error', 'error': 'Invalid JSON request'}, status=400)
+
+    if not id_token:
+        return JsonResponse({'status': 'error', 'error': 'id_token is required'}, status=400)
+
+    # Initialize Firebase if not already initialized
+    from sdh.firebase import initialize_firebase
+    initialize_firebase()
+
+    from firebase_admin import auth as firebase_auth
+
+    try:
+        # Verify the ID token using the Firebase Admin SDK
+        decoded_token = firebase_auth.verify_id_token(id_token)
+        email = decoded_token.get('email')
+
+        if not email:
+            return JsonResponse({'status': 'error', 'error': 'Firebase account does not have an email.'}, status=400)
+
+        # Find or create user
+        user = User.objects.filter(email=email).first()
+
+        if not user:
+            # Create new user
+            base_username = email.split('@')[0]
+            final_username = base_username
+            counter = 1
+            while User.objects.filter(username=final_username).exists():
+                final_username = f"{base_username}{counter}"
+                counter += 1
+
+            user = User.objects.create(username=final_username, email=email)
+            user.set_unusable_password()
+            user.save()
+
+        # Update profile if needed
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+
+        if not profile.is_active_account:
+            return JsonResponse({'status': 'error', 'error': 'Account deleted.'}, status=403)
+
+        # Log in the user
+        login(request, user, backend='users.backends.EmailPhoneUsernameBackend')
+        return JsonResponse({
+            'status': 'success',
+            'redirect_url': reverse('messaging:chat')
+        })
+
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'error': f'Authentication failed: {str(e)}'}, status=400)
+
+
+
+# ---------------------------------------------------------------------------
+# Logout  (sync — avoids SynchronousOnlyOperation from ORM/session access)
+# ---------------------------------------------------------------------------
+def logout_view(request):
+    if request.user.is_authenticated:
+        # Mark offline
+        try:
+            _mark_offline(request.user)
+        except Exception:
+            pass
+    logout(request)
+    return redirect('users:index')
+
+
+def _mark_offline(user):
+    """Sync helper: mark user offline in DB and stamp last_seen."""
+    try:
+        profile = user.profile
+        profile.is_online = False
+        profile.last_seen = timezone.now()
+        profile.save(update_fields=['is_online', 'last_seen'])
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _get_hidden_user_ids(user):
+    """Return User IDs that should be hidden from `user`'s contact list.
+
+    Only checks hidden_users (cosmetic removal).
+    Blocked users are NOT hidden — they remain visible in the chat list
+    (WhatsApp-style blocking).
+    """
+    try:
+        profile = user.profile
+    except Exception:
+        return []
+
+    user_ids = set()
+    try:
+        user_ids.update(profile.hidden_users.values_list('user_id', flat=True))
+    except Exception:
+        pass
+    return list(user_ids)
+
+
+def _get_blocked_user_ids(user):
+    """Return User IDs blocked by this user."""
+    try:
+        profile = user.profile
+    except Exception:
+        return []
+    try:
+        return list(profile.blocked_users.values_list('user_id', flat=True))
+    except Exception:
+        return []
+
+
+def _get_friend_user_ids(user):
+    """Return User IDs that are friends with this user."""
+    try:
+        profile = user.profile
+        friend_profile_ids = Friendship.get_friend_profile_ids(profile)
+        if not friend_profile_ids:
+            return []
+        return list(
+            UserProfile.objects.filter(id__in=friend_profile_ids)
+            .values_list('user_id', flat=True)
+        )
+    except Exception:
+        return []
+
+
+# ---------------------------------------------------------------------------
+# Remove User from My List
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_POST
+@csrf_protect
+def remove_user_view(request):
+    """
+    POST /users/api/remove-user/
+
+    Body: { "target_user_id": <int>, "block": bool }
+
+    When block=false: adds target to hidden_users (cosmetic removal).
+    When block=true: adds target to blocked_users ONLY (user stays visible
+    in chat list but messaging is disabled — WhatsApp-style).
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    target_user_id = body.get('target_user_id')
+    if not target_user_id:
+        return JsonResponse({'error': 'target_user_id is required'}, status=400)
+
+    target_user = get_object_or_404(User, id=target_user_id)
+
+    # Never allow hiding yourself
+    if target_user.id == request.user.id:
+        return JsonResponse({'error': 'Cannot remove yourself'}, status=400)
+
+    try:
+        my_profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Your profile was not found'}, status=404)
+
+    try:
+        target_profile = target_user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Target profile not found'}, status=404)
+
+    should_block = bool(body.get('block'))
+
+    if should_block:
+        # WhatsApp-style: block only — do NOT hide from chat list
+        my_profile.blocked_users.add(target_profile)
+        return JsonResponse({
+            'status': 'blocked',
+            'removed_user_id': target_user.id,
+        })
+    else:
+        # Cosmetic removal: hide from sidebar
+        my_profile.hidden_users.add(target_profile)
+        return JsonResponse({
+            'status': 'removed',
+            'removed_user_id': target_user.id,
+        })
+
+
+# ---------------------------------------------------------------------------
+# Unblock User
+# ---------------------------------------------------------------------------
+@login_required
+@require_POST
+@csrf_protect
+def unblock_user_view(request):
+    """
+    POST /users/api/unblock-user/
+
+    Body: { "target_user_id": <int> }
+
+    Removes the target from blocked_users.
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    target_user_id = body.get('target_user_id')
+    if not target_user_id:
+        return JsonResponse({'error': 'target_user_id is required'}, status=400)
+
+    target_user = get_object_or_404(User, id=target_user_id)
+
+    try:
+        my_profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Your profile was not found'}, status=404)
+
+    try:
+        target_profile = target_user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Target profile not found'}, status=404)
+
+    my_profile.blocked_users.remove(target_profile)
+
+    return JsonResponse({
+        'status': 'unblocked',
+        'target_user_id': target_user.id,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Unfriend User
+# ---------------------------------------------------------------------------
+@login_required
+@require_POST
+@csrf_protect
+def unfriend_view(request):
+    """
+    POST /users/api/unfriend/
+
+    Body: { "target_user_id": <int> }
+
+    Deletes the Friendship record between the current user and the target.
+    Also resets any accepted FriendRequest rows so users can re-add each
+    other later.  The user is then hidden from the sidebar (treated as a
+    hidden contact) unless they are also blocked.
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    target_user_id = body.get('target_user_id')
+    if not target_user_id:
+        return JsonResponse({'error': 'target_user_id is required'}, status=400)
+
+    if int(target_user_id) == request.user.id:
+        return JsonResponse({'error': 'Cannot unfriend yourself'}, status=400)
+
+    target_user = get_object_or_404(User, id=target_user_id)
+
+    try:
+        my_profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Your profile was not found'}, status=404)
+
+    try:
+        target_profile = target_user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Target profile not found'}, status=404)
+
+    # Delete the Friendship row (ordered so user1.id < user2.id)
+    lo_id, hi_id = sorted([my_profile.id, target_profile.id])
+    deleted_count, _ = Friendship.objects.filter(
+        user1_id=lo_id, user2_id=hi_id
+    ).delete()
+
+    if deleted_count == 0:
+        return JsonResponse({'error': 'You are not friends with this user.'}, status=400)
+
+    # Reset accepted friend-request rows so they can reconnect later
+    FriendRequest.objects.filter(
+        from_user__in=[my_profile, target_profile],
+        to_user__in=[my_profile, target_profile],
+        status=FriendRequest.STATUS_ACCEPTED,
+    ).update(status=FriendRequest.STATUS_REJECTED)
+
+    # Cosmetically hide the ex-friend from the sidebar for both sides
+    my_profile.hidden_users.add(target_profile)
+    target_profile.hidden_users.add(my_profile)
+
+    return JsonResponse({
+        'status': 'unfriended',
+        'target_user_id': target_user.id,
+    })
+
+
+# ---------------------------------------------------------------------------
+# User List API (for sidebar) — friends + blocked contacts only
+# ---------------------------------------------------------------------------
+@login_required
+@require_GET
+def user_list(request):
+    """Returns list of friends + blocked contacts for the sidebar."""
+    hidden_ids = _get_hidden_user_ids(request.user)
+    friend_ids = _get_friend_user_ids(request.user)
+    blocked_ids = _get_blocked_user_ids(request.user)
+
+    # Show friends + people I blocked (they remain visible per WhatsApp style)
+    visible_ids = set(friend_ids) | set(blocked_ids)
+    # Remove hidden users
+    visible_ids -= set(hidden_ids)
+    # Remove self
+    visible_ids.discard(request.user.id)
+
+    users = (
+        User.objects
+        .filter(id__in=visible_ids)
+        .filter(profile__is_active_account=True)
+        .select_related('profile')
+    )
+    data = []
+    blocked_set = set(blocked_ids)
+    for u in users:
+        try:
+            is_online = u.profile.is_online
+        except UserProfile.DoesNotExist:
+            is_online = False
+        data.append({
+            'username': u.username,
+            'display_name': u.get_full_name() or u.username,
+            'is_online': is_online,
+            'is_blocked': u.id in blocked_set,
+        })
+    return JsonResponse({'users': data})
+
+
+# ---------------------------------------------------------------------------
+# User Search API
+# ---------------------------------------------------------------------------
+@login_required
+@require_GET
+def search_users(request):
+    """
+    Live user search endpoint consumed by userSearch.js.
+
+    GET /users/api/search-users/?q=<query>
+
+    Returns up to 30 matching users (username icontains match),
+    ordered by username, excluding the current user.
+    Each result includes a friendship_status field:
+      'friend', 'pending_sent', 'pending_received', 'blocked', or 'none'.
+    Empty query returns friends only (same behaviour as the sidebar).
+    """
+    q = request.GET.get('q', '').strip()
+
+    hidden_ids = _get_hidden_user_ids(request.user)
+
+    try:
+        my_profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        my_profile = UserProfile.objects.create(user=request.user)
+
+    if q:
+        # When searching: return ALL active users matching the query
+        # (so non-friends can be discovered)
+        qs = (
+            User.objects
+            .exclude(id=request.user.id)
+            .filter(profile__is_active_account=True)
+            .filter(username__icontains=q)
+            .select_related('profile')
+            .order_by('username')[:30]
+        )
+    else:
+        # No query: return friends + blocked only (sidebar behaviour)
+        friend_ids = _get_friend_user_ids(request.user)
+        blocked_ids = _get_blocked_user_ids(request.user)
+        visible_ids = set(friend_ids) | set(blocked_ids)
+        visible_ids -= set(hidden_ids)
+        visible_ids.discard(request.user.id)
+        qs = (
+            User.objects
+            .filter(id__in=visible_ids)
+            .filter(profile__is_active_account=True)
+            .select_related('profile')
+            .order_by('username')[:30]
+        )
+
+    # Pre-compute friendship data for the result set
+    friend_profile_ids = Friendship.get_friend_profile_ids(my_profile)
+    blocked_profile_ids = set(
+        my_profile.blocked_users.values_list('id', flat=True)
+    )
+    sent_pending = set(
+        FriendRequest.objects
+        .filter(from_user=my_profile, status=FriendRequest.STATUS_PENDING)
+        .values_list('to_user__user_id', flat=True)
+    )
+    received_pending = set(
+        FriendRequest.objects
+        .filter(to_user=my_profile, status=FriendRequest.STATUS_PENDING)
+        .values_list('from_user__user_id', flat=True)
+    )
+
+    # Convert friend_profile_ids to user_ids for comparison
+    friend_user_ids = set(
+        UserProfile.objects.filter(id__in=friend_profile_ids)
+        .values_list('user_id', flat=True)
+    ) if friend_profile_ids else set()
+    blocked_user_ids = set(
+        UserProfile.objects.filter(id__in=blocked_profile_ids)
+        .values_list('user_id', flat=True)
+    ) if blocked_profile_ids else set()
+
+    data = []
+    for u in qs:
+        try:
+            profile    = u.profile
+            is_online  = profile.is_online
+            avatar_url = profile.avatar.url if profile.avatar else None
+            last_seen  = (
+                profile.last_seen.strftime('%b ') + str(profile.last_seen.day)
+                if (not is_online and profile.last_seen)
+                else None
+            )
+        except Exception:
+            is_online  = False
+            avatar_url = None
+            last_seen  = None
+
+        # Determine friendship status
+        if u.id in blocked_user_ids:
+            friendship_status = 'blocked'
+        elif u.id in friend_user_ids:
+            friendship_status = 'friend'
+        elif u.id in sent_pending:
+            friendship_status = 'pending_sent'
+        elif u.id in received_pending:
+            friendship_status = 'pending_received'
+        else:
+            friendship_status = 'none'
+
+        data.append({
+            'id':                u.id,
+            'username':          u.username,
+            'is_online':         is_online,
+            'avatar_url':        avatar_url,
+            'last_seen':         last_seen,
+            'friendship_status': friendship_status,
+        })
+
+    return JsonResponse({'users': data})
+
+
+# ---------------------------------------------------------------------------
+# Friend Request APIs
+# ---------------------------------------------------------------------------
+@login_required
+@require_POST
+@csrf_protect
+def send_friend_request_view(request):
+    """
+    POST /users/api/send-friend-request/
+
+    Body: { "target_user_id": <int> }
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    target_user_id = body.get('target_user_id')
+    if not target_user_id:
+        return JsonResponse({'error': 'target_user_id is required'}, status=400)
+
+    target_user = get_object_or_404(User, id=target_user_id)
+
+    if target_user.id == request.user.id:
+        return JsonResponse({'error': 'Cannot send request to yourself'}, status=400)
+
+    try:
+        my_profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Your profile was not found'}, status=404)
+
+    try:
+        target_profile = target_user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Target profile not found'}, status=404)
+
+    # Check if already friends
+    if Friendship.are_friends(my_profile, target_profile):
+        return JsonResponse({'error': 'Already friends'}, status=400)
+
+    # Check if a pending request already exists in either direction
+    existing = FriendRequest.objects.filter(
+        Q(from_user=my_profile, to_user=target_profile) |
+        Q(from_user=target_profile, to_user=my_profile),
+        status=FriendRequest.STATUS_PENDING,
+    ).first()
+    if existing:
+        if existing.from_user == my_profile:
+            return JsonResponse({'error': 'Request already sent'}, status=400)
+        else:
+            # They already sent us a request — auto-accept
+            existing.status = FriendRequest.STATUS_ACCEPTED
+            existing.save(update_fields=['status', 'updated_at'])
+            Friendship.add_friendship(my_profile, target_profile)
+            my_profile.hidden_users.remove(target_profile)
+            target_profile.hidden_users.remove(my_profile)
+            return JsonResponse({'status': 'accepted',
+                                 'message': 'They already sent you a request — now friends!'})
+
+    # Create new request (or update a previously rejected one)
+    fr, created = FriendRequest.objects.update_or_create(
+        from_user=my_profile,
+        to_user=target_profile,
+        defaults={'status': FriendRequest.STATUS_PENDING},
+    )
+
+    if created or fr.status == FriendRequest.STATUS_PENDING:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_chat_{target_profile.user.id}",
+            {
+                "type": "friend_request",
+                "sender": my_profile.user.username,
+            }
+        )
+
+    return JsonResponse({'status': 'sent'})
+
+
+@login_required
+@require_POST
+@csrf_protect
+def respond_friend_request_view(request):
+    """
+    POST /users/api/respond-friend-request/
+
+    Body: { "request_id": <int>, "action": "accept" | "reject" }
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    request_id = body.get('request_id')
+    action = body.get('action')
+
+    if not request_id or action not in ('accept', 'reject'):
+        return JsonResponse({'error': 'request_id and action (accept/reject) required'}, status=400)
+
+    fr = get_object_or_404(FriendRequest, id=request_id)
+
+    try:
+        my_profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Profile not found'}, status=404)
+
+    # Only the recipient can respond
+    if fr.to_user != my_profile:
+        return JsonResponse({'error': 'Not authorized'}, status=403)
+
+    if fr.status != FriendRequest.STATUS_PENDING:
+        return JsonResponse({'error': 'Request already handled'}, status=400)
+
+    if action == 'accept':
+        fr.status = FriendRequest.STATUS_ACCEPTED
+        fr.save(update_fields=['status', 'updated_at'])
+        Friendship.add_friendship(fr.from_user, fr.to_user)
+        fr.from_user.hidden_users.remove(fr.to_user)
+        fr.to_user.hidden_users.remove(fr.from_user)
+        return JsonResponse({'status': 'accepted'})
+    else:
+        fr.status = FriendRequest.STATUS_REJECTED
+        fr.save(update_fields=['status', 'updated_at'])
+        return JsonResponse({'status': 'rejected'})
+
+
+@login_required
+@require_GET
+def friend_requests_view(request):
+    """
+    GET /users/api/friend-requests/
+
+    Returns pending incoming and outgoing friend requests.
+    """
+    try:
+        my_profile = request.user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'incoming': [], 'outgoing': []})
+
+    incoming = list(
+        FriendRequest.objects
+        .filter(to_user=my_profile, status=FriendRequest.STATUS_PENDING)
+        .select_related('from_user__user')
+        .order_by('-created_at')
+        .values_list('id', 'from_user__user__id', 'from_user__user__username', 'created_at')
+    )
+    outgoing = list(
+        FriendRequest.objects
+        .filter(from_user=my_profile, status=FriendRequest.STATUS_PENDING)
+        .select_related('to_user__user')
+        .order_by('-created_at')
+        .values_list('id', 'to_user__user__id', 'to_user__user__username', 'created_at')
+    )
+
+    return JsonResponse({
+        'incoming': [
+            {'id': r[0], 'user_id': r[1], 'username': r[2],
+             'created_at': r[3].isoformat() if r[3] else None}
+            for r in incoming
+        ],
+        'outgoing': [
+            {'id': r[0], 'user_id': r[1], 'username': r[2],
+             'created_at': r[3].isoformat() if r[3] else None}
+            for r in outgoing
+        ],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Profile Page
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Account Deletion
+# ---------------------------------------------------------------------------
+@login_required
+@csrf_protect
+async def delete_account_view(request):
+    """
+    POST /account/delete/
+
+    Soft-deletes the authenticated user's account:
+      - Sets is_active_account = False and deleted_at = now
+      - Marks the user offline
+      - Logs the user out and invalidates their session
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    user = request.user
+    await sync_to_async(_soft_delete_account)(user)
+
+    # Invalidate session and log out
+    await alogout(request)
+
+    return JsonResponse({'status': 'deleted'}, status=200)
+
+
+def _soft_delete_account(user):
+    """Sync helper: perform the soft-delete DB writes."""
+    try:
+        profile = user.profile
+    except UserProfile.DoesNotExist:
+        profile = UserProfile.objects.create(user=user)
+    profile.is_active_account = False
+    profile.deleted_at = timezone.now()
+    profile.is_online = False
+    profile.last_seen = timezone.now()
+    profile.save(update_fields=['is_active_account', 'deleted_at', 'is_online', 'last_seen'])
+
+
+# ---------------------------------------------------------------------------
+# Profile Page
+# ---------------------------------------------------------------------------
+@login_required
+def profile_view(request):
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    form = ProfileUpdateForm(instance=profile)
+
+    if request.method == 'POST':
+        form = ProfileUpdateForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully.')
+            return redirect('users:profile')
+
+    return render(request, 'users/profile.html', {'form': form, 'profile': profile})
+
+
+# ---------------------------------------------------------------------------
+# API: Fetch Target User Profile and Bio
+# ---------------------------------------------------------------------------
+@login_required
+@require_GET
+def user_profile_api(request, username):
+    """
+    GET /users/api/profile/<str:username>/
+
+    Secure API endpoint that returns the profile details and bio of target user
+    IF confirmed friends with the requester, or if viewing their own profile.
+    """
+    target_user = get_object_or_404(User, username=username)
+
+    try:
+        my_profile = request.user.profile
+        target_profile = target_user.profile
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'error': 'Profile not found'}, status=404)
+
+    # Check friendship status unless they are viewing themselves
+    if target_user != request.user:
+        if not Friendship.are_friends(my_profile, target_profile):
+            return JsonResponse({'error': 'You can only view profile details of accepted friends.'}, status=403)
+
+    avatar_url = target_profile.avatar.url if target_profile.avatar else None
+
+    return JsonResponse({
+        'username': target_user.username,
+        'display_name': target_profile.display_name,
+        'bio': target_profile.bio,
+        'phone_number': target_profile.phone_number,
+        'email': target_user.email,
+        'avatar_url': avatar_url,
+        'is_online': target_profile.is_online,
+        'last_seen': target_profile.last_seen.isoformat() if target_profile.last_seen else None,
+        'date_joined': target_user.date_joined.strftime('%B %Y') if target_user.date_joined else None,
+    })
+

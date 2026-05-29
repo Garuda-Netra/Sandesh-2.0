@@ -1,0 +1,38 @@
+"""
+Users URL Configuration
+"""
+
+from django.urls import path
+from . import views
+
+app_name = 'users'
+
+urlpatterns = [
+    # Landing page (root URL)
+    path('', views.index, name='index'),
+
+    # Auth
+    path('register/', views.register_view, name='register'),
+    path('login/', views.login_view, name='login'),
+    path('logout/', views.logout_view, name='logout'),
+    path('auth/firebase/login/', views.firebase_login_view, name='firebase_login'),
+
+    # Profile
+    path('profile/', views.profile_view, name='profile'),
+
+    # Account deletion
+    path('account/delete/', views.delete_account_view, name='delete_account'),
+
+    # API endpoints
+    path('api/profile/<str:username>/', views.user_profile_api, name='user_profile_api'),
+    path('api/users/', views.user_list, name='user_list'),
+    path('api/search-users/', views.search_users, name='search_users'),
+    path('api/remove-user/', views.remove_user_view, name='remove_user'),
+    path('api/unblock-user/', views.unblock_user_view, name='unblock_user'),
+    path('api/unfriend/', views.unfriend_view, name='unfriend'),
+
+    # Friend request APIs
+    path('api/send-friend-request/', views.send_friend_request_view, name='send_friend_request'),
+    path('api/respond-friend-request/', views.respond_friend_request_view, name='respond_friend_request'),
+    path('api/friend-requests/', views.friend_requests_view, name='friend_requests'),
+]
