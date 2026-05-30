@@ -13,7 +13,7 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse, FileResponse, Http404
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect
 from django.db.models import Q
 from django.conf import settings
@@ -21,7 +21,7 @@ from django.conf import settings
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
-from .models import Message
+from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead
 from .chatbot import generate_chatbot_reply
 from users.models import UserProfile, Friendship
 
@@ -187,8 +187,49 @@ def chat_view(request):
     # Put self first, then online users
     user_data.sort(key=lambda x: (not x.get('is_self_chat', False), not x['is_online'], x['user'].username.lower()))
 
+    # Build serializable users list for JS to avoid IDE syntax/parsing issues in HTML template
+    serializable_users = []
+    for contact in user_data:
+        if contact.get('is_self_chat'):
+            continue
+        u = contact['user']
+        avatar_url = ''
+        try:
+            profile = u.profile
+            if profile.avatar and profile.avatar.name:
+                avatar_url = profile.avatar.url
+        except Exception:
+            pass
+        serializable_users.append({
+            'id': u.id,
+            'username': u.username,
+            'avatar_url': avatar_url,
+            'is_online': contact.get('is_online', False),
+            'last_seen': contact.get('last_seen').isoformat() if contact.get('last_seen') else None,
+        })
+
+    # Fetch groups the user is a member of
+    memberships = GroupMembership.objects.filter(user=request.user).select_related('group')
+    user_groups = []
+    for m in memberships:
+        avatar_url = ''
+        try:
+            if m.group.avatar and m.group.avatar.name:
+                avatar_url = m.group.avatar.url
+        except Exception:
+            pass
+        user_groups.append({
+            'id': m.group.id,
+            'name': m.group.name,
+            'description': m.group.description,
+            'avatar_url': avatar_url,
+            'role': m.role,
+        })
+
     context = {
         'users': user_data,
+        'users_json': serializable_users,
+        'groups': user_groups,
         'current_user': request.user,
         'turn_server_url': settings.TURN_SERVER_URL,
         'turn_server_username': settings.TURN_SERVER_USERNAME,
@@ -1181,3 +1222,423 @@ def chat_setting_api(request, username):
             return JsonResponse({'error': str(e)}, status=400)
     
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+# ---------------------------------------------------------------------------
+# Group Chat API
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_POST
+def group_create(request):
+    """Create a new group. Creator becomes owner."""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    name = (data.get('name') or '').strip()
+    if not name or len(name) > 100:
+        return JsonResponse({'error': 'Group name is required (max 100 chars).'}, status=400)
+
+    description = (data.get('description') or '').strip()[:500]
+    member_ids = data.get('member_ids', [])
+
+    group = Group.objects.create(
+        name=name,
+        description=description,
+        created_by=request.user,
+    )
+
+    # Creator is always the owner
+    GroupMembership.objects.create(
+        group=group, user=request.user, role=GroupMembership.ROLE_OWNER
+    )
+
+    # Add initial members
+    added = []
+    for uid in member_ids:
+        try:
+            user = User.objects.get(id=int(uid))
+            if user.id != request.user.id:
+                GroupMembership.objects.get_or_create(
+                    group=group, user=user,
+                    defaults={'role': GroupMembership.ROLE_MEMBER}
+                )
+                added.append(user.username)
+        except (User.DoesNotExist, ValueError):
+            continue
+
+    # System message
+    GroupMessage.objects.create(
+        group=group, sender=request.user,
+        message=f'{request.user.username} established this group.',
+        message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+        is_system_message=True,
+    )
+    for username in added:
+        GroupMessage.objects.create(
+            group=group, sender=request.user,
+            message=f'{username} was welcomed to the group.',
+            message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+            is_system_message=True,
+        )
+
+    return JsonResponse({
+        'status': 'ok',
+        'group': _serialize_group(group, request.user),
+    })
+
+
+@login_required
+@require_GET
+def group_list(request):
+    """List all groups the current user is a member of."""
+    memberships = GroupMembership.objects.filter(
+        user=request.user
+    ).select_related('group', 'group__created_by')
+
+    groups = []
+    for m in memberships:
+        g = m.group
+        # Get last message preview
+        last_msg = g.messages.order_by('-timestamp').first()
+        groups.append({
+            'id': g.id,
+            'name': g.name,
+            'description': g.description,
+            'avatar_url': g.avatar.url if g.avatar else '',
+            'member_count': g.member_count,
+            'role': m.role,
+            'muted': m.muted,
+            'last_message': {
+                'text': last_msg.message[:80] if last_msg else '',
+                'sender': last_msg.sender.username if last_msg and last_msg.sender else 'System',
+                'timestamp': last_msg.timestamp.isoformat() if last_msg else '',
+                'is_system': last_msg.is_system_message if last_msg else False,
+            } if last_msg else None,
+            'updated_at': g.updated_at.isoformat(),
+        })
+
+    return JsonResponse({'groups': groups})
+
+
+@login_required
+@require_http_methods(['GET', 'DELETE'])
+def group_info(request, group_id):
+    """Get detailed group info including member list, or delete the group."""
+    group = get_object_or_404(Group, id=group_id)
+    membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    
+    if request.method == 'DELETE':
+        if not membership or membership.role != GroupMembership.ROLE_OWNER:
+            return JsonResponse({'error': 'Only the group owner can disband the group.'}, status=403)
+        group.delete()
+        return JsonResponse({'status': 'ok', 'group_deleted': True})
+
+    # GET method
+    if not membership:
+        return JsonResponse({'error': 'Not a member of this group.'}, status=403)
+
+    return JsonResponse(_serialize_group(group, request.user))
+
+
+@login_required
+@require_GET
+def group_message_reads(request, message_id):
+    """Get list of users who have read a specific group message."""
+    msg = get_object_or_404(GroupMessage, id=message_id)
+    # Check if current user is in the group
+    if not GroupMembership.objects.filter(group=msg.group, user=request.user).exists():
+        return JsonResponse({'error': 'Not a member of this group.'}, status=403)
+        
+    reads = GroupMessageRead.objects.filter(message=msg).select_related('user', 'user__profile')
+    readers = []
+    for r in reads:
+        readers.append({
+            'username': r.user.username,
+            'read_at': r.read_at.isoformat(),
+            'avatar_url': r.user.profile.avatar.url if hasattr(r.user, 'profile') and r.user.profile.avatar else '',
+        })
+        
+    return JsonResponse({'readers': readers})
+
+
+@login_required
+@require_POST
+def group_update(request, group_id):
+    """Update group name/description. Admin or owner only."""
+    group = get_object_or_404(Group, id=group_id)
+    membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if not membership or not membership.is_admin_or_owner:
+        return JsonResponse({'error': 'Only admins can update group info.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    changed = []
+    name = (data.get('name') or '').strip()
+    if name and name != group.name:
+        group.name = name[:100]
+        changed.append('name')
+    desc = data.get('description')
+    if desc is not None and desc != group.description:
+        group.description = desc[:500]
+        changed.append('description')
+
+    if changed:
+        group.save()
+        GroupMessage.objects.create(
+            group=group, sender=request.user,
+            message=f'{request.user.username} updated the {" and ".join(changed)} of this group.',
+            message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+            is_system_message=True,
+        )
+
+    return JsonResponse({'status': 'ok', 'group': _serialize_group(group, request.user)})
+
+
+@login_required
+@require_POST
+def group_add_members(request, group_id):
+    """Add members to a group. Admin or owner only."""
+    group = get_object_or_404(Group, id=group_id)
+    membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if not membership or not membership.is_admin_or_owner:
+        return JsonResponse({'error': 'Only admins can add members.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    member_ids = data.get('member_ids', [])
+    added = []
+    for uid in member_ids:
+        try:
+            user = User.objects.get(id=int(uid))
+            _, created = GroupMembership.objects.get_or_create(
+                group=group, user=user,
+                defaults={'role': GroupMembership.ROLE_MEMBER}
+            )
+            if created:
+                added.append(user.username)
+                GroupMessage.objects.create(
+                    group=group, sender=request.user,
+                    message=f'{user.username} was invited to the group by {request.user.username}.',
+                    message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+                    is_system_message=True,
+                )
+        except (User.DoesNotExist, ValueError):
+            continue
+
+    # Touch group to update sidebar ordering
+    group.save()
+
+    return JsonResponse({'status': 'ok', 'added': added})
+
+
+@login_required
+@require_POST
+def group_remove_member(request, group_id):
+    """Remove a member from a group. Admin or owner only."""
+    group = get_object_or_404(Group, id=group_id)
+    my_membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if not my_membership or not my_membership.is_admin_or_owner:
+        return JsonResponse({'error': 'Only admins can remove members.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    target_id = data.get('user_id')
+    target_membership = GroupMembership.objects.filter(group=group, user_id=target_id).first()
+    if not target_membership:
+        return JsonResponse({'error': 'User is not a member.'}, status=404)
+
+    # Can't remove the owner
+    if target_membership.role == GroupMembership.ROLE_OWNER:
+        return JsonResponse({'error': 'Cannot remove the group owner.'}, status=403)
+
+    # Admin can't remove another admin (only owner can)
+    if target_membership.role == GroupMembership.ROLE_ADMIN and my_membership.role != GroupMembership.ROLE_OWNER:
+        return JsonResponse({'error': 'Only the owner can remove admins.'}, status=403)
+
+    username = target_membership.user.username
+    target_membership.delete()
+
+    GroupMessage.objects.create(
+        group=group, sender=request.user,
+        message=f'{username} was removed by {request.user.username}.',
+        message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+        is_system_message=True,
+    )
+    group.save()
+
+    return JsonResponse({'status': 'ok', 'removed': username})
+
+
+@login_required
+@require_POST
+def group_leave(request, group_id):
+    """Leave a group."""
+    group = get_object_or_404(Group, id=group_id)
+    membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if not membership:
+        return JsonResponse({'error': 'Not a member.'}, status=404)
+
+    if membership.role == GroupMembership.ROLE_OWNER:
+        # Owner must transfer ownership before leaving
+        other_admins = group.memberships.filter(role=GroupMembership.ROLE_ADMIN).exclude(user=request.user)
+        other_members = group.memberships.exclude(user=request.user)
+        if other_members.exists():
+            # Auto-transfer to first admin, or first member
+            new_owner = other_admins.first() or other_members.first()
+            new_owner.role = GroupMembership.ROLE_OWNER
+            new_owner.save()
+            GroupMessage.objects.create(
+                group=group, sender=request.user,
+                message=f'{new_owner.user.username} is the new group owner.',
+                message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+                is_system_message=True,
+            )
+        else:
+            # Last member — delete the group
+            group.delete()
+            return JsonResponse({'status': 'ok', 'group_deleted': True})
+
+    GroupMessage.objects.create(
+        group=group, sender=request.user,
+        message=f'{request.user.username} departed from the group.',
+        message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+        is_system_message=True,
+    )
+    membership.delete()
+    group.save()
+
+    return JsonResponse({'status': 'ok'})
+
+
+@login_required
+@require_POST
+def group_change_role(request, group_id):
+    """Change a member's role (promote/demote). Owner only for admin changes."""
+    group = get_object_or_404(Group, id=group_id)
+    my_membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if not my_membership or not my_membership.is_admin_or_owner:
+        return JsonResponse({'error': 'Only admins can change roles.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    target_id = data.get('user_id')
+    new_role = data.get('role')
+
+    if new_role not in (GroupMembership.ROLE_ADMIN, GroupMembership.ROLE_MEMBER):
+        return JsonResponse({'error': 'Invalid role.'}, status=400)
+
+    target_membership = GroupMembership.objects.filter(group=group, user_id=target_id).first()
+    if not target_membership:
+        return JsonResponse({'error': 'User is not a member.'}, status=404)
+
+    if target_membership.role == GroupMembership.ROLE_OWNER:
+        return JsonResponse({'error': 'Cannot change the owner\'s role.'}, status=403)
+
+    # Only owner can promote to admin or demote an admin
+    if new_role == GroupMembership.ROLE_ADMIN or target_membership.role == GroupMembership.ROLE_ADMIN:
+        if my_membership.role != GroupMembership.ROLE_OWNER:
+            return JsonResponse({'error': 'Only the owner can manage admin roles.'}, status=403)
+
+    old_role = target_membership.role
+    target_membership.role = new_role
+    target_membership.save()
+
+    action = 'promoted to Admin' if new_role == GroupMembership.ROLE_ADMIN else 'changed to Member'
+    GroupMessage.objects.create(
+        group=group, sender=request.user,
+        message=f'{target_membership.user.username} was {action} by {request.user.username}.',
+        message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+        is_system_message=True,
+    )
+
+    return JsonResponse({'status': 'ok', 'user_id': target_id, 'new_role': new_role})
+
+
+@login_required
+@require_GET
+def group_message_history(request, group_id):
+    """Paginated message history for a group."""
+    group = get_object_or_404(Group, id=group_id)
+    if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+        return JsonResponse({'error': 'Not a member.'}, status=403)
+
+    page = _positive_int(request.GET.get('page'), 1)
+    per_page = _positive_int(request.GET.get('per_page'), 50, max_value=100)
+
+    messages_qs = GroupMessage.objects.filter(group=group).order_by('-timestamp')
+    total = messages_qs.count()
+    start = (page - 1) * per_page
+    end = start + per_page
+    messages_page = list(reversed(messages_qs[start:end]))
+
+    result = []
+    for msg in messages_page:
+        entry = {
+            'id': msg.id,
+            'sender': msg.sender.username if msg.sender else None,
+            'sender_id': msg.sender.id if msg.sender else None,
+            'message': msg.message,
+            'message_type': msg.message_type,
+            'is_system_message': msg.is_system_message,
+            'timestamp': msg.timestamp.isoformat(),
+        }
+        if msg.file:
+            entry['has_file'] = True
+            entry['file_id'] = msg.id
+            entry['original_filename'] = msg.original_filename or msg.file_name or ''
+            entry['mime_type'] = msg.mime_type
+        result.append(entry)
+
+    return JsonResponse({
+        'messages': result,
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+        'has_more': end < total,
+    })
+
+
+def _serialize_group(group, user):
+    """Serialize a group object for API responses."""
+    memberships = group.memberships.select_related('user', 'user__profile').all()
+    my_membership = None
+    members = []
+    for m in memberships:
+        member_data = {
+            'user_id': m.user.id,
+            'username': m.user.username,
+            'role': m.role,
+            'joined_at': m.joined_at.isoformat(),
+            'avatar_url': m.user.profile.avatar.url if hasattr(m.user, 'profile') and m.user.profile.avatar else '',
+            'is_online': m.user.profile.is_online if hasattr(m.user, 'profile') else False,
+        }
+        members.append(member_data)
+        if m.user.id == user.id:
+            my_membership = m
+
+    return {
+        'id': group.id,
+        'name': group.name,
+        'description': group.description,
+        'avatar_url': group.avatar.url if group.avatar else '',
+        'created_by': group.created_by.username if group.created_by else None,
+        'created_at': group.created_at.isoformat(),
+        'member_count': len(members),
+        'my_role': my_membership.role if my_membership else None,
+        'members': members,
+    }

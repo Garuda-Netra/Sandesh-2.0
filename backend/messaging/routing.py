@@ -15,4 +15,7 @@ websocket_urlpatterns = [
 
     # WebRTC signaling
     re_path(r'^ws/signal/(?P<username>[\w.@+-]+)/$', consumers.SignalingConsumer.as_asgi()),
+
+    # Group chat routing
+    re_path(r'^ws/group/(?P<group_id>[0-9]+)/$', consumers.GroupChatConsumer.as_asgi()),
 ]

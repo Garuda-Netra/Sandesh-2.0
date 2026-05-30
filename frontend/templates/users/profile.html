@@ -20,7 +20,7 @@
 
     <!-- Avatar row -->
     <div class="flex items-center gap-5">
-      {% if profile.avatar %}
+      {% if profile.avatar and profile.avatar.name %}
         <img src="{{ profile.avatar.url }}" alt="Avatar"
              class="w-16 h-16 rounded-full object-cover border-2 border-divine-gold" />
       {% else %}

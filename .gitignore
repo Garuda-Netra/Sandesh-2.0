@@ -74,3 +74,8 @@ ehthumbs.db
 .env.local
 .env.development
 .DS_Store
+
+# -- Temp Recovery Files --------------------------------------
+backend/db_dump.txt
+frontend/static/js/recover*
+

@@ -34,4 +34,16 @@ urlpatterns = [
     
     # Spotify Integration
     path('api/spotify/search/', views.spotify_search, name='spotify_search'),
+
+    # ── Group Chat ────────────────────────────────────────────────
+    path('api/groups/create/', views.group_create, name='group_create'),
+    path('api/groups/list/', views.group_list, name='group_list'),
+    path('api/groups/<int:group_id>/', views.group_info, name='group_info'),
+    path('api/groups/<int:group_id>/update/', views.group_update, name='group_update'),
+    path('api/groups/<int:group_id>/members/add/', views.group_add_members, name='group_add_members'),
+    path('api/groups/<int:group_id>/members/remove/', views.group_remove_member, name='group_remove_member'),
+    path('api/groups/<int:group_id>/members/leave/', views.group_leave, name='group_leave'),
+    path('api/groups/<int:group_id>/members/role/', views.group_change_role, name='group_change_role'),
+    path('api/groups/<int:group_id>/history/', views.group_message_history, name='group_message_history'),
+    path('api/groups/messages/<int:message_id>/reads/', views.group_message_reads, name='group_message_reads'),
 ]

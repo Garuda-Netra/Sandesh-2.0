@@ -26,6 +26,8 @@
      Full-height split layout: Sidebar | Message Panel
 ══════════════════════════════════════════════════════════════ -->
 
+{{ users_json|json_script:"sdh-users-data" }}
+
 <!-- Hidden data for JS -->
 <script>
   window.SDH_DATA = {
@@ -45,11 +47,16 @@
     respondFriendRequestUrl: "{% url 'users:respond_friend_request' %}",
     friendRequestsUrl: "{% url 'users:friend_requests' %}",
     unfriendUrl: "{% url 'users:unfriend' %}",
+    // Group URLs
+    groupCreateUrl: "{% url 'messaging:group_create' %}",
+    groupListUrl: "{% url 'messaging:group_list' %}",
+    groupInfoBaseUrl: "/messaging/api/groups/",
     wsBase: "",
     // TURN server config (injected from server environment)
     turnServerUrl: "{{ turn_server_url|default:'' }}",
     turnServerUsername: "{{ turn_server_username|default:'' }}",
     turnServerCredential: "{{ turn_server_credential|default:'' }}",
+    users: JSON.parse(document.getElementById('sdh-users-data').textContent)
   };
 
   if (window.location.protocol === "https:") {
@@ -101,12 +108,20 @@
                      px-2 py-0.5 rounded-full">
         </span>
       </div>
-      <button onclick="SDH.Chat.closeSidebar()" class="sm:hidden sdh-icon-btn p-1.5 rounded-lg transition-all"
-        style="color:var(--c-muted)">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      <div class="flex items-center gap-1">
+        <button onclick="SDH.Chat.openCreateGroupModal()" class="sdh-icon-btn p-1.5 rounded-lg transition-all"
+          title="Create Group" style="color:var(--c-muted)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        </button>
+        <button onclick="SDH.Chat.closeSidebar()" class="sm:hidden sdh-icon-btn p-1.5 rounded-lg transition-all"
+          style="color:var(--c-muted)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Search -->
@@ -157,6 +172,78 @@
 
     <!-- User list -->
     <div id="userList" class="flex-1 overflow-y-auto sdh-user-list-scroll">
+      
+      <!-- Groups Section -->
+      {% if groups %}
+      <div class="px-4 py-2 mt-2 flex items-center justify-between">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-divine-gold/60">Groups</span>
+      </div>
+      {% for group in groups %}
+      <div id="group-item-{{ group.id }}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5 group/usr" 
+           data-group="1" data-groupid="{{ group.id }}" data-role="{{ group.role }}">
+        <!-- Clickable main area -->
+        <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+          onclick="SDH.Chat.selectGroup('{{ group.id }}', '{{ group.name|escapejs }}')">
+          
+          <!-- Avatar -->
+          <div class="relative flex-shrink-0">
+            {% if group.avatar_url %}
+            <img src="{{ group.avatar_url }}" alt="{{ group.name }}"
+              class="sdh-avatar w-11 h-11 rounded-full object-cover"
+              onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none uppercase', textContent: '{{ group.name|first|escapejs|upper }}'}))" />
+            {% else %}
+            <div class="sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none uppercase">
+              {{ group.name|first|upper }}
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Name + status -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <span class="sdh-user-name text-sm font-semibold truncate" style="color:var(--c-text)">
+                {{ group.name }}
+              </span>
+            </div>
+            <p class="text-[11px] truncate mt-0.5 text-divine-muted/60">
+              {% if group.description %}{{ group.description }}{% else %}Group chat{% endif %}
+            </p>
+          </div>
+        </div>
+        
+        <!-- Sidebar Group Kebab Menu Button -->
+        {% if group.role == 'owner' %}
+        <div class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover/usr:opacity-100 focus-within:opacity-100 transition-opacity z-50 sdh-sidebar-kebab">
+          <button onclick="event.stopPropagation(); SDH.Chat.toggleSidebarKebab(event, '{{ group.id }}')"
+            class="w-8 h-8 flex items-center justify-center rounded-full text-divine-muted hover:text-divine-gold hover:bg-divine-gold/10 transition-colors"
+            title="Group Options">
+            <svg class="w-5 h-5 text-divine-text/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/>
+            </svg>
+          </button>
+          
+          <!-- Dropdown -->
+          <div id="sidebarKebab-{{ group.id }}" class="hidden absolute right-0 mt-1 w-36 bg-divine-card border border-divine-border rounded-lg shadow-xl overflow-hidden z-[60]">
+            <button onclick="event.stopPropagation(); SDH.Chat.deleteGroupFromSidebar('{{ group.id }}')"
+              class="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              Delete Group
+            </button>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <div class="border-t border-divine-border/20 mx-4 my-2"></div>
+      {% endif %}
+
+      <!-- Direct Messages Section -->
+      <div class="px-4 py-2 mt-1">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-divine-gold/60">Direct Messages</span>
+      </div>
+
       {% if users %}
       {% for item in users %}
       <div id="user-item-{{ item.user.username }}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5
@@ -168,9 +255,10 @@
 
           <!-- Avatar -->
           <div class="relative flex-shrink-0">
-            {% if item.user.profile.avatar %}
+            {% if item.user.profile.avatar and item.user.profile.avatar.name %}
             <img src="{{ item.user.profile.avatar.url }}" alt="{{ item.user.username }}"
-              class="sdh-avatar w-11 h-11 rounded-full object-cover" />
+              class="sdh-avatar w-11 h-11 rounded-full object-cover"
+              onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none', textContent: '{{ item.user.username }}'[0].toUpperCase()}))" />
             {% else %}
             <div class="sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full
                         flex items-center justify-center text-sm font-bold select-none">
@@ -330,9 +418,10 @@
           </div>
         </div>
 
-        <!-- Call buttons (visible when chat open) -->
+        <!-- Action buttons (visible when chat open) -->
         <div id="callButtons" class="hidden flex items-center gap-2 flex-shrink-0">
-          <button onclick="SDH.WebRTC.startCall('voice', 'medium')" title="Voice Call"
+          <!-- Voice Call -->
+          <button id="voiceCallBtn" onclick="SDH.Chat.handleCallButtonClick('voice')" title="Voice Call"
             class="sdh-liquid-btn btn-ancient !p-2 transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13
@@ -340,41 +429,113 @@
                        C9.716 21 3 14.284 3 6V5z" />
             </svg>
           </button>
-          <button onclick="SDH.WebRTC.startCall('video', 'medium')" title="Video Call"
+          <!-- Video Call -->
+          <button id="videoCallBtn" onclick="SDH.Chat.handleCallButtonClick('video')" title="Video Call"
             class="sdh-liquid-btn btn-ancient !p-2 transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8
                        a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-          <!-- Clear All Chat -->
-          <button onclick="SDH.Chat._confirmClearChat()" title="Clear All Chat"
-            class="sdh-liquid-btn btn-danger !p-2 transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7
-                       m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
           </button>
 
-          <!-- Block / Unblock Contact -->
-          <button id="blockBtn" onclick="SDH.Chat._confirmBlockUser()" title="Block Contact"
-            class="sdh-liquid-btn btn-danger btn-sm">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 22s8-4 8-10V6l-8-4-8 4v6c0 6 8 10 8 10z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9l6 6M15 9l-6 6" />
-            </svg>
-            <span>Block</span>
-          </button>
-          <button id="unblockBtn" onclick="SDH.Chat._confirmUnblockUser()" title="Unblock Contact"
-            class="sdh-liquid-btn btn-sm hidden"
-            style="background:rgba(74,222,128,0.12);border-color:rgba(74,222,128,0.3);color:rgba(74,222,128,0.9);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 22s8-4 8-10V6l-8-4-8 4v6c0 6 8 10 8 10z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4" />
-            </svg>
-            <span>Unblock</span>
-          </button>
+          <!-- ⋮ Kebab Menu -->
+          <div class="relative" id="kebabMenuWrapper">
+            <button onclick="SDH.Chat.toggleKebabMenu()" title="More options"
+              class="sdh-liquid-btn btn-secondary !p-2 transition-all">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="1.5"/>
+                <circle cx="12" cy="12" r="1.5"/>
+                <circle cx="12" cy="19" r="1.5"/>
+              </svg>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="kebabDropdown" class="hidden absolute right-0 top-full mt-2 w-56 rounded-2xl overflow-hidden
+                        bg-divine-card border border-divine-border shadow-2xl shadow-black/40 z-[60]
+                        animate-slide-in origin-top-right">
+
+              <!-- Shared Top Option -->
+              <button onclick="SDH.Chat.showActiveUserProfile(); SDH.Chat.toggleKebabMenu();"
+                class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
+                <svg class="w-4 h-4 text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+                <span id="kebabViewProfileText">View Profile</span>
+              </button>
+
+              <div class="h-px bg-divine-border/50 mx-3"></div>
+
+              <!-- USER OPTIONS -->
+              <div id="kebabUserOptions">
+                <!-- Clear All Chat -->
+                <button onclick="SDH.Chat._confirmClearChat(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
+                  <svg class="w-4 h-4 text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  <span>Clear All Chats</span>
+                </button>
+
+                <!-- Remove Contact -->
+                <button onclick="SDH.Chat._confirmRemoveUser(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
+                  <svg class="w-4 h-4 text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"/>
+                  </svg>
+                  <span>Remove Contact</span>
+                </button>
+
+                <!-- Unfriend -->
+                <button onclick="SDH.Chat._confirmUnfriend(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
+                  <svg class="w-4 h-4 text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14v6m-3-3h6M6.5 7.5a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM1.5 21a7.5 7.5 0 0115 0"/>
+                  </svg>
+                  <span>Unfriend</span>
+                </button>
+
+                <div class="h-px bg-divine-border/50 mx-3"></div>
+
+                <!-- Block / Unblock -->
+                <button id="blockBtn" onclick="SDH.Chat._confirmBlockUser(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                  </svg>
+                  <span>Block Contact</span>
+                </button>
+                <button id="unblockBtn" onclick="SDH.Chat._confirmUnblockUser(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item hidden w-full flex items-center gap-3 px-4 py-3 text-sm text-green-400 hover:bg-green-500/10 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Unblock Contact</span>
+                </button>
+              </div>
+
+              <!-- GROUP OPTIONS -->
+              <div id="kebabGroupOptions" class="hidden">
+                <!-- Leave Group -->
+                <button onclick="SDH.Chat.leaveCurrentGroup(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-yellow-400 hover:bg-yellow-500/10 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                  </svg>
+                  <span>Leave Group</span>
+                </button>
+
+                <!-- Disband Group (Admin Only) -->
+                <button id="disbandGroupBtn" onclick="SDH.Chat.disbandCurrentGroup(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item hidden w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  <span>Delete Group</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
         </div>
 
       </div><!-- /header inner row -->
@@ -987,16 +1148,17 @@
      USER PROFILE — Premium Cosmic Modal
 ══════════════════════════════════════════════════════════════ -->
 <div id="userProfileModal"
-  class="hidden fixed inset-0 z-[60] flex items-center justify-center px-4 transition-all duration-500"
+  class="hidden fixed inset-0 z-[60] overflow-y-auto custom-scrollbar transition-all duration-500"
   style="background:rgba(5, 5, 10, 0.75); backdrop-filter:blur(16px);"
   onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="flex min-h-full items-center justify-center p-4 sm:p-6" onclick="if(event.target===this)document.getElementById('userProfileModal').classList.add('hidden')">
 
   <div
-    class="relative w-full max-w-[420px] rounded-3xl overflow-hidden animate-msg-appear shadow-[0_0_60px_-15px_rgba(168,85,247,0.15)] border border-white/5 bg-[#0a0a0c] backdrop-blur-3xl">
+    class="relative w-full max-w-[420px] rounded-3xl overflow-hidden animate-msg-appear shadow-2xl border border-divine-border bg-divine-card backdrop-blur-3xl">
 
     <!-- ── Header Gradient Mesh ── -->
     <div
-      class="relative h-32 w-full bg-gradient-to-br from-[#12121a] via-[#1a1525] to-[#12121a] overflow-hidden border-b border-white/5">
+      class="relative h-24 w-full bg-gradient-to-br from-divine-card via-divine-surface to-divine-card overflow-hidden border-b border-divine-border/30">
       <div
         class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 mix-blend-overlay">
       </div>
@@ -1006,7 +1168,7 @@
 
       <!-- Close button -->
       <button onclick="document.getElementById('userProfileModal').classList.add('hidden')"
-        class="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all border border-transparent hover:border-white/20 backdrop-blur-md z-20"
+        class="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-all border border-transparent hover:border-divine-border backdrop-blur-md z-20"
         title="Close">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -1018,16 +1180,16 @@
     <div class="px-8 pb-8 pt-0 relative z-10">
 
       <!-- Avatar Section -->
-      <div class="flex flex-col items-center -mt-16 mb-6 text-center relative">
+      <div class="flex flex-col items-center -mt-12 mb-6 text-center relative">
         <!-- Avatar Wrapper -->
         <div id="upmAvatarWrapper"
-          class="w-32 h-32 rounded-full p-1.5 bg-[#0a0a0c] relative group shadow-2xl mb-4 transition-transform duration-500 hover:scale-105 border border-white/5">
+          class="w-24 h-24 rounded-full p-1.5 bg-divine-card relative group shadow-2xl mb-4 transition-transform duration-500 hover:scale-105 border border-divine-border/50">
           <!-- Animated rotating gradient border effect -->
           <div
             class="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/50 via-indigo-500/50 to-fuchsia-500/50 animate-[spin_4s_linear_infinite] opacity-50 group-hover:opacity-80 transition-opacity blur-[3px] -z-10">
           </div>
 
-          <div class="relative w-full h-full rounded-full overflow-hidden bg-[#111116] border border-white/5">
+          <div class="relative w-full h-full rounded-full overflow-hidden bg-divine-surface border border-divine-border/30">
             <div id="upmAvatarText"
               class="w-full h-full flex items-center justify-center text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-fuchsia-300 to-indigo-300 select-none">
               —
@@ -1036,7 +1198,7 @@
           </div>
 
           <!-- Online indicator attached to avatar -->
-          <div class="absolute bottom-1 right-3 w-5 h-5 rounded-full bg-[#0f0f13] flex items-center justify-center">
+          <div id="upmStatusDotWrapper" class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-divine-card flex items-center justify-center">
             <span id="upmStatusDot"
               class="w-3 h-3 rounded-full bg-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.8)]"></span>
           </div>
@@ -1044,30 +1206,31 @@
 
         <!-- Display Name -->
         <h3 id="upmDisplayName"
-          class="text-2xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-100 to-purple-200 drop-shadow-sm">
+          class="text-2xl font-black tracking-tight text-divine-text drop-shadow-sm">
           —
         </h3>
 
         <!-- Username & Status -->
-        <div class="flex items-center gap-2 mt-1.5">
-          <p id="upmUsername" class="text-sm font-medium text-fuchsia-300/80 tracking-wide">
+        <div id="upmStatusTextContainer" class="flex items-center gap-2 mt-1.5">
+          <p id="upmUsername" class="text-sm font-medium text-fuchsia-400 tracking-wide">
             @—
           </p>
-          <span class="text-white/20">•</span>
-          <span id="upmStatusText" class="text-[11px] font-bold uppercase tracking-widest text-white/50">
+          <span class="text-divine-muted">•</span>
+          <span id="upmStatusText" class="text-[11px] font-bold uppercase tracking-widest text-divine-muted">
             Offline
           </span>
         </div>
       </div>
 
-      <!-- ── Info Cards ── -->
+      <!-- ── Info Cards & Members (Scrollable Area) ── -->
+      <div class="overflow-y-auto custom-scrollbar max-h-[35vh] pr-3 -mr-3 mb-6 space-y-4">
       <div class="space-y-4">
 
         <!-- Bio Card -->
         <div
-          class="p-5 rounded-2xl bg-[#121216] border border-white/[0.03] relative overflow-hidden group hover:bg-[#16161c] hover:border-purple-500/20 hover:shadow-[0_8px_30px_-10px_rgba(168,85,247,0.15)] hover:-translate-y-0.5 transition-all duration-300">
+          class="p-5 rounded-2xl bg-divine-surface border border-divine-border/20 relative overflow-hidden group hover:bg-divine-surface/80 hover:border-purple-500/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
           <div
-            class="absolute -right-4 -bottom-6 text-8xl opacity-5 font-serif select-none pointer-events-none text-purple-400 group-hover:text-purple-300 transition-colors duration-500 group-hover:scale-110 group-hover:-rotate-12">
+            class="absolute -right-4 -bottom-6 text-8xl opacity-10 font-serif select-none pointer-events-none text-purple-400 group-hover:text-purple-500 transition-colors duration-500 group-hover:scale-110 group-hover:-rotate-12">
             “</div>
 
           <div class="flex items-center gap-3 mb-2">
@@ -1079,11 +1242,11 @@
               </svg>
             </div>
             <p
-              class="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-purple-300/70 transition-colors">
+              class="text-[10px] font-bold uppercase tracking-widest text-divine-muted group-hover:text-purple-400/80 transition-colors">
               Biography</p>
           </div>
 
-          <p id="upmBio" class="text-sm text-white/70 leading-relaxed pl-[44px]">
+          <p id="upmBio" class="text-sm text-divine-text leading-relaxed pl-[44px]">
             No biography provided.
           </p>
         </div>
@@ -1092,73 +1255,56 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- Email Card -->
           <div
-            class="p-4 rounded-2xl bg-[#121216] border border-white/[0.03] group hover:bg-[#16161c] hover:border-indigo-500/20 hover:shadow-[0_8px_30px_-10px_rgba(99,102,241,0.15)] hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
+            class="p-4 rounded-2xl bg-divine-surface border border-divine-border/20 group hover:bg-divine-surface/80 hover:border-indigo-500/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
             <div class="flex items-center gap-2.5 mb-2">
               <div
-                class="w-7 h-7 rounded-full shrink-0 bg-indigo-500/5 flex items-center justify-center text-indigo-400/80 group-hover:bg-indigo-500/10 group-hover:text-indigo-300 transition-colors">
+                class="w-7 h-7 rounded-full shrink-0 bg-indigo-500/10 flex items-center justify-center text-indigo-500/80 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <p
-                class="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-indigo-300/70 transition-colors">
+                class="text-[10px] font-bold uppercase tracking-widest text-divine-muted group-hover:text-indigo-400/80 transition-colors">
                 Email</p>
             </div>
-            <p id="upmEmail" class="text-[13px] text-white/70 font-medium truncate pl-[38px]">
+            <p id="upmEmail" class="text-[13px] text-divine-text font-medium truncate pl-[38px]">
               —
             </p>
           </div>
 
           <!-- Phone Card -->
           <div
-            class="p-4 rounded-2xl bg-[#121216] border border-white/[0.03] group hover:bg-[#16161c] hover:border-fuchsia-500/20 hover:shadow-[0_8px_30px_-10px_rgba(217,70,239,0.15)] hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
+            class="p-4 rounded-2xl bg-divine-surface border border-divine-border/20 group hover:bg-divine-surface/80 hover:border-fuchsia-500/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
             <div class="flex items-center gap-2.5 mb-2">
               <div
-                class="w-7 h-7 rounded-full shrink-0 bg-fuchsia-500/5 flex items-center justify-center text-fuchsia-400/80 group-hover:bg-fuchsia-500/10 group-hover:text-fuchsia-300 transition-colors">
+                class="w-7 h-7 rounded-full shrink-0 bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-500/80 group-hover:bg-fuchsia-500/20 group-hover:text-fuchsia-400 transition-colors">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
               </div>
               <p
-                class="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-fuchsia-300/70 transition-colors">
+                class="text-[10px] font-bold uppercase tracking-widest text-divine-muted group-hover:text-fuchsia-400/80 transition-colors">
                 Phone</p>
             </div>
-            <p id="upmPhone" class="text-[13px] text-white/70 font-medium truncate pl-[38px]">
+            <p id="upmPhone" class="text-[13px] text-divine-text font-medium truncate pl-[38px]">
               Not specified
             </p>
           </div>
         </div>
 
-        <!-- Disappearing Messages (Retention Period) -->
-        <button onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.openRetentionModal()" 
-          class="w-full p-4 rounded-2xl bg-[#121216] border border-white/[0.03] group hover:bg-[#16161c] active:scale-[0.98] hover:border-amber-500/20 hover:shadow-[0_8px_30px_-10px_rgba(245,158,11,0.15)] hover:-translate-y-0.5 transition-all duration-300 overflow-hidden text-left flex items-center justify-between cursor-pointer">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full shrink-0 bg-amber-500/10 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/20 group-hover:text-amber-300 transition-colors">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <p class="text-[13px] font-bold tracking-wide text-white group-hover:text-amber-300 transition-colors">Disappearing Messages</p>
-              <p class="text-[11px] text-white/50 mt-0.5">Change message retention</p>
-            </div>
-          </div>
-          <svg class="w-4 h-4 text-white/40 group-hover:text-amber-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+
 
         <!-- Footer Meta (Friend since/joined info) -->
         <div
-          class="flex justify-between items-center text-[10px] text-white/20 px-2 pt-3 select-none uppercase tracking-widest font-semibold">
-          <span id="upmJoined" class="flex items-center gap-1.5"><svg class="w-3 h-3 opacity-40" fill="none"
+          class="flex justify-between items-center text-[10px] text-divine-muted px-2 pt-3 select-none uppercase tracking-widest font-semibold">
+          <span id="upmJoined" class="flex items-center gap-1.5"><svg class="w-3 h-3 opacity-60" fill="none"
               stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg> Joined —</span>
-          <span id="upmLastSeen" class="flex items-center gap-1.5">Last seen — <svg class="w-3 h-3 opacity-40"
+          <span id="upmLastSeen" class="flex items-center gap-1.5">Last seen — <svg class="w-3 h-3 opacity-60"
               fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1167,10 +1313,19 @@
 
       </div>
 
+      <!-- Group Members List (Hidden by default, shown for groups) -->
+      <div id="upmMembersSection" class="hidden mt-4 pt-4 border-t border-divine-border/20">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-divine-muted mb-3">Group Members</p>
+        <div id="upmMembersList" class="space-y-2">
+           <!-- Populated dynamically by JS -->
+        </div>
+      </div>
+      </div>
+
       <!-- ── Actions ── -->
       <div class="flex gap-4 mt-8">
         <button onclick="document.getElementById('userProfileModal').classList.add('hidden')"
-          class="flex-1 py-3 px-4 rounded-xl text-sm font-bold tracking-wide text-white/60 bg-[#16161c] hover:bg-[#1f1f26] hover:text-white border border-white/5 hover:border-white/10 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/20">
+          class="flex-1 py-3 px-4 rounded-xl text-sm font-bold tracking-wide text-divine-text bg-divine-surface hover:bg-divine-border/50 border border-divine-border/30 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500/20">
           Close
         </button>
         <button id="upmMessageBtn"
@@ -1185,7 +1340,7 @@
 
     </div>
   </div>
-
+  </div>
 </div>
 <!-- ══════════════════════════════════════════════════════════════
      MOMENTS VIEWER & UPLOAD MODAL
@@ -1405,6 +1560,31 @@
   </div>
 </div>
 
+</div>
+
+<!-- Message Details Modal -->
+<div id="messageDetailsModal" class="hidden fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-md px-4" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="bg-divine-card w-full max-w-sm rounded-3xl border border-divine-border overflow-hidden shadow-2xl animate-scale-in">
+    <div class="px-6 py-4 border-b border-divine-border/50 flex items-center justify-between bg-divine-surface/50">
+      <h3 class="text-lg font-bold text-divine-text flex items-center gap-2">
+        <svg class="w-5 h-5 text-divine-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Message Details
+      </h3>
+      <button onclick="document.getElementById('messageDetailsModal').classList.add('hidden')" class="text-divine-muted hover:text-divine-text p-1 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+    <div class="p-4">
+      <p class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-3 ml-2">Read By</p>
+      <div id="mdReadersList" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 
@@ -1529,6 +1709,90 @@
 <script src="{% static 'js/chat.js' %}?v=2.1"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.0"></script>
 <script src="{% static 'js/userSearch.js' %}?v=2.0"></script>
+  <!-- ── Group Call Modal ─────────────────────────────────────── -->
+  <div id="groupCallModal" class="hidden fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md px-4" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-divine-card w-full max-w-sm rounded-3xl border border-divine-border overflow-hidden shadow-2xl animate-scale-in">
+      <div class="px-6 py-4 border-b border-divine-border/50 flex items-center justify-between bg-divine-surface/50">
+        <h3 id="groupCallTitle" class="text-lg font-bold text-divine-text flex items-center gap-2">
+          <svg class="w-5 h-5 text-divine-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+          </svg>
+          Select Member to Call
+        </h3>
+        <button onclick="document.getElementById('groupCallModal').classList.add('hidden')" class="text-divine-muted hover:text-divine-text p-1 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <div class="p-4">
+        <div id="groupCallMembersList" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Create Group Modal ─────────────────────────────────────── -->
+  <div id="createGroupModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md">
+    <div class="bg-divine-card w-full max-w-md mx-4 rounded-3xl border border-divine-border overflow-hidden shadow-2xl animate-scale-in">
+      
+      <!-- Header -->
+      <div class="px-6 py-5 border-b border-divine-border/50 flex items-center justify-between bg-divine-surface/60 backdrop-blur-xl rounded-t-3xl relative z-10">
+        <h3 class="text-lg font-bold text-divine-text flex items-center gap-2">
+          <svg class="w-5 h-5 text-divine-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Create Group
+        </h3>
+        <button onclick="SDH.Chat.closeCreateGroupModal()" class="text-divine-muted hover:text-divine-text transition-colors p-1.5 bg-white/5 rounded-full hover:bg-white/10 hover:shadow-md">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-6 relative overflow-hidden">
+        <!-- Decorative background glow -->
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-divine-gold/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative group/input z-10">
+          <label class="block text-xs font-bold uppercase tracking-wider text-divine-muted mb-2 transition-colors group-focus-within/input:text-divine-gold">Group Name <span class="text-red-400">*</span></label>
+          <div class="relative">
+            <div class="absolute inset-0 bg-gradient-to-r from-divine-gold/20 to-purple-500/20 rounded-xl blur-md opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+            <input type="text" id="cgName" class="relative w-full bg-divine-deep/60 backdrop-blur-md border border-divine-border/60 rounded-xl px-4 py-3 text-sm text-divine-text placeholder-white/20 focus:outline-none focus:border-divine-gold/50 focus:bg-divine-deep/80 transition-all shadow-inner" placeholder="e.g. Secret Society">
+          </div>
+        </div>
+
+        <div class="relative group/input z-10">
+          <label class="block text-xs font-bold uppercase tracking-wider text-divine-muted mb-2 transition-colors group-focus-within/input:text-divine-gold">Description (Optional)</label>
+          <div class="relative">
+            <div class="absolute inset-0 bg-gradient-to-r from-divine-gold/20 to-purple-500/20 rounded-xl blur-md opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+            <textarea id="cgDescription" rows="2" class="relative w-full bg-divine-deep/60 backdrop-blur-md border border-divine-border/60 rounded-xl px-4 py-3 text-sm text-divine-text placeholder-white/20 focus:outline-none focus:border-divine-gold/50 focus:bg-divine-deep/80 transition-all resize-none shadow-inner" placeholder="What's this group about?"></textarea>
+          </div>
+        </div>
+
+        <div class="relative z-10">
+          <label class="block text-xs font-bold uppercase tracking-wider text-divine-muted mb-2">Select Members</label>
+          <div id="cgMembersList" class="max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar border border-divine-border/40 rounded-xl p-2 bg-divine-deep/40 backdrop-blur-md shadow-inner">
+            <!-- Members populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t border-divine-border/50 bg-divine-surface/60 backdrop-blur-xl flex justify-end gap-3 rounded-b-3xl relative z-10">
+        <button onclick="SDH.Chat.closeCreateGroupModal()" class="sdh-liquid-btn btn-secondary px-5 py-2.5">
+          <span>Cancel</span>
+        </button>
+        <button onclick="SDH.Chat.submitCreateGroup()" id="cgSubmitBtn" class="sdh-liquid-btn btn-primary px-5 py-2.5 flex items-center gap-2">
+          <span>Create Group</span>
+          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
 <script>
   // ── Bootstrap the chat application ──────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async function () {
@@ -1547,8 +1811,13 @@
     // Restore the last active conversation (username + numeric user ID)
     const lastUser = sessionStorage.getItem('ndm_last_chat');
     const lastId = sessionStorage.getItem('ndm_last_chat_id');
+    const lastName = sessionStorage.getItem('ndm_last_chat_name');
     if (lastUser && lastId) {
-      SDH.Chat.selectUser(lastUser, parseInt(lastId, 10));
+      if (lastUser.startsWith('group_')) {
+        SDH.Chat.selectGroup(parseInt(lastId, 10), lastName || lastUser);
+      } else {
+        SDH.Chat.selectUser(lastUser, parseInt(lastId, 10));
+      }
     }
   });
 </script>

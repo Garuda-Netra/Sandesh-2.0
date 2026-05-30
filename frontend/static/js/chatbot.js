@@ -54,8 +54,8 @@
 
       if (!this.messagesEl.children.length) {
         const greeting = this.userName
-          ? `Hi ${this.userName}, I am Axiom. How can I help?`
-          : 'Hi, I am Axiom. How can I help?';
+          ? `Hi ${this.userName}, I am Vyasa. How can I help?`
+          : 'Hi, I am Vyasa. How can I help?';
         this.appendMessage('assistant', greeting);
       }
 

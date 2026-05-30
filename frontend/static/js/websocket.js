@@ -18,7 +18,7 @@
  *   4004 – target user not found    → do NOT reconnect
  *
  * Public API (SDH.WS):
- *   connectWebSocket(userId)        – open socket to /ws/chat/<userId>/
+ *   connectWebSocket(userId, isGroup) – open socket to /ws/chat/<userId>/ or /ws/group/<userId>/
    *   sendMessage(payload)             – JSON-encode and transmit
  *   receiveMessage(event)           – parse frame, dispatch to SDH.Chat
  *   isOpen()                        – true while socket is OPEN
@@ -34,6 +34,7 @@ SDH.WS = (() => {
   // ── Private state ─────────────────────────────────────────────
   let socket           = null;
   let currentUserId    = null;
+  let isGroupConn      = false;
   let pingInterval     = null;
   let reconnectTimer   = null;
   let reconnectCount   = 0;
@@ -52,13 +53,14 @@ SDH.WS = (() => {
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * connectWebSocket(userId)
-   * Opens a new WebSocket to /ws/chat/<userId>/.
+   * connectWebSocket(userId, isGroup)
+   * Opens a new WebSocket to /ws/chat/<userId>/ or /ws/group/<userId>/.
    * Any existing open socket is closed cleanly first.
    *
-   * @param {number|string} userId  – numeric Django User pk
+   * @param {number|string} userId  – numeric Django User pk or Group ID
+   * @param {boolean} isGroup       – whether this is a group chat
    */
-  function connectWebSocket(userId) {
+  function connectWebSocket(userId, isGroup = false) {
     if (!userId) {
       console.warn('[SDH.WS] connectWebSocket called without userId.');
       return;
@@ -73,8 +75,9 @@ SDH.WS = (() => {
     }
 
     currentUserId  = userId;
+    isGroupConn    = isGroup;
     reconnectCount = 0;
-    _openSocket(userId);
+    _openSocket(userId, isGroup);
   }
 
   /**
@@ -138,14 +141,16 @@ SDH.WS = (() => {
   //  Private helpers
   // ═══════════════════════════════════════════════════════════════
 
-  function _openSocket(userId) {
+  function _openSocket(userId, isGroup = false) {
     // Resolve correct ws(s):// base
     const wsBase =
       window.SDH_DATA?.wsBase ||
       (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
       window.location.host;
 
-    const url = `${wsBase}/ws/chat/${userId}/`;
+    const url = isGroup 
+      ? `${wsBase}/ws/group/${userId}/`
+      : `${wsBase}/ws/chat/${userId}/`;
     socket            = new WebSocket(url);
     socket.onopen     = _onOpen;
     socket.onmessage  = receiveMessage;
@@ -176,7 +181,7 @@ SDH.WS = (() => {
       reconnectCount++;
       const delay = BASE_DELAY * Math.pow(2, reconnectCount - 1); // 2 / 4 / 8 / 16 / 32 s
       SDH.Chat?._onWsReconnecting?.(reconnectCount);
-      reconnectTimer = setTimeout(() => _openSocket(currentUserId), delay);
+      reconnectTimer = setTimeout(() => _openSocket(currentUserId, isGroupConn), delay);
     } else {
       console.error('[SDH.WS] Max reconnect attempts reached. Giving up.');
       SDH.Chat?._onWsClose?.(event);

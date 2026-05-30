@@ -18,7 +18,7 @@ from django.conf import settings
 
 
 _DEFAULT_SYSTEM_PROMPT = (
-    "You are Axiom, a helpful, general-purpose assistant. Answer a wide range of "
+    "You are Vyasa, a helpful, general-purpose assistant. Answer a wide range of "
     "questions clearly and safely. Ask clarifying questions when needed. "
     "Default to 1-2 short sentences unless the user asks for detail."
 )
@@ -131,7 +131,7 @@ def _local_reply(message: str, user=None) -> str:
         return "You are welcome. Want to explore a feature next?"
 
     if re.search(r"\b(who are you|what are you)\b", text):
-        return "I am Axiom, your general-purpose assistant. Ask me anything."
+        return "I am Vyasa, your general-purpose assistant. Ask me anything."
 
     if re.search(r"\b(help|support|what can you do|capabilities)\b", text):
         return (

@@ -3434,4 +3434,804 @@ body {
 
 [data-theme="light"] #userProfileModal #upmAvatarWrapper {
   background: #f8fafc !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LIGHT MODE — DROPDOWN, MODAL & BUTTON VISIBILITY FIXES
+   ════════════════════════════════════════════════════════════════ */
+
+/* ─── Kebab Dropdown Menu ─────────────────────────────────────── */
+[data-theme="light"] #kebabDropdown {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(245, 158, 11, 0.2) !important;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.1),
+    0 2px 10px rgba(245, 158, 11, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Kebab menu items — base state */
+[data-theme="light"] #kebabDropdown .sdh-kebab-item {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] #kebabDropdown .sdh-kebab-item svg {
+  color: #6b7280 !important;
+}
+
+/* Kebab menu items — hover state */
+[data-theme="light"] #kebabDropdown .sdh-kebab-item:hover {
+  background: rgba(245, 158, 11, 0.08) !important;
+  color: #92400e !important;
+}
+
+[data-theme="light"] #kebabDropdown .sdh-kebab-item:hover svg {
+  color: #d97706 !important;
+}
+
+/* Block button (red) keeps its own color */
+[data-theme="light"] #kebabDropdown #blockBtn {
+  color: #dc2626 !important;
+}
+
+[data-theme="light"] #kebabDropdown #blockBtn:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #b91c1c !important;
+}
+
+[data-theme="light"] #kebabDropdown #blockBtn svg {
+  color: #dc2626 !important;
+}
+
+/* Unblock button (green) */
+[data-theme="light"] #kebabDropdown #unblockBtn {
+  color: #059669 !important;
+}
+
+[data-theme="light"] #kebabDropdown #unblockBtn:hover {
+  background: rgba(16, 185, 129, 0.08) !important;
+  color: #047857 !important;
+}
+
+[data-theme="light"] #kebabDropdown #unblockBtn svg {
+  color: #059669 !important;
+}
+
+/* Leave Group button (yellow/amber) */
+[data-theme="light"] #kebabGroupOptions button {
+  color: #b45309 !important;
+}
+
+[data-theme="light"] #kebabGroupOptions button:hover {
+  background: rgba(245, 158, 11, 0.1) !important;
+  color: #92400e !important;
+}
+
+[data-theme="light"] #kebabGroupOptions button svg {
+  color: #d97706 !important;
+}
+
+/* Disband Group button */
+[data-theme="light"] #kebabGroupOptions #disbandGroupBtn {
+  color: #dc2626 !important;
+}
+
+[data-theme="light"] #kebabGroupOptions #disbandGroupBtn:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #b91c1c !important;
+}
+
+[data-theme="light"] #kebabGroupOptions #disbandGroupBtn svg {
+  color: #dc2626 !important;
+}
+
+/* Kebab dropdown dividers */
+[data-theme="light"] #kebabDropdown .bg-divine-border\/50,
+[data-theme="light"] #kebabDropdown [class*="bg-divine-border"] {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ─── User Context Dropdown (sidebar 3-dot menu) ──────────────── */
+[data-theme="light"] .user-ctx-dropdown {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(245, 158, 11, 0.2) !important;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(245, 158, 11, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+[data-theme="light"] .user-ctx-dropdown button {
+  color: #374151 !important;
+}
+
+[data-theme="light"] .user-ctx-dropdown button:hover {
+  background: rgba(245, 158, 11, 0.08) !important;
+  color: #92400e !important;
+}
+
+[data-theme="light"] .user-ctx-dropdown button svg {
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .user-ctx-dropdown button:hover svg {
+  color: #d97706 !important;
+}
+
+/* Red-styled buttons in user context (unfriend, etc.) */
+[data-theme="light"] .user-ctx-dropdown button[class*="text-red"] {
+  color: #dc2626 !important;
+}
+
+[data-theme="light"] .user-ctx-dropdown button[class*="text-red"]:hover {
+  background: rgba(239, 68, 68, 0.06) !important;
+  color: #b91c1c !important;
+}
+
+[data-theme="light"] .user-ctx-dropdown button[class*="text-red"] svg {
+  color: #dc2626 !important;
+}
+
+/* ─── Group Call Modal ────────────────────────────────────────── */
+[data-theme="light"] #groupCallModal > div {
+  background: #ffffff !important;
+  border: 1px solid rgba(245, 158, 11, 0.2) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Modal header */
+[data-theme="light"] #groupCallModal > div > div:first-child {
+  background: rgba(255, 251, 235, 0.95) !important;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.15) !important;
+}
+
+[data-theme="light"] #groupCallModal #groupCallTitle {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] #groupCallModal #groupCallTitle svg {
+  color: #d97706 !important;
+}
+
+/* Close button */
+[data-theme="light"] #groupCallModal button[onclick*="hidden"] {
+  color: #6b7280 !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] #groupCallModal button[onclick*="hidden"]:hover {
+  color: #1f2937 !important;
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Member list rows (dynamically generated with bg-black/20 and text-white/90) */
+[data-theme="light"] #groupCallMembersList > div {
+  background: rgba(245, 158, 11, 0.06) !important;
+  border: 1px solid rgba(245, 158, 11, 0.1);
+  border-radius: 12px;
+}
+
+[data-theme="light"] #groupCallMembersList > div:hover {
+  background: rgba(245, 158, 11, 0.12) !important;
+}
+
+/* Member name text */
+[data-theme="light"] #groupCallMembersList p[class*="text-white"],
+[data-theme="light"] #groupCallMembersList .text-white\/90 {
+  color: #1f2937 !important;
+}
+
+/* Loading / empty text */
+[data-theme="light"] #groupCallMembersList div[class*="text-white"] {
+  color: #6b7280 !important;
+}
+
+/* Call button in group call modal */
+[data-theme="light"] #groupCallMembersList button {
+  background: linear-gradient(135deg, #f59e0b, #ea580c) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3) !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-theme="light"] #groupCallMembersList button:hover {
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.45) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Member avatar in light mode */
+[data-theme="light"] #groupCallMembersList .bg-divine-surface {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #d97706 !important;
+}
+
+/* ─── Create Group Modal ──────────────────────────────────────── */
+[data-theme="light"] #createGroupModal > div {
+  background: #ffffff !important;
+  border: 1px solid rgba(245, 158, 11, 0.18) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Create group header */
+[data-theme="light"] #createGroupModal > div > div:first-child {
+  background: rgba(255, 251, 235, 0.95) !important;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.12) !important;
+}
+
+/* Member labels in create group */
+[data-theme="light"] #createGroupModal label[class*="hover:bg-white"] {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] #createGroupModal label[class*="hover:bg-white"]:hover {
+  background: rgba(245, 158, 11, 0.06) !important;
+}
+
+/* Create group modal new inputs light mode */
+[data-theme="light"] #createGroupModal input,
+[data-theme="light"] #createGroupModal textarea {
+  background: rgba(245, 158, 11, 0.05) !important;
+  border-color: rgba(245, 158, 11, 0.2) !important;
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] #createGroupModal input::placeholder,
+[data-theme="light"] #createGroupModal textarea::placeholder {
+  color: rgba(15, 23, 42, 0.4) !important;
+}
+
+[data-theme="light"] #createGroupModal input:focus,
+[data-theme="light"] #createGroupModal textarea:focus {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+/* Member name in create group */
+[data-theme="light"] #createGroupModal span[class*="text-white"] {
+  color: #1f2937 !important;
+}
+
+/* Empty state text */
+[data-theme="light"] #createGroupModal p[class*="text-white"] {
+  color: #6b7280 !important;
+}
+
+/* Checkbox styling in light mode */
+[data-theme="light"] #createGroupModal .cg-member-checkbox {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+/* ─── Confirmation Modals (Clear, Unfriend, Block, etc.) ──────── */
+[data-theme="light"] #clearChatModal,
+[data-theme="light"] #unfriendUserModal,
+[data-theme="light"] #blockUserModal,
+[data-theme="light"] #unblockUserModal,
+[data-theme="light"] #removeUserModal {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+[data-theme="light"] #clearChatModal > div,
+[data-theme="light"] #unfriendUserModal > div,
+[data-theme="light"] #blockUserModal > div,
+[data-theme="light"] #unblockUserModal > div,
+[data-theme="light"] #removeUserModal > div {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ─── Liquid Button Light Mode Hover/Active Fixes ─────────────── */
+
+/* Primary button */
+[data-theme="light"] .sdh-liquid-btn.btn-primary {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-primary::before {
+  --btn-gradient: linear-gradient(135deg, #f59e0b, #ea580c) !important;
+  --btn-border: rgba(245, 158, 11, 0.5) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-primary:hover::before {
+  --btn-glow: rgba(245, 158, 11, 0.3) !important;
+  --btn-glow-border: rgba(245, 158, 11, 0.8) !important;
+  box-shadow: inset 0 0 14px rgba(245, 158, 11, 0.25),
+              0 6px 20px rgba(245, 158, 11, 0.25) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-primary:active {
+  transform: scale(0.97) !important;
+}
+
+/* Secondary button */
+[data-theme="light"] .sdh-liquid-btn.btn-secondary::before {
+  --btn-gradient: rgba(245, 158, 11, 0.06) !important;
+  --btn-border: rgba(245, 158, 11, 0.25) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary {
+  color: #374151 !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover {
+  color: #92400e !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover::before {
+  --btn-gradient: rgba(245, 158, 11, 0.1) !important;
+  --btn-glow: rgba(245, 158, 11, 0.15) !important;
+  --btn-glow-border: rgba(245, 158, 11, 0.5) !important;
+  box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1),
+              0 4px 15px rgba(245, 158, 11, 0.1) !important;
+}
+
+/* Danger button */
+[data-theme="light"] .sdh-liquid-btn.btn-danger {
+  color: #dc2626 !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-danger::before {
+  --btn-gradient: rgba(254, 226, 226, 0.9) !important;
+  --btn-border: rgba(239, 68, 68, 0.3) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-danger:hover {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-danger:hover::before {
+  --btn-gradient: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  --btn-glow: rgba(239, 68, 68, 0.35) !important;
+  --btn-glow-border: rgba(239, 68, 68, 0.9) !important;
+  box-shadow: inset 0 0 12px rgba(239, 68, 68, 0.2),
+              0 6px 20px rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Success button */
+[data-theme="light"] .sdh-liquid-btn.btn-success {
+  color: #059669 !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-success::before {
+  --btn-gradient: rgba(220, 252, 231, 0.9) !important;
+  --btn-border: rgba(34, 197, 94, 0.3) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-success:hover {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-success:hover::before {
+  --btn-gradient: linear-gradient(135deg, #22c55e, #16a34a) !important;
+  --btn-glow: rgba(34, 197, 94, 0.3) !important;
+  --btn-glow-border: rgba(34, 197, 94, 0.9) !important;
+}
+
+/* Info button */
+[data-theme="light"] .sdh-liquid-btn.btn-info {
+  color: #0284c7 !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-info::before {
+  --btn-gradient: rgba(224, 242, 254, 0.9) !important;
+  --btn-border: rgba(14, 165, 233, 0.3) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-info:hover {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-info:hover::before {
+  --btn-gradient: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
+  --btn-glow: rgba(14, 165, 233, 0.3) !important;
+  --btn-glow-border: rgba(14, 165, 233, 0.9) !important;
+}
+
+/* Ancient button (warm amber) — keep existing gradient, improve hover feedback */
+[data-theme="light"] .sdh-liquid-btn.btn-ancient:hover::before {
+  box-shadow: inset 0 0 14px rgba(245, 158, 11, 0.25),
+              0 6px 20px rgba(245, 158, 11, 0.3) !important;
+  transform: scaleY(1.04) scaleX(1.02) !important;
+}
+
+/* ─── Profile Modal Members (Group) — Light Mode ──────────────── */
+[data-theme="light"] #userProfileModal .bg-black\/20,
+[data-theme="light"] #userProfileModal div[class*="bg-black"] {
+  background: rgba(245, 158, 11, 0.06) !important;
+  border: 1px solid rgba(245, 158, 11, 0.1);
+  border-radius: 10px;
+}
+
+[data-theme="light"] #userProfileModal p[class*="text-white"],
+[data-theme="light"] #userProfileModal .text-white\/90 {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] #userProfileModal .text-white\/40 {
+  color: #6b7280 !important;
+}
+
+/* ─── Message Details Modal (Read Receipts) — Light Mode ──────── */
+[data-theme="light"] #messageDetailsModal .bg-black\/20,
+[data-theme="light"] #messageDetailsModal div[class*="bg-black"] {
+  background: rgba(245, 158, 11, 0.06) !important;
+  border: 1px solid rgba(245, 158, 11, 0.1);
+  border-radius: 10px;
+}
+
+[data-theme="light"] #messageDetailsModal p[class*="text-white"],
+[data-theme="light"] #messageDetailsModal .text-white\/90 {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] #messageDetailsModal .text-white\/50,
+[data-theme="light"] #messageDetailsModal div[class*="text-white/50"] {
+  color: #6b7280 !important;
+}
+
+/* ─── Generic Light Mode Utility Overrides ────────────────────── */
+/* Fix white-on-white hover in dynamically generated content */
+[data-theme="light"] .hover\:bg-white\/5:hover {
+  background: rgba(245, 158, 11, 0.06) !important;
+}
+
+[data-theme="light"] .bg-white\/5 {
+  background: rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] .hover\:bg-white\/10:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .bg-black\/20 {
+  background: rgba(245, 158, 11, 0.06) !important;
+}
+
+/* Fix text-white in light mode contexts */
+[data-theme="light"] #groupCallMembersList .text-white\/90,
+[data-theme="light"] #cgMembersList .text-white\/90,
+[data-theme="light"] #upmMembersList .text-white\/90 {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] #groupCallMembersList .text-white\/40,
+[data-theme="light"] #cgMembersList .text-white\/40,
+[data-theme="light"] #upmMembersList .text-white\/40 {
+  color: #9ca3af !important;
+}
+
+[data-theme="light"] #groupCallMembersList .text-white\/50,
+[data-theme="light"] #cgMembersList .text-white\/50 {
+  color: #6b7280 !important;
+}
+
+/* ─── Three-dot context button in sidebar (light mode) ────────── */
+[data-theme="light"] .user-ctx-wrap button:first-child {
+  color: #9ca3af !important;
+  border-color: transparent !important;
+}
+
+[data-theme="light"] .user-ctx-wrap button:first-child:hover {
+  color: #d97706 !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CREATE GROUP MODAL — PREMIUM DESIGN SYSTEM (sdh-cg-*)
+   Dark mode: deep glass with purple accents & fully visible text
+   Light mode: warm parchment with amber accents
+   ════════════════════════════════════════════════════════════════ */
+
+/* ─── Modal Card ──────────────────────────────────────────────── */
+.sdh-cg-modal {
+  background: rgba(16, 14, 26, 0.92);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(168, 85, 247, 0.1),
+    0 32px 80px rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(168, 85, 247, 0.08);
+  backdrop-filter: blur(40px) saturate(200%);
+}
+
+/* ─── Header ──────────────────────────────────────────────────── */
+.sdh-cg-header {
+  background: linear-gradient(135deg,
+    rgba(24, 20, 40, 0.95) 0%,
+    rgba(18, 15, 32, 0.98) 100%);
+  border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+}
+
+/* ─── Close Button ────────────────────────────────────────────── */
+.sdh-cg-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sdh-cg-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171 !important;
+  transform: rotate(90deg);
+}
+
+/* ─── Body ────────────────────────────────────────────────────── */
+.sdh-cg-body {
+  background: rgba(14, 12, 24, 0.85);
+}
+
+/* ─── Label ───────────────────────────────────────────────────── */
+.sdh-cg-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(168, 85, 247, 0.75);
+}
+
+/* ─── Inputs ──────────────────────────────────────────────────── */
+.sdh-cg-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(168, 85, 247, 0.2);
+  color: #f1f5f9 !important;
+  font-size: 0.875rem;
+}
+
+.sdh-cg-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.sdh-cg-input:focus {
+  outline: none;
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(168, 85, 247, 0.12),
+    inset 0 0 20px rgba(168, 85, 247, 0.04);
+  color: #ffffff !important;
+}
+
+/* ─── Members List Container ──────────────────────────────────── */
+.sdh-cg-members-list {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(168, 85, 247, 0.15);
+  min-height: 56px;
+}
+
+/* ─── Footer ──────────────────────────────────────────────────── */
+.sdh-cg-footer {
+  background: rgba(12, 10, 22, 0.9);
+  border-top: 1px solid rgba(168, 85, 247, 0.1);
+}
+
+/* ─── Cancel Button ───────────────────────────────────────────── */
+.sdh-cg-cancel-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sdh-cg-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+/* ─── Submit Button ───────────────────────────────────────────── */
+.sdh-cg-submit-btn {
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 60%, #8b5cf6 100%);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  box-shadow:
+    0 4px 20px rgba(168, 85, 247, 0.35),
+    0 0 40px rgba(99, 102, 241, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  letter-spacing: 0.01em;
+}
+
+.sdh-cg-submit-btn:hover {
+  background: linear-gradient(135deg, #b97dff 0%, #7c7fff 60%, #a07cff 100%);
+  box-shadow:
+    0 8px 30px rgba(168, 85, 247, 0.5),
+    0 0 60px rgba(99, 102, 241, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.sdh-cg-submit-btn:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LIGHT THEME — CREATE GROUP MODAL
+   ════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] .sdh-cg-modal {
+  background: rgba(255, 252, 248, 0.97) !important;
+  border: 1px solid rgba(245, 158, 11, 0.2) !important;
+  box-shadow:
+    0 0 0 1px rgba(245, 158, 11, 0.08),
+    0 32px 80px rgba(0, 0, 0, 0.18) !important;
+}
+
+[data-theme="light"] .sdh-cg-header {
+  background: linear-gradient(135deg,
+    rgba(255, 251, 235, 0.98) 0%,
+    rgba(255, 247, 220, 0.95) 100%) !important;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.15) !important;
+}
+
+[data-theme="light"] .sdh-cg-close-btn {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #6b7280 !important;
+}
+
+[data-theme="light"] .sdh-cg-close-btn:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+  color: #dc2626 !important;
+}
+
+[data-theme="light"] .sdh-cg-body {
+  background: rgba(255, 252, 248, 0.98) !important;
+}
+
+[data-theme="light"] .sdh-cg-label {
+  color: #b45309 !important;
+}
+
+[data-theme="light"] .sdh-cg-input {
+  background: rgba(245, 158, 11, 0.05) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] .sdh-cg-input::placeholder {
+  color: rgba(15, 23, 42, 0.35) !important;
+}
+
+[data-theme="light"] .sdh-cg-input:focus {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  box-shadow:
+    0 0 0 3px rgba(245, 158, 11, 0.12),
+    inset 0 0 20px rgba(245, 158, 11, 0.03) !important;
+  color: #111827 !important;
+}
+
+[data-theme="light"] .sdh-cg-members-list {
+  background: rgba(245, 158, 11, 0.03) !important;
+  border-color: rgba(245, 158, 11, 0.18) !important;
+}
+
+[data-theme="light"] .sdh-cg-footer {
+  background: rgba(255, 250, 240, 0.98) !important;
+  border-top-color: rgba(245, 158, 11, 0.12) !important;
+}
+
+[data-theme="light"] .sdh-cg-cancel-btn {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #374151 !important;
+}
+
+[data-theme="light"] .sdh-cg-cancel-btn:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+  color: #111827 !important;
+}
+
+[data-theme="light"] .sdh-cg-submit-btn {
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 60%, #f97316 100%) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  box-shadow:
+    0 4px 20px rgba(245, 158, 11, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+[data-theme="light"] .sdh-cg-submit-btn:hover {
+  background: linear-gradient(135deg, #fbbf24 0%, #f97316 60%, #fb923c 100%) !important;
+  box-shadow: 0 8px 30px rgba(245, 158, 11, 0.45) !important;
+}
+
+/* ─── Light mode text fixes for JS-generated member rows ──────── */
+[data-theme="light"] .sdh-cg-members-list span[class*="text-white"],
+[data-theme="light"] .sdh-cg-members-list p[class*="text-white"] {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] .sdh-cg-members-list label {
+  color: #374151 !important;
+}
+
+[data-theme="light"] .sdh-cg-members-list label:hover {
+  background: rgba(245, 158, 11, 0.06) !important;
+}
+
+[data-theme="light"] .sdh-cg-members-list .cg-member-checkbox {
+  accent-color: #f59e0b;
+}
+
+/* Dark mode member rows (JS-generated) */
+.sdh-cg-members-list label {
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+
+.sdh-cg-members-list label:hover {
+  background: rgba(168, 85, 247, 0.08) !important;
+}
+
+.sdh-cg-members-list span[class*="text-white"],
+.sdh-cg-members-list p[class*="text-white"] {
+  color: #e2e8f0 !important;
+}
+
+.sdh-cg-members-list .cg-member-checkbox {
+  accent-color: #a855f7;
+}
+
+/* ─── Field wrap hover ring ───────────────────────────────────── */
+.sdh-cg-field-wrap:focus-within .sdh-cg-label {
+  color: #a855f7;
+  transition: color 0.2s ease;
+}
+
+[data-theme="light"] .sdh-cg-field-wrap:focus-within .sdh-cg-label {
+  color: #d97706 !important;
+}
+
+/* ─── Member Rows ─────────────────────────────────────────────── */
+.sdh-cg-member-row {
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.sdh-cg-member-row:hover {
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.sdh-cg-member-row:active {
+  transform: scale(0.99);
+}
+
+.sdh-cg-member-name {
+  color: #e2e8f0;
+}
+
+.sdh-cg-empty-msg {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Light mode member row overrides */
+[data-theme="light"] .sdh-cg-member-row:hover {
+  background: rgba(245, 158, 11, 0.07) !important;
+}
+
+[data-theme="light"] .sdh-cg-member-name {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] .sdh-cg-empty-msg {
+  color: #9ca3af !important;
+}
+
+/* Checkbox accent for both themes */
+.sdh-cg-members-list input[type="checkbox"] {
+  accent-color: #a855f7;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+[data-theme="light"] .sdh-cg-members-list input[type="checkbox"] {
+  accent-color: #f59e0b;
 }

@@ -263,3 +263,165 @@ class ChatSetting(models.Model):
     def __str__(self):
         return f"Settings for {self.user1.username} & {self.user2.username}"
 
+
+# ---------------------------------------------------------------------------
+# Group Chat Models
+# ---------------------------------------------------------------------------
+class Group(models.Model):
+    """
+    Stores a group / community.
+    The creator is automatically assigned as 'owner' via GroupMembership.
+    """
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default='')
+    avatar = models.ImageField(upload_to='group_avatars/', null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='created_groups',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name = 'Group'
+        verbose_name_plural = 'Groups'
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def member_count(self):
+        return self.memberships.count()
+
+
+class GroupMembership(models.Model):
+    """
+    Tracks membership and role within a group.
+    Roles: owner (irrevocable creator), admin, member.
+    """
+    ROLE_OWNER = 'owner'
+    ROLE_ADMIN = 'admin'
+    ROLE_MEMBER = 'member'
+    ROLE_CHOICES = [
+        (ROLE_OWNER, 'Owner'),
+        (ROLE_ADMIN, 'Admin'),
+        (ROLE_MEMBER, 'Member'),
+    ]
+
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name='memberships'
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='group_memberships'
+    )
+    role = models.CharField(
+        max_length=10, choices=ROLE_CHOICES, default=ROLE_MEMBER,
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+    muted = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('group', 'user')
+        verbose_name = 'Group Membership'
+        verbose_name_plural = 'Group Memberships'
+        indexes = [
+            models.Index(fields=['group', 'user']),
+            models.Index(fields=['user']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} in {self.group.name} [{self.role}]'
+
+    @property
+    def is_admin_or_owner(self):
+        return self.role in (self.ROLE_OWNER, self.ROLE_ADMIN)
+
+
+class GroupMessage(models.Model):
+    """
+    Stores a single message within a group.
+    System messages (join, leave, admin changes) use is_system_message=True.
+    """
+    MESSAGE_TYPE_TEXT = 'text'
+    MESSAGE_TYPE_FILE = 'file'
+    MESSAGE_TYPE_IMAGE = 'image'
+    MESSAGE_TYPE_VIDEO = 'video'
+    MESSAGE_TYPE_SYSTEM = 'system'
+
+    MESSAGE_TYPES = [
+        (MESSAGE_TYPE_TEXT, 'Text'),
+        (MESSAGE_TYPE_FILE, 'File'),
+        (MESSAGE_TYPE_IMAGE, 'Image'),
+        (MESSAGE_TYPE_VIDEO, 'Video'),
+        (MESSAGE_TYPE_SYSTEM, 'System'),
+    ]
+
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name='messages'
+    )
+    sender = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='sent_group_messages',
+    )
+    message = models.TextField(blank=True, default='')
+    message_type = models.CharField(
+        max_length=10, choices=MESSAGE_TYPES, default=MESSAGE_TYPE_TEXT,
+    )
+
+    # File support
+    file = models.FileField(upload_to='group_files/', null=True, blank=True)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
+    original_filename = models.CharField(max_length=255, blank=True, default='')
+    mime_type = models.CharField(max_length=100, blank=True, default='')
+
+    # System messages (e.g. "User joined the group")
+    is_system_message = models.BooleanField(default=False)
+
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name = 'Group Message'
+        verbose_name_plural = 'Group Messages'
+        indexes = [
+            models.Index(fields=['group', 'timestamp']),
+        ]
+
+    def __str__(self):
+        sender_name = self.sender.username if self.sender else 'System'
+        return f'[{self.group.name}] {sender_name} @ {self.timestamp:%Y-%m-%d %H:%M}'
+
+
+class GroupMessageRead(models.Model):
+    """
+    Tracks which users have read a specific group message.
+    """
+    message = models.ForeignKey(GroupMessage, on_delete=models.CASCADE, related_name='read_receipts')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='read_group_messages')
+    read_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        unique_together = ('message', 'user')
+        verbose_name = 'Group Message Read Receipt'
+        verbose_name_plural = 'Group Message Read Receipts'
+        indexes = [
+            models.Index(fields=['message', 'user']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} read {self.message.id} at {self.read_at:%Y-%m-%d %H:%M}'
+
+
+@receiver(post_delete, sender=GroupMessage)
+def auto_delete_group_message_file_on_delete(sender, instance, **kwargs):
+    """Deletes the file attached to a GroupMessage when it is deleted."""
+    if instance.file:
+        instance.file.delete(save=False)
+
+
+@receiver(post_delete, sender=Group)
+def auto_delete_group_avatar_on_delete(sender, instance, **kwargs):
+    """Deletes the avatar file when a Group is deleted."""
+    if instance.avatar:
+        instance.avatar.delete(save=False)

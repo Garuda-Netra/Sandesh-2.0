@@ -806,3 +806,198 @@ class SignalingConsumer(AsyncWebsocketConsumer):
             pass
 
         return False
+
+
+# ---------------------------------------------------------------------------
+# 3. GroupChatConsumer
+# ---------------------------------------------------------------------------
+class GroupChatConsumer(AsyncWebsocketConsumer):
+    """
+    Handles real-time messaging within a group.
+
+    URL pattern: /ws/group/<group_id>/
+    """
+
+    async def connect(self):
+        if not self.scope['user'].is_authenticated:
+            await self.close(code=4001)
+            return
+
+        self.me = self.scope['user']
+        self.group_id = int(self.scope['url_route']['kwargs']['group_id'])
+        self.room_group = f'group_chat_{self.group_id}'
+
+        # Verify membership
+        is_member = await self._check_membership()
+        if not is_member:
+            await self.close(code=4003)
+            return
+
+        await self.channel_layer.group_add(self.room_group, self.channel_name)
+        await self.accept()
+        logger.info(f'[WS-Group] {self.me.username} connected to group {self.group_id}')
+
+    async def disconnect(self, code):
+        if hasattr(self, 'room_group'):
+            await self.channel_layer.group_discard(self.room_group, self.channel_name)
+
+    async def receive(self, text_data=None, bytes_data=None):
+        try:
+            data = json.loads(text_data)
+        except (json.JSONDecodeError, TypeError):
+            await self.send_error('Invalid JSON payload.')
+            return
+
+        msg_type = data.get('type')
+
+        if msg_type == 'group_message':
+            await self.handle_group_message(data)
+        elif msg_type == 'typing':
+            await self.handle_typing(data)
+        elif msg_type == 'mark_read':
+            await self.handle_mark_read(data)
+        elif msg_type == 'ping':
+            await self.send(text_data=json.dumps({'type': 'pong'}))
+        else:
+            await self.send_error(f'Unknown message type: {msg_type}')
+
+    async def handle_group_message(self, data):
+        """Persist and broadcast a group message."""
+        message_text = data.get('message', '').strip()
+        if not message_text:
+            await self.send_error('Empty message.')
+            return
+
+        msg = await self._save_group_message(message_text)
+        if not msg:
+            await self.send_error('Failed to save message.')
+            return
+
+        await self.channel_layer.group_send(
+            self.room_group,
+            {
+                'type': 'broadcast_group_message',
+                'message_id': msg['id'],
+                'sender': self.me.username,
+                'sender_id': self.me.id,
+                'message': message_text,
+                'message_type': 'text',
+                'timestamp': msg['timestamp'],
+                'is_system_message': False,
+            }
+        )
+
+    async def handle_typing(self, data):
+        """Broadcast typing indicator to all group members."""
+        await self.channel_layer.group_send(
+            self.room_group,
+            {
+                'type': 'broadcast_typing',
+                'sender': self.me.username,
+                'is_typing': bool(data.get('is_typing', False)),
+            }
+        )
+
+    async def handle_mark_read(self, data):
+        """Mark a specific message as read by this user."""
+        message_id = data.get('message_id')
+        if not message_id:
+            return
+            
+        await self._mark_group_message_read(message_id)
+        
+        await self.channel_layer.group_send(
+            self.room_group,
+            {
+                'type': 'broadcast_group_read',
+                'message_id': message_id,
+                'user_id': self.me.id,
+                'username': self.me.username,
+            }
+        )
+
+
+    # ---- Broadcast relays ----
+
+    async def broadcast_group_message(self, event):
+        payload = {k: v for k, v in event.items() if k != 'type'}
+        payload['type'] = 'group_message'
+        await self.send(text_data=json.dumps(payload))
+
+    async def broadcast_typing(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'typing',
+            'sender': event['sender'],
+            'is_typing': event['is_typing'],
+        }))
+
+    async def broadcast_group_read(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_read',
+            'message_id': event['message_id'],
+            'user_id': event['user_id'],
+            'username': event['username'],
+        }))
+
+    async def group_system_message(self, event):
+        """Relay system messages (member joined/left, role changes)."""
+        await self.send(text_data=json.dumps({
+            'type': 'group_message',
+            'message_id': event.get('message_id'),
+            'sender': None,
+            'message': event['message'],
+            'message_type': 'system',
+            'timestamp': event.get('timestamp', ''),
+            'is_system_message': True,
+        }))
+
+    async def group_member_update(self, event):
+        """Notify clients of membership changes so they can refresh the member list."""
+        await self.send(text_data=json.dumps({
+            'type': 'group_member_update',
+            'action': event.get('action'),  # 'added', 'removed', 'left', 'role_changed'
+            'user_id': event.get('user_id'),
+            'username': event.get('username'),
+            'role': event.get('role'),
+        }))
+
+    # ---- Utilities ----
+
+    async def send_error(self, message):
+        await self.send(text_data=json.dumps({'type': 'error', 'message': message}))
+
+    @database_sync_to_async
+    def _check_membership(self):
+        from .models import GroupMembership
+        return GroupMembership.objects.filter(
+            group_id=self.group_id, user=self.me
+        ).exists()
+
+    @database_sync_to_async
+    def _save_group_message(self, message_text):
+        from .models import GroupMessage
+        try:
+            msg = GroupMessage.objects.create(
+                group_id=self.group_id,
+                sender=self.me,
+                message=message_text,
+                message_type=GroupMessage.MESSAGE_TYPE_TEXT,
+            )
+            # Touch group updated_at for sidebar ordering
+            from .models import Group
+            Group.objects.filter(id=self.group_id).update(
+                updated_at=msg.timestamp
+            )
+            return {'id': msg.id, 'timestamp': msg.timestamp.isoformat()}
+        except Exception as exc:
+            logger.error(f'[WS-Group] save_group_message error: {exc}')
+            return None
+
+    @database_sync_to_async
+    def _mark_group_message_read(self, message_id):
+        from .models import GroupMessage, GroupMessageRead
+        try:
+            msg = GroupMessage.objects.get(id=message_id, group_id=self.group_id)
+            GroupMessageRead.objects.get_or_create(message=msg, user=self.me)
+        except Exception as exc:
+            logger.error(f'[WS-Group] mark_read error: {exc}')

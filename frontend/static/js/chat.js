@@ -26,6 +26,8 @@
     let isTyping      = false;
     let pendingFile   = null;
     let unreadCounts  = {};
+    const toastQueue  = [];
+    let isShowingToast = false;
 
     // Maps tempId â†’ null until server echo assigns real id
     const pendingAckMap = new Map();
@@ -62,6 +64,7 @@
     async function _onWsMessage(data) {
       switch (data.type) {
         case 'chat_message':        await handleIncomingMessage(data);       break;
+        case 'group_message':       await handleIncomingMessage(data);       break;
         case 'file_notification':   await handleIncomingFileNotification(data); break;
         case 'typing':              handleTypingIndicator(data);             break;
         case 'delivered':     _setMsgStatus(data.message_id, 'delivered');  break;
@@ -95,13 +98,9 @@
     //  WebSocket lifecycle callbacks
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     function _onWsOpen() {
-      if (_isSelfChat(activeUser)) {
-        _setHeaderStatus('Only visible to you', 'connected');
-      } else {
-        _setHeaderStatus('Active', 'connected');
-      }
+      _setDefaultHeaderStatus();
       // Immediately notify the sender that we've read all messages in this chat
-      if (activeUser && SDH.WS.isOpen()) {
+      if (activeUser && SDH.WS.isOpen() && !activeUser.startsWith('group_')) {
         SDH.WS.sendMessage({ type: 'read_receipt' });
       }
     }
@@ -171,8 +170,17 @@
     function _setDefaultHeaderStatus() {
       if (_isSelfChat(activeUser)) {
         _setHeaderStatus('Only visible to you', 'connected');
+      } else if (activeUser && activeUser.startsWith('group_')) {
+        _setHeaderStatus('Group Chat', 'connected');
       } else {
-        _setHeaderStatus('Active', 'connected');
+        const userObj = window.SDH_DATA?.users?.find(u => u.username === activeUser);
+        if (userObj && userObj.is_online) {
+          _setHeaderStatus('Active', 'connected');
+        } else if (userObj && userObj.last_seen) {
+          _setHeaderStatus('Last seen ' + _relativeTime(userObj.last_seen), 'default');
+        } else {
+          _setHeaderStatus('Offline', 'default');
+        }
       }
     }
 
@@ -219,7 +227,7 @@
 
       const displayContent = data.message_type === 'text' ? (data.message || '') : null;
 
-      if (!isFromMe && data.sender !== activeUser) {
+      if (!isFromMe && !activeUser.startsWith('group_') && data.sender !== activeUser) {
         unreadCounts[data.sender] = (unreadCounts[data.sender] || 0) + 1;
         updateUnreadBadge(data.sender);
         Notif.show(
@@ -243,8 +251,12 @@
       scrollToBottom();
 
       if (SDH.WS.isOpen()) {
-        SDH.WS.sendMessage({ type: 'delivered_receipt', message_id: data.message_id });
-        SDH.WS.sendMessage({ type: 'read_receipt' });
+        if (!activeUser.startsWith('group_')) {
+          SDH.WS.sendMessage({ type: 'delivered_receipt', message_id: data.message_id });
+          SDH.WS.sendMessage({ type: 'read_receipt' });
+        } else {
+          SDH.WS.sendMessage({ type: 'mark_read', message_id: data.message_id });
+        }
       }
     }
 
@@ -303,8 +315,12 @@
       scrollToBottom();
 
       if (SDH.WS.isOpen()) {
-        SDH.WS.sendMessage({ type: 'delivered_receipt', message_id: data.message_id });
-        SDH.WS.sendMessage({ type: 'read_receipt' });
+        if (!activeUser.startsWith('group_')) {
+          SDH.WS.sendMessage({ type: 'delivered_receipt', message_id: data.message_id });
+          SDH.WS.sendMessage({ type: 'read_receipt' });
+        } else {
+          SDH.WS.sendMessage({ type: 'mark_read', message_id: data.message_id });
+        }
       }
     }
 
@@ -488,6 +504,21 @@
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.user-ctx-wrap') && !e.target.closest('.user-ctx-dropdown')) {
         _closeAllUserMenus();
+      }
+    }, false);
+
+    // Close open kebab dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#kebabMenuWrapper')) {
+        const dropdown = document.getElementById('kebabDropdown');
+        if (dropdown) {
+          dropdown.classList.add('hidden');
+        }
+      }
+      
+      // Close sidebar kebabs on outside click
+      if (!e.target.closest('.sdh-sidebar-kebab')) {
+        document.querySelectorAll('[id^="sidebarKebab-"]').forEach(el => el.classList.add('hidden'));
       }
     }, false);
 
@@ -1070,6 +1101,7 @@
           <div class="flex items-center gap-1 ${isFromMe ? 'justify-end pr-0.5' : 'justify-start pl-0.5'}">
             <span class="text-[11px] text-divine-muted/40 select-none">${time}</span>
             ${isFromMe ? `<span class="msg-status-tick leading-none select-none">${_tickHtml(initTickStatus)}</span>` : ''}
+            ${(isFromMe && activeUser && activeUser.startsWith('group_') && !isTemp) ? `<button onclick="SDH.Chat.showGroupMessageDetails(${messageId})" class="ml-1 w-4 h-4 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/50 hover:text-white/80 transition-colors" title="Message Details"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>` : ''}
           </div>
         </div>
         ${!isFromMe ? menuHtml : ''}`;
@@ -1500,6 +1532,8 @@
 
       _setHeaderStatus('Connecting...', 'reconnecting');
       document.getElementById('inputBar')?.classList.remove('hidden');
+      document.getElementById('kebabGroupOptions')?.classList.add('hidden');
+      document.getElementById('kebabUserOptions')?.classList.remove('hidden');
       if (_isSelfChat(username)) {
         document.getElementById('callButtons')?.classList.add('hidden');
       } else {
@@ -1524,7 +1558,12 @@
       if (userObj) {
         const headerAvatar = document.getElementById('chatAvatar');
         if (headerAvatar) {
-          headerAvatar.innerHTML = `<img src="${userObj.avatar_url}" class="w-full h-full object-cover rounded-full" alt="Avatar">`;
+          if (userObj.avatar_url && userObj.avatar_url.trim() !== '') {
+            headerAvatar.innerHTML = `<img src="${userObj.avatar_url}" class="w-full h-full object-cover rounded-full" alt="" onerror="this.parentElement.innerHTML = '${(username[0] || '?').toUpperCase()}';">`;
+          } else {
+            headerAvatar.innerHTML = '';
+            headerAvatar.textContent = (username[0] || '?').toUpperCase();
+          }
         }
       }
 
@@ -1730,6 +1769,24 @@
     }
 
     function showToast(message, type = 'info') {
+      // Avoid duplicate consecutive toasts in the queue
+      const lastInQueue = toastQueue[toastQueue.length - 1];
+      if (lastInQueue && lastInQueue.message === message) return;
+      
+      // Also avoid duplicate with currently showing toast
+      const currentlyShowingEl = document.getElementById('chatToastContainer')?.firstElementChild;
+      if (currentlyShowingEl && currentlyShowingEl.textContent === message) return;
+
+      toastQueue.push({ message, type });
+      processToastQueue();
+    }
+
+    function processToastQueue() {
+      if (isShowingToast || toastQueue.length === 0) return;
+      isShowingToast = true;
+
+      const { message, type } = toastQueue.shift();
+
       const colors = {
         info:    'bg-divine-card border-divine-border text-divine-text',
         success: 'bg-green-900/80 border-green-700 text-green-200',
@@ -1737,22 +1794,12 @@
         error:   'bg-red-900/80 border-red-700 text-red-200',
       };
 
-      // Centering must live on a non-animated container.
-      // Tailwind's `slideIn` animation animates `transform`, so if the toast
-      // element itself has `-translate-x-1/2` it will drift horizontally.
       let container = document.getElementById('chatToastContainer');
       if (!container) {
         container = document.createElement('div');
         container.id = 'chatToastContainer';
-        const header = document.getElementById('chatHeader');
-        if (header) {
-          container.className = 'absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[60] flex flex-col gap-2 items-center pointer-events-none';
-          header.style.position = 'relative';
-          header.appendChild(container);
-        } else {
-          container.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 items-center pointer-events-none';
-          document.body.appendChild(container);
-        }
+        container.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 items-center pointer-events-none';
+        document.body.appendChild(container);
       }
 
       const toast = document.createElement('div');
@@ -1761,11 +1808,16 @@
       toast.textContent = message;
 
       container.appendChild(toast);
+
       setTimeout(() => {
         toast.style.transition = 'opacity 0.4s';
         toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 400);
-      }, 3500);
+        setTimeout(() => {
+          toast.remove();
+          isShowingToast = false;
+          processToastQueue();
+        }, 400);
+      }, 2200);
     }
 
     let removeMyViewCount = 0;
@@ -2000,32 +2052,84 @@
       modal.classList.remove('hidden');
 
       try {
-        const profileApiBase = window.SDH_DATA?.userProfileApiUrl || '/api/profile/';
-        const response = await fetch(`${profileApiBase}${encodeURIComponent(username)}/`);
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.error || response.statusText);
-        }
+        let data;
+        let isGroup = username.startsWith('group_');
 
-        const data = await response.json();
+        if (isGroup) {
+          const groupId = username.replace('group_', '');
+          const response = await fetch(`/messaging/api/groups/${groupId}/`);
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || response.statusText);
+          }
+          const groupData = await response.json();
+          data = {
+            avatar_url: groupData.avatar_url,
+            display_name: groupData.name,
+            username: username,
+            bio: groupData.description || 'No description provided.',
+            email: 'Group Chat',
+            phone_number: `${groupData.members ? groupData.members.length : 0} members`,
+            date_joined: null,
+            is_online: true,
+            last_seen: null
+          };
+
+          // Show members section
+          const membersSection = document.getElementById('upmMembersSection');
+          const membersList = document.getElementById('upmMembersList');
+          if (membersSection && membersList && groupData.members) {
+            membersSection.classList.remove('hidden');
+            membersList.innerHTML = groupData.members.map(m => `
+              <div class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl cursor-pointer transition-colors" onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${m.username}', ${m.user_id})">
+                ${m.avatar_url ? 
+                  `<img src="${m.avatar_url}" class="w-8 h-8 rounded-full object-cover bg-divine-surface" />` : 
+                  `<div class="w-8 h-8 rounded-full bg-divine-surface border border-divine-border flex items-center justify-center text-xs font-bold text-divine-text">${m.username[0].toUpperCase()}</div>`
+                }
+                <div class="flex-1 min-w-0">
+                  <p class="text-[13px] font-bold truncate text-divine-text">${m.username === window.SDH_DATA.currentUser ? 'You' : (m.display_name || m.username)}</p>
+                  <p class="text-[10px] uppercase tracking-widest text-divine-gold truncate">${m.role}</p>
+                </div>
+              </div>
+            `).join('');
+          }
+        } else {
+          const membersSection = document.getElementById('upmMembersSection');
+          if (membersSection) membersSection.classList.add('hidden');
+
+          const profileApiBase = window.SDH_DATA?.userProfileApiUrl || '/api/profile/';
+          const response = await fetch(`${profileApiBase}${encodeURIComponent(username)}/`);
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || response.statusText);
+          }
+          data = await response.json();
+        }
 
         // Update avatar display
         if (data.avatar_url) {
           avatarImg.src = data.avatar_url;
           avatarImg.classList.remove('hidden');
           avatarText.classList.add('hidden');
+        } else {
+          avatarText.textContent = isGroup ? (data.display_name ? data.display_name[0].toUpperCase() : 'G') : username[0].toUpperCase();
+          avatarText.classList.remove('hidden');
+          avatarImg.classList.add('hidden');
+          avatarImg.src = '';
         }
 
         // Update basic names
-        displayNameEl.textContent = data.display_name || data.username;
-        usernameEl.textContent = `@${data.username}`;
+        displayNameEl.textContent = data.display_name || (isGroup ? 'Group Chat' : data.username);
+        usernameEl.textContent = isGroup ? `Group Chat` : `@${data.username}`;
 
         // Update bio
-        bioEl.textContent = data.bio ? data.bio : 'No biography provided.';
-        if (!data.bio) {
-          bioEl.classList.add('text-divine-muted/50');
+        bioEl.textContent = data.bio ? data.bio : (isGroup ? 'No description provided.' : 'No biography provided.');
+        if (!data.bio || data.bio === 'No description provided.') {
+          bioEl.classList.add('text-divine-muted');
+          bioEl.classList.remove('text-divine-text');
         } else {
-          bioEl.classList.remove('text-divine-muted/50');
+          bioEl.classList.remove('text-divine-muted');
+          bioEl.classList.add('text-divine-text');
         }
 
         // Update contacts
@@ -2036,21 +2140,35 @@
         joinedEl.textContent = data.date_joined ? `Joined ${data.date_joined}` : 'Joined —';
 
         // Update online status and dynamic glow
-        if (data.is_online) {
-          statusDot.className = 'w-2 h-2 rounded-full sdh-pulse-dot bg-green-500';
-          statusText.textContent = 'Active';
-          statusText.className = 'text-[11px] font-semibold text-green-400';
-          avatarWrapper.style.borderColor = 'rgba(74,222,128,0.5)';
-          avatarWrapper.style.boxShadow = '0 0 25px rgba(74,222,128,0.25)';
-          lastSeenEl.textContent = 'Active now';
+        const statusWrapper = document.getElementById('upmStatusDotWrapper');
+        const statusTextContainer = document.getElementById('upmStatusTextContainer');
+
+        if (isGroup) {
+          if (statusWrapper) statusWrapper.classList.add('hidden');
+          if (statusTextContainer) statusTextContainer.classList.add('hidden');
+          avatarWrapper.style.borderColor = 'rgba(255,255,255,0.05)';
+          avatarWrapper.style.boxShadow = 'none';
         } else {
-          statusDot.className = 'w-2 h-2 rounded-full bg-purple-500/50';
-          statusText.textContent = 'Offline';
-          statusText.className = 'text-[11px] font-semibold text-divine-muted/70';
-          if (data.last_seen) {
-            lastSeenEl.textContent = 'Last seen ' + _relativeTime(data.last_seen);
+          if (statusWrapper) statusWrapper.classList.remove('hidden');
+          if (statusTextContainer) statusTextContainer.classList.remove('hidden');
+          if (data.is_online) {
+            statusDot.className = 'w-2 h-2 rounded-full sdh-pulse-dot bg-green-500';
+            statusText.textContent = 'Active';
+            statusText.className = 'text-[11px] font-bold uppercase tracking-widest text-green-400';
+            avatarWrapper.style.borderColor = 'rgba(74,222,128,0.5)';
+            avatarWrapper.style.boxShadow = '0 0 25px rgba(74,222,128,0.25)';
+            lastSeenEl.textContent = 'Active now';
           } else {
-            lastSeenEl.textContent = 'Offline';
+            statusDot.className = 'w-2 h-2 rounded-full bg-purple-500/50';
+            statusText.textContent = 'Offline';
+            statusText.className = 'text-[11px] font-bold uppercase tracking-widest text-divine-muted';
+            avatarWrapper.style.borderColor = 'rgba(168,85,247,0.3)';
+            avatarWrapper.style.boxShadow = '0 0 20px rgba(168,85,247,0.15)';
+            if (data.last_seen) {
+              lastSeenEl.textContent = 'Last seen ' + _relativeTime(data.last_seen);
+            } else {
+              lastSeenEl.textContent = 'Offline';
+            }
           }
         }
 
@@ -2116,7 +2234,505 @@
       }
     }
 
-    // â”€â”€ Aliases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Group Functions ────────────────────────────────────────────────────────
+
+    function toggleKebabMenu() {
+      const dropdown = document.getElementById('kebabDropdown');
+      if (dropdown) {
+        dropdown.classList.toggle('hidden');
+      }
+    }
+
+    function handleCallButtonClick(callType) {
+      if (activeUser && activeUser.startsWith('group_')) {
+        initiateGroupCall(callType);
+      } else {
+        SDH.WebRTC.startCall(callType);
+      }
+    }
+
+    let pendingGroupCallType = null;
+    async function initiateGroupCall(callType) {
+      if (!activeUser?.startsWith('group_') || !activeUserId) return;
+      pendingGroupCallType = callType;
+      
+      const modal = document.getElementById('groupCallModal');
+      const listEl = document.getElementById('groupCallMembersList');
+      if (!modal || !listEl) return;
+      
+      listEl.innerHTML = '<div class="text-center text-xs text-white/50 py-4">Loading members...</div>';
+      modal.classList.remove('hidden');
+      
+      try {
+        const res = await fetch(`/messaging/api/groups/${activeUserId}/`);
+        if (!res.ok) throw new Error('Failed to fetch details');
+        const data = await res.json();
+        
+        listEl.innerHTML = '';
+        const members = data.members || [];
+        const otherMembers = members.filter(m => String(m.user_id) !== String(window.SDH_DATA.currentUserId));
+        
+        if (otherMembers.length === 0) {
+          listEl.innerHTML = '<div class="text-center text-xs text-white/50 py-4">No other members in this group.</div>';
+          return;
+        }
+        
+        otherMembers.forEach(member => {
+          const div = document.createElement('div');
+          div.className = 'flex items-center justify-between bg-black/20 p-2.5 rounded-xl mb-2 hover:bg-white/5 transition-colors cursor-pointer';
+          div.onclick = () => {
+            modal.classList.add('hidden');
+            SDH.WebRTC.setRemoteUser(member.username);
+            SDH.WebRTC.startCall(pendingGroupCallType);
+          };
+          
+          let avatarHtml = `<div class="w-8 h-8 rounded-full bg-divine-surface flex items-center justify-center text-xs font-bold text-divine-gold shrink-0">${member.username.charAt(0).toUpperCase()}</div>`;
+          if (member.avatar_url) avatarHtml = `<img src="${member.avatar_url}" class="w-8 h-8 rounded-full object-cover shrink-0" onerror="this.parentElement.innerHTML = '${member.username.charAt(0).toUpperCase()}';">`;
+          
+          div.innerHTML = `
+            <div class="flex items-center gap-3 overflow-hidden">
+              ${avatarHtml}
+              <p class="text-xs font-medium text-white/90 truncate">${member.username}</p>
+            </div>
+            <button class="text-xs font-bold px-3 py-1.5 rounded-lg text-divine-deep bg-divine-gold hover:bg-yellow-400 hover:shadow-[0_0_10px_rgba(250,204,21,0.4)] transition-all">
+              Call
+            </button>
+          `;
+          listEl.appendChild(div);
+        });
+      } catch (err) {
+        listEl.innerHTML = `<div class="text-center text-xs text-red-400/80 py-4">${err.message}</div>`;
+      }
+    }
+
+    function openCreateGroupModal() {
+      const modal = document.getElementById('createGroupModal');
+      const list = document.getElementById('cgMembersList');
+      if (modal && list) {
+        list.innerHTML = '';
+        const userItems = document.querySelectorAll('.user-item');
+        let count = 0;
+        userItems.forEach(el => {
+           const uId = el.dataset.userid;
+           if (!uId || uId == window.SDH_DATA.currentUserId) return;
+           if (el.dataset.self === '1') return;
+           
+           const uName = el.querySelector('.sdh-user-name')?.textContent.trim() || 'Unknown';
+           const uImg = el.querySelector('img')?.src || '';
+           
+           const div = document.createElement('label');
+           div.className = 'sdh-cg-member-row flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all';
+           
+           let avatarHtml = `<div class="w-8 h-8 rounded-full bg-divine-surface flex items-center justify-center text-xs font-bold text-divine-gold shrink-0">${uName.charAt(0).toUpperCase()}</div>`;
+           if (uImg) {
+             avatarHtml = `<div class="w-8 h-8 rounded-full bg-divine-surface flex items-center justify-center text-xs font-bold text-divine-gold shrink-0"><img src="${uImg}" class="w-8 h-8 object-cover rounded-full shrink-0" alt="" onerror="this.parentElement.innerHTML = '${uName.charAt(0).toUpperCase()}';"></div>`;
+           }
+           
+           div.innerHTML = `
+             <div class="flex items-center gap-3">
+               ${avatarHtml}
+               <span class="text-sm font-medium text-white/90">${uName}</span>
+             </div>
+             <input type="checkbox" value="${uId}" class="cg-member-checkbox w-4 h-4 rounded border-divine-border text-divine-gold focus:ring-divine-gold bg-black/40 cursor-pointer">
+           `;
+           list.appendChild(div);
+           count++;
+        });
+        if (count === 0) {
+           list.innerHTML = '<p class="sdh-cg-empty-msg text-xs p-3 text-center">No other users available.</p>';
+        }
+        modal.classList.remove('hidden');
+      }
+    }
+
+    function closeCreateGroupModal() {
+      const modal = document.getElementById('createGroupModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        document.getElementById('cgName').value = '';
+        document.getElementById('cgDescription').value = '';
+      }
+    }
+
+    async function submitCreateGroup() {
+      const name = document.getElementById('cgName').value.trim();
+      const desc = document.getElementById('cgDescription').value.trim();
+      const checkboxes = document.querySelectorAll('.cg-member-checkbox:checked');
+      const memberIds = Array.from(checkboxes).map(c => parseInt(c.value, 10));
+      
+      if (!name) {
+        showToast('Group name is required.', 'error');
+        return;
+      }
+      
+      if (memberIds.length === 0) {
+        showToast('Please select at least one member to create a group.', 'error');
+        return;
+      }
+      
+      try {
+        const res = await fetch('/messaging/api/groups/create/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': window.SDH_DATA.csrfToken
+          },
+          body: JSON.stringify({ name: name, description: desc, member_ids: memberIds })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('Group created successfully!', 'success');
+        closeCreateGroupModal();
+        location.reload(); 
+      } catch (err) {
+        showToast('Failed to create group: ' + err.message, 'error');
+      }
+    }
+
+    async function selectGroup(groupId, groupName) {
+      if (activeUser === `group_${groupId}`) return;
+      activeUser = `group_${groupId}`; 
+      activeUserId = groupId;
+      sessionStorage.setItem('ndm_last_chat', activeUser);
+      sessionStorage.setItem('ndm_last_chat_id', String(groupId));
+      if (groupName) sessionStorage.setItem('ndm_last_chat_name', groupName);
+
+      renderedIds.clear();
+      dateSeparators.clear();
+
+      document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active-chat-item'));
+      document.getElementById(`group-item-${groupId}`)?.classList.add('active-chat-item');
+
+      const avatarEl = document.getElementById('chatAvatar');
+      if (avatarEl) avatarEl.textContent = (groupName && groupName[0] ? groupName[0] : 'G').toUpperCase(); // fallback
+      const usernameEl = document.getElementById('chatUsername');
+      if (usernameEl) usernameEl.textContent = groupName;
+
+      _setHeaderStatus('Connecting...', 'reconnecting');
+      document.getElementById('inputBar')?.classList.remove('hidden');
+      
+      document.getElementById('callButtons')?.classList.remove('hidden'); 
+      document.getElementById('voiceCallBtn')?.classList.remove('hidden');
+      document.getElementById('videoCallBtn')?.classList.remove('hidden');
+      document.getElementById('kebabUserOptions')?.classList.add('hidden');
+      document.getElementById('kebabGroupOptions')?.classList.remove('hidden');
+      const viewProf = document.getElementById('kebabViewProfileText');
+      if (viewProf) viewProf.textContent = 'Group Info';
+
+      const container = document.getElementById('messagesContainer');
+      if (container) container.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+          <div class="w-5 h-5 border-2 border-divine-gold border-t-transparent rounded-full animate-spin"></div>
+        </div>`;
+
+      try {
+        const infoRes = await fetch(`/messaging/api/groups/${groupId}/`);
+        if (infoRes.ok) {
+          const gInfo = await infoRes.json();
+          if (gInfo.avatar_url && avatarEl) {
+            avatarEl.innerHTML = `<img src="${gInfo.avatar_url}" class="w-full h-full object-cover rounded-full" alt="" onerror="this.parentElement.innerHTML = '${(gInfo.name && gInfo.name[0] ? gInfo.name[0] : 'G').toUpperCase()}';">`;
+          }
+          if (gInfo.name && usernameEl) {
+            usernameEl.textContent = gInfo.name;
+            sessionStorage.setItem('ndm_last_chat_name', gInfo.name);
+          }
+        }
+      } catch (e) {}
+
+      await loadGroupHistory(groupId, groupName);
+
+      _setHeaderStatus('Group Chat', 'connected');
+      closeSidebar();
+      if (window.Notif) Notif.requestPermission();
+      
+      if (SDH.WS) {
+        SDH.WS.connectWebSocket(groupId, true); // true for isGroup
+      }
+    }
+
+    async function showGroupProfile(groupId) {
+      const modal = document.getElementById('userProfileModal');
+      if (!modal) return;
+
+      const avatarText = document.getElementById('upmAvatarText');
+      const avatarImg = document.getElementById('upmAvatarImg');
+      const displayNameEl = document.getElementById('upmDisplayName');
+      const usernameEl = document.getElementById('upmUsername');
+      const statusDot = document.getElementById('upmStatusDot');
+      const statusText = document.getElementById('upmStatusText');
+      const bioEl = document.getElementById('upmBio');
+      const emailEl = document.getElementById('upmEmail');
+      const phoneEl = document.getElementById('upmPhone');
+      const joinedEl = document.getElementById('upmJoined');
+      const lastSeenEl = document.getElementById('upmLastSeen');
+
+      displayNameEl.textContent = 'Loading Group...';
+      usernameEl.textContent = 'Fetching details';
+      bioEl.textContent = '—';
+      emailEl.textContent = '—';
+      phoneEl.textContent = '—';
+      joinedEl.textContent = '—';
+      lastSeenEl.textContent = '—';
+      if(avatarText) { avatarText.textContent = 'G'; avatarText.classList.remove('hidden'); }
+      if(avatarImg) { avatarImg.classList.add('hidden'); avatarImg.src = ''; }
+      if(statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
+      if(statusText) { statusText.textContent = 'Group Chat'; statusText.className = 'text-[11px] font-semibold text-green-400'; }
+
+      modal.classList.remove('hidden');
+
+      try {
+        const res = await fetch(`/messaging/api/groups/${groupId}/`);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        
+        displayNameEl.textContent = data.name;
+        usernameEl.textContent = `Group • ${data.members ? data.members.length : 0} members`;
+        bioEl.textContent = data.description || 'No description provided.';
+        bioEl.classList.remove('text-divine-muted/50');
+        emailEl.textContent = `Creator: ${data.created_by || 'Unknown'}`;
+        joinedEl.textContent = data.created_at ? `Created ${new Date(data.created_at).toLocaleDateString()}` : '—';
+        
+        if (data.avatar_url && avatarImg && avatarText) {
+          avatarImg.src = data.avatar_url;
+          avatarImg.classList.remove('hidden');
+          avatarText.classList.add('hidden');
+        }
+        
+        const membersSection = document.getElementById('upmMembersSection');
+        const membersListEl = document.getElementById('upmMembersList');
+        if (membersSection && membersListEl && data.members) {
+          membersSection.classList.remove('hidden');
+          membersListEl.innerHTML = '';
+          const isAdminOrOwner = data.my_role === 'owner' || data.my_role === 'admin';
+          
+          data.members.forEach(member => {
+            const isMe = member.user_id === window.SDH_DATA.userId;
+            const canRemove = isAdminOrOwner && !isMe && member.role !== 'owner';
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between bg-black/20 p-2 rounded-lg';
+            div.innerHTML = `
+              <div class="flex items-center gap-2 overflow-hidden">
+                <div class="w-8 h-8 rounded-full bg-divine-surface flex items-center justify-center text-xs font-bold text-divine-gold shrink-0">
+                  ${member.avatar_url ? `<img src="${member.avatar_url}" class="w-full h-full object-cover rounded-full">` : member.username.charAt(0).toUpperCase()}
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs text-white/90 font-medium truncate">${member.username} ${isMe ? '(You)' : ''}</p>
+                  <p class="text-[10px] text-white/40 capitalize">${member.role}</p>
+                </div>
+              </div>
+              ${canRemove ? `<button onclick="SDH.Chat.removeGroupMember(${data.id}, ${member.user_id})" class="text-red-400 hover:text-red-300 text-xs px-2 py-1 bg-red-400/10 hover:bg-red-400/20 rounded-md transition-colors">Remove</button>` : ''}
+            `;
+            membersListEl.appendChild(div);
+          });
+        }
+
+        const disbandBtn = document.getElementById('disbandGroupBtn');
+        if (disbandBtn) {
+           if (data.my_role === 'owner') disbandBtn.classList.remove('hidden');
+           else disbandBtn.classList.add('hidden');
+        }
+      } catch (err) {
+        displayNameEl.textContent = 'Error Loading Group';
+        bioEl.textContent = 'Could not load group details.';
+        bioEl.classList.add('text-red-400/80');
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function removeGroupMember(groupId, userId) {
+      if (!confirm('Are you sure you want to remove this member?')) return;
+      try {
+        const res = await fetch(`/messaging/api/groups/${groupId}/members/remove/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': window.SDH_DATA.csrfToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ user_id: userId })
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(e=>{});
+          throw new Error(j?.error || 'Failed to remove member');
+        }
+        showToast('Member removed successfully', 'success');
+        showGroupProfile(groupId);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function leaveCurrentGroup() {
+      if (!activeUser?.startsWith('group_') || !activeUserId) return;
+      if (!confirm('Are you sure you want to leave this group?')) return;
+      try {
+        const res = await fetch(`/messaging/api/groups/${activeUserId}/members/leave/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': window.SDH_DATA.csrfToken,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!res.ok) throw new Error(await res.text());
+        showToast('You left the group.', 'success');
+        location.reload(); 
+      } catch (err) {
+        showToast('Could not leave group: ' + err.message, 'error');
+      }
+    }
+
+    async function disbandCurrentGroup() {
+      if (!activeUser?.startsWith('group_') || !activeUserId) return;
+      if (!confirm('Are you sure you want to DELETE this group for everyone? This cannot be undone.')) return;
+      try {
+        const res = await fetch(`/messaging/api/groups/${activeUserId}/`, {
+          method: 'DELETE',
+          headers: {
+            'X-CSRFToken': window.SDH_DATA.csrfToken,
+          }
+        });
+        if (!res.ok) throw new Error('Forbidden or failed');
+        showToast('Group has been deleted.', 'success');
+        location.reload();
+      } catch (err) {
+        showToast('Could not delete group: ' + err.message, 'error');
+      }
+    }
+
+    function toggleSidebarKebab(event, groupId) {
+      // Close all other sidebars
+      document.querySelectorAll('[id^="sidebarKebab-"]').forEach(el => {
+        if (el.id !== `sidebarKebab-${groupId}`) el.classList.add('hidden');
+      });
+      const dropdown = document.getElementById(`sidebarKebab-${groupId}`);
+      if (dropdown) dropdown.classList.toggle('hidden');
+    }
+
+    async function deleteGroupFromSidebar(groupId) {
+      if (!confirm('Are you sure you want to DELETE this group for everyone? This cannot be undone.')) return;
+      try {
+        const res = await fetch(`/messaging/api/groups/${groupId}/`, {
+          method: 'DELETE',
+          headers: {
+            'X-CSRFToken': window.SDH_DATA.csrfToken,
+          }
+        });
+        if (!res.ok) throw new Error('Forbidden or failed');
+        showToast('Group has been deleted.', 'success');
+        location.reload();
+      } catch (err) {
+        showToast('Could not delete group: ' + err.message, 'error');
+      }
+    }
+
+    async function loadGroupHistory(groupId, groupName) {
+      const container = document.getElementById('messagesContainer');
+      try {
+        const res = await fetch(`/messaging/api/groups/${groupId}/history/`);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+
+        if (container) container.innerHTML = '';
+
+        if (data.messages.length === 0) {
+          if (container) {
+            container.innerHTML = `
+              <div class="flex flex-col items-center justify-center h-full text-center text-divine-muted py-16">
+                <div class="text-5xl mb-4 opacity-20">💬</div>
+                <p class="text-sm font-medium">${groupName}</p>
+                <p class="text-xs mt-2 opacity-50">Say hello to the group</p>
+              </div>`;
+          }
+          return;
+        }
+
+        for (const msg of data.messages) {
+          const isFromMe = msg.sender_id === window.SDH_DATA.currentUserId;
+          const effectiveType = msg.is_system_message ? 'system' : msg.message_type;
+          
+          if (effectiveType === 'system') {
+            let sysMsg = msg.message;
+            if (sysMsg && window.SDH_DATA && window.SDH_DATA.currentUser) {
+                // E.g., "Raj_123 created this group" -> "You created this group"
+                const prefix = window.SDH_DATA.currentUser + " ";
+                const suffix = " by " + window.SDH_DATA.currentUser + ".";
+                if (sysMsg.startsWith(prefix)) {
+                    sysMsg = "You " + sysMsg.substring(prefix.length);
+                }
+                if (sysMsg.endsWith(suffix)) {
+                    sysMsg = sysMsg.substring(0, sysMsg.length - suffix.length) + " by You.";
+                }
+            }
+            appendSystemMessage(sysMsg);
+            continue;
+          }
+
+          const content = effectiveType === 'text' ? (msg.message || '') : null;
+          renderedIds.add(String(msg.id));
+          appendMessage({
+            sender: msg.sender,
+            isFromMe: isFromMe,
+            content: content,
+            messageType: effectiveType,
+            originalFilename: msg.original_filename,
+            mimeType: msg.mime_type,
+            timestamp: msg.timestamp,
+            messageId: msg.id,
+            hasServerFile: msg.has_file,
+            fileId: msg.file_id,
+            isDelivered: true,
+            isRead: true
+          });
+        }
+        scrollToBottom();
+      } catch (err) {
+        showToast('Failed to load group history.', 'error');
+      }
+    }
+
+    async function showGroupMessageDetails(messageId) {
+      const modal = document.getElementById('messageDetailsModal');
+      const listEl = document.getElementById('mdReadersList');
+      if (!modal || !listEl) return;
+      
+      listEl.innerHTML = '<div class="text-center text-xs text-white/50 py-4">Loading...</div>';
+      modal.classList.remove('hidden');
+      
+      try {
+        const res = await fetch(`/messaging/api/groups/messages/${messageId}/reads/`);
+        if (!res.ok) throw new Error('Failed to fetch details');
+        const data = await res.json();
+        
+        listEl.innerHTML = '';
+        if (!data.readers || data.readers.length === 0) {
+          listEl.innerHTML = '<div class="text-center text-xs text-white/50 py-4">Not read by anyone yet.</div>';
+          return;
+        }
+        
+        data.readers.forEach(reader => {
+          const div = document.createElement('div');
+          div.className = 'flex items-center gap-3 bg-black/20 p-2 rounded-lg mb-2';
+          
+          let avatarHtml = `<div class="w-8 h-8 rounded-full bg-divine-surface flex items-center justify-center text-xs font-bold text-divine-gold shrink-0">${reader.username.charAt(0).toUpperCase()}</div>`;
+          if (reader.avatar_url) avatarHtml = `<img src="${reader.avatar_url}" class="w-8 h-8 rounded-full object-cover shrink-0">`;
+          
+          const timeStr = new Date(reader.read_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          div.innerHTML = `
+            ${avatarHtml}
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium text-white/90 truncate">${reader.username}</p>
+              <p class="text-[10px] text-blue-400 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                Read at ${timeStr}
+              </p>
+            </div>
+          `;
+          listEl.appendChild(div);
+        });
+      } catch (err) {
+        listEl.innerHTML = `<div class="text-center text-xs text-red-400/80 py-4">${err.message}</div>`;
+      }
+    }
+
+    // ── Aliases ─────────────────────────────────────────────────────────
 
 
     // â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2170,6 +2786,21 @@
       // Profiles
       showUserProfile,
       showActiveUserProfile,
+      openCreateGroupModal,
+      closeCreateGroupModal,
+      submitCreateGroup,
+      selectGroup,
+      showGroupProfile,
+      leaveCurrentGroup,
+      disbandCurrentGroup,
+      removeGroupMember,
+      toggleSidebarKebab,
+      deleteGroupFromSidebar,
+      loadGroupHistory,
+      showGroupMessageDetails,
+      toggleKebabMenu,
+      handleCallButtonClick,
+      initiateGroupCall,
       openRetentionModal,
       closeRetentionModal,
       saveRetentionSetting,
