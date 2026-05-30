@@ -2193,7 +2193,7 @@
     function showActiveUserProfile() {
       if (!activeUser || !activeUserId) return;
       if (_isSelfChat(activeUser)) {
-        window.location.href = '/users/profile/';
+        window.location.href = '/profile/';
         return;
       }
       showUserProfile(activeUser, activeUserId);
