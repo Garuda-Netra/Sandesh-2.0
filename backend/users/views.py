@@ -6,16 +6,14 @@ Friend requests, blocking, unblocking.
 """
 
 import json
-import requests
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, alogin, alogout
+from django.contrib.auth import login, logout, alogout
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST, require_GET
 from django.http import JsonResponse
 from django.contrib import messages
-from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
 from django.db.models import Q

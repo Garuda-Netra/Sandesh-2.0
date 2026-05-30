@@ -12,6 +12,8 @@
    *   - Browser push notifications (Notification API)
    *   - Sidebar behaviour (mobile)
    */
+  /* eslint-env browser */
+  /* global SDH, window, document, console, fetch, sessionStorage, setTimeout, clearTimeout, FileReader, confirm, location, WebSocket, FormData, Notification, URL, Blob, Image */
 
   'use strict';
 

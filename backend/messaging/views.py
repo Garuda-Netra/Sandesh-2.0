@@ -411,7 +411,7 @@ def save_message(request):
                 }
                 
             async_to_sync(get_channel_layer().group_send)(room_group, payload)
-        except Exception as e:
+        except Exception:
             pass # Ignore channel layer errors in REST fallback
 
         return JsonResponse({
@@ -989,7 +989,7 @@ def upload_moment(request):
     if spotify_track_info:
         try:
             spotify_track_info = json.loads(spotify_track_info)
-        except:
+        except Exception:
             spotify_track_info = None
     else:
         spotify_track_info = None
@@ -1052,7 +1052,7 @@ def upload_moment(request):
                 'moment': moment_data
             }
         )
-    except Exception as e:
+    except Exception:
         pass # log error in production
 
     return JsonResponse({'status': 'ok', 'moment': moment_data}, status=201)
@@ -1130,7 +1130,7 @@ def view_moment(request, moment_id):
                         }
                     }
                 )
-            except Exception as e:
+            except Exception:
                 pass
         
     return JsonResponse({'status': 'ok'})
@@ -1186,7 +1186,7 @@ def react_moment(request, moment_id):
                 'reaction': reaction_data
             }
         )
-    except Exception as e:
+    except Exception:
         pass
         
     return JsonResponse({'status': 'ok', 'reaction': reaction_data})
