@@ -1534,6 +1534,8 @@
       document.getElementById('inputBar')?.classList.remove('hidden');
       document.getElementById('kebabGroupOptions')?.classList.add('hidden');
       document.getElementById('kebabUserOptions')?.classList.remove('hidden');
+      const viewProf = document.getElementById('kebabViewProfileText');
+      if (viewProf) viewProf.textContent = 'View Profile';
       if (_isSelfChat(username)) {
         document.getElementById('callButtons')?.classList.add('hidden');
       } else {

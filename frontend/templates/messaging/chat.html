@@ -467,6 +467,15 @@
 
               <!-- USER OPTIONS -->
               <div id="kebabUserOptions">
+                <!-- Disappearing Messages -->
+                <button onclick="SDH.Chat.openRetentionModal(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
+                  <svg class="w-4 h-4 text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Disappearing Messages</span>
+                </button>
+
                 <!-- Clear All Chat -->
                 <button onclick="SDH.Chat._confirmClearChat(); SDH.Chat.toggleKebabMenu();"
                   class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
@@ -515,6 +524,15 @@
 
               <!-- GROUP OPTIONS -->
               <div id="kebabGroupOptions" class="hidden">
+                <!-- Disappearing Messages -->
+                <button onclick="SDH.Chat.openRetentionModal(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
+                  <svg class="w-4 h-4 text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Disappearing Messages</span>
+                </button>
+
                 <!-- Leave Group -->
                 <button onclick="SDH.Chat.leaveCurrentGroup(); SDH.Chat.toggleKebabMenu();"
                   class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-yellow-400 hover:bg-yellow-500/10 transition-colors">
