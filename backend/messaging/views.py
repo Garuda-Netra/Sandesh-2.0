@@ -17,6 +17,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 from django.views.decorators.csrf import csrf_protect
 from django.db.models import Q
 from django.conf import settings
+from django.utils import timezone
 
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -899,7 +900,6 @@ def call_view(request, username=None):
 # ---------------------------------------------------------------------------
 # Moments (Temporary Updates) API
 # ---------------------------------------------------------------------------
-from django.utils import timezone
 
 @login_required
 @require_GET
@@ -1144,7 +1144,6 @@ def react_moment(request, moment_id):
     Save a user reaction to a moment and broadcast it.
     """
     from .models import Moment
-    from django.utils import timezone
     moment = get_object_or_404(Moment, id=moment_id)
     
     emoji = request.POST.get('emoji', '').strip()
@@ -1195,6 +1194,7 @@ def react_moment(request, moment_id):
 # Chat Settings API
 # ---------------------------------------------------------------------------
 @login_required
+@require_http_methods(['GET', 'POST'])
 def chat_setting_api(request, username):
     other_user = get_object_or_404(User, username=username)
     lo_user, hi_user = sorted([request.user, other_user], key=lambda u: u.id)
@@ -1554,7 +1554,6 @@ def group_change_role(request, group_id):
         if my_membership.role != GroupMembership.ROLE_OWNER:
             return JsonResponse({'error': 'Only the owner can manage admin roles.'}, status=403)
 
-    old_role = target_membership.role
     target_membership.role = new_role
     target_membership.save()
 

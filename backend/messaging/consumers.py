@@ -292,13 +292,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         read_ids = await self.mark_messages_read_get_ids()
         for msg_id in read_ids:
             await self.channel_layer.group_send(
-            self.room_group,
-            {
-                'type': 'broadcast_message_status',
-                'message_id': msg_id,
-                'status': 'read',
-            }
-        )
+                self.room_group,
+                {
+                    'type': 'broadcast_message_status',
+                    'message_id': msg_id,
+                    'status': 'read',
+                }
+            )
 
     async def handle_retention_update(self, data: dict):
         """Broadcasts retention setting changes to the room."""
