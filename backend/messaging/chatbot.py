@@ -17,6 +17,8 @@ from typing import Iterable
 from django.conf import settings
 
 
+import google.generativeai as genai
+
 _DEFAULT_SYSTEM_PROMPT = (
     "You are Vyasa, a helpful, general-purpose assistant. You must answer every question the user asks. "
     "Give short and very simple answers by default so they are easy to understand."
@@ -31,7 +33,7 @@ def generate_chatbot_reply(message: str, history: Iterable[dict] | None = None, 
 
     normalized_history = _normalize_history(history or [])
 
-    reply = _openai_reply(cleaned, normalized_history, user)
+    reply = _gemini_reply(cleaned, normalized_history, user)
     if reply:
         return reply
 
@@ -49,57 +51,50 @@ def _normalize_history(history: Iterable[dict]) -> list[dict]:
             continue
         if not content:
             continue
-        sanitized.append({"role": role, "content": content[:800]})
+        
+        # Gemini expects 'model' instead of 'assistant' for the model's responses
+        if role == "assistant":
+            role = "model"
+            
+        sanitized.append({"role": role, "parts": [content[:800]]})
 
     return sanitized[-8:]
 
 
-def _openai_reply(message: str, history: list[dict], user=None) -> str | None:
-    api_key = getattr(settings, "CHATBOT_OPENAI_API_KEY", "")
-    model = getattr(settings, "CHATBOT_MODEL", "gpt-4o-mini")
-    base_url = getattr(settings, "CHATBOT_OPENAI_BASE_URL", "https://api.openai.com/v1")
+def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
+    api_key = getattr(settings, "GEMINI_API_KEY", "")
+    if not api_key:
+        return None
+        
+    model_name = getattr(settings, "CHATBOT_MODEL", "gemini-1.5-flash")
     temperature = float(getattr(settings, "CHATBOT_TEMPERATURE", 0.7))
     max_tokens = int(getattr(settings, "CHATBOT_MAX_TOKENS", 500))
     system_prompt = (getattr(settings, "CHATBOT_SYSTEM_PROMPT", "") or "").strip()
     if not system_prompt:
         system_prompt = _DEFAULT_SYSTEM_PROMPT
 
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.extend(history)
-    messages.append({"role": "user", "content": message})
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-    user_id = str(getattr(user, "id", "") or "").strip()
-    if user_id:
-        payload["user"] = user_id
-
-    url = base_url.rstrip("/") + "/chat/completions"
-    data = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=data,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-    )
-
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            raw = response.read().decode("utf-8")
-        payload = json.loads(raw)
-        choices = payload.get("choices") or []
-        if not choices:
-            return None
-        content = choices[0].get("message", {}).get("content", "").strip()
-        return content or None
-    except urllib.error.HTTPError:
-        return None
-    except Exception:
+        genai.configure(api_key=api_key)
+        
+        # Configure model with system instruction and generation config
+        generation_config = genai.types.GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        )
+        
+        model = genai.GenerativeModel(
+            model_name=model_name,
+            system_instruction=system_prompt,
+            generation_config=generation_config
+        )
+        
+        # Start a chat session with the previous history
+        chat = model.start_chat(history=history)
+        
+        # Send the new message
+        response = chat.send_message(message)
+        
+        return response.text.strip() or None
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
         return None
