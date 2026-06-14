@@ -2676,7 +2676,7 @@
           div.innerHTML = `
             <div class="flex items-center gap-3 overflow-hidden">
               ${avatarHtml}
-              <p class="text-xs font-medium text-white/90 truncate">${member.username}</p>
+              <p class="text-xs font-medium text-divine-text truncate">${member.username}</p>
             </div>
             <button class="text-xs font-bold px-3 py-1.5 rounded-lg text-divine-deep bg-divine-gold hover:bg-yellow-400 hover:shadow-[0_0_10px_rgba(250,204,21,0.4)] transition-all">
               Call
@@ -2715,9 +2715,9 @@
            div.innerHTML = `
              <div class="flex items-center gap-3">
                ${avatarHtml}
-               <span class="text-sm font-medium text-white/90">${uName}</span>
+               <span class="text-sm font-medium text-divine-text">${uName}</span>
              </div>
-             <input type="checkbox" value="${uId}" class="cg-member-checkbox w-4 h-4 rounded border-divine-border text-divine-gold focus:ring-divine-gold bg-black/40 cursor-pointer">
+             <input type="checkbox" value="${uId}" class="cg-member-checkbox w-4 h-4 rounded border-divine-border text-divine-gold focus:ring-divine-gold bg-divine-surface cursor-pointer">
            `;
            list.appendChild(div);
            count++;
@@ -2766,9 +2766,9 @@
            div.innerHTML = `
              <div class="flex items-center gap-3">
                ${avatarHtml}
-               <span class="text-sm font-medium text-white/90">${uName}</span>
+               <span class="text-sm font-medium text-divine-text">${uName}</span>
              </div>
-             <input type="checkbox" value="${uId}" class="im-member-checkbox w-4 h-4 rounded border-divine-border text-divine-gold focus:ring-divine-gold bg-black/40 cursor-pointer">
+             <input type="checkbox" value="${uId}" class="im-member-checkbox w-4 h-4 rounded border-divine-border text-divine-gold focus:ring-divine-gold bg-divine-surface cursor-pointer">
            `;
            list.appendChild(div);
            count++;
@@ -3259,7 +3259,7 @@
           div.innerHTML = `
             ${avatarHtml}
             <div class="flex-1 min-w-0">
-              <p class="text-xs font-medium text-white/90 truncate">${reader.username}</p>
+              <p class="text-xs font-medium text-divine-text truncate">${reader.username}</p>
               <p class="text-[10px] text-blue-400 flex items-center gap-1">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                 Read at ${timeStr}
