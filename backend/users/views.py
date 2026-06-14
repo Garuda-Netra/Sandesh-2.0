@@ -937,3 +937,81 @@ def user_profile_api(request, username):
         'date_joined': target_user.date_joined.strftime('%B %Y') if target_user.date_joined else None,
     })
 
+# ---------------------------------------------------------------------------
+# Session Management APIs
+# ---------------------------------------------------------------------------
+from django.contrib.sessions.models import Session
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from django.views.decorators.http import require_http_methods
+from .models import UserSession
+
+@login_required
+@require_http_methods(['GET'])
+def session_list_api(request):
+    """Returns all active sessions for the current user."""
+    sessions = UserSession.objects.filter(user=request.user).order_by('-last_activity')
+    data = []
+    current_session_key = request.session.session_key
+    
+    for s in sessions:
+        if not Session.objects.filter(session_key=s.session_key).exists():
+            s.delete()
+            continue
+
+        data.append({
+            'session_key': s.session_key,
+            'device_name': s.device_name,
+            'os': s.os,
+            'browser': s.browser,
+            'ip_address': s.ip_address,
+            'location': s.location,
+            'last_activity': s.last_activity.isoformat() if s.last_activity else None,
+            'is_current': s.session_key == current_session_key
+        })
+
+    return JsonResponse({'sessions': data})
+
+@login_required
+@require_http_methods(['POST'])
+def terminate_session_api(request, session_key):
+    """Terminates a specific session."""
+    if session_key == request.session.session_key:
+        return JsonResponse({'error': 'Cannot terminate current session via this endpoint'}, status=400)
+
+    try:
+        user_session = UserSession.objects.get(session_key=session_key, user=request.user)
+        Session.objects.filter(session_key=session_key).delete()
+        user_session.delete()
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"session_{session_key}",
+            {
+                "type": "force_logout"
+            }
+        )
+        return JsonResponse({'success': True})
+    except UserSession.DoesNotExist:
+        return JsonResponse({'error': 'Session not found'}, status=404)
+
+@login_required
+@require_http_methods(['POST'])
+def terminate_other_sessions_api(request):
+    """Terminates all sessions except the current one."""
+    current_session_key = request.session.session_key
+    other_sessions = UserSession.objects.filter(user=request.user).exclude(session_key=current_session_key)
+    
+    channel_layer = get_channel_layer()
+    for s in other_sessions:
+        Session.objects.filter(session_key=s.session_key).delete()
+        async_to_sync(channel_layer.group_send)(
+            f"session_{s.session_key}",
+            {
+                "type": "force_logout"
+            }
+        )
+        s.delete()
+
+    return JsonResponse({'success': True})
+

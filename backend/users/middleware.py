@@ -36,3 +36,26 @@ class SessionSecurityMiddleware(MiddlewareMixin):
             logout(request)
             
         return None
+
+from django.utils import timezone
+from .models import UserSession
+
+class UserSessionTrackingMiddleware(MiddlewareMixin):
+    """
+    Middleware to track last activity of UserSessions.
+    Only updates the database every 5 minutes to minimize write overhead.
+    """
+    def process_request(self, request):
+        if hasattr(request, 'user') and request.user.is_authenticated and request.session.session_key:
+            session_key = request.session.session_key
+            try:
+                user_session = UserSession.objects.filter(session_key=session_key).first()
+                if user_session:
+                    now = timezone.now()
+                    # Update only if more than 5 minutes have passed
+                    if (now - user_session.last_activity).total_seconds() > 300:
+                        user_session.last_activity = now
+                        user_session.save(update_fields=['last_activity'])
+            except Exception:
+                pass
+        return None

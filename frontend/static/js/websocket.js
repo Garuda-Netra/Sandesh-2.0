@@ -111,6 +111,13 @@ SDH.WS = (() => {
       console.error('[SDH.WS] Failed to parse frame:', err, event.data);
       return;
     }
+    
+    if (data.type === 'force_logout') {
+      console.warn('[SDH.WS] Force logout received. Redirecting to logout.');
+      window.location.href = '/logout/';
+      return;
+    }
+
     SDH.Chat?._onWsMessage?.(data);
   }
 

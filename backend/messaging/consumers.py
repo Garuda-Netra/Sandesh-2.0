@@ -74,6 +74,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.personal_group = f"user_chat_{self.me.id}"
         await self.channel_layer.group_add(self.personal_group, self.channel_name)
 
+        # Join session-specific group for force logout
+        self.session_key = self.scope.get('session', {}).session_key
+        if self.session_key:
+            self.session_group = f"session_{self.session_key}"
+            await self.channel_layer.group_add(self.session_group, self.channel_name)
+
         # Mark user active only when their first chat socket connects.
         # Switching chats closes/reopens sockets; we avoid flapping presence.
         became_online = await self._incr_active_connections()
@@ -124,6 +130,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if hasattr(self, 'personal_group'):
             await self.channel_layer.group_discard(self.personal_group, self.channel_name)
+
+        if hasattr(self, 'session_group'):
+            await self.channel_layer.group_discard(self.session_group, self.channel_name)
 
         if hasattr(self, 'me'):
             # Mark offline only when the last chat socket disconnects.
@@ -180,6 +189,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.handle_retention_update(data)
         else:
             await self.send_error(f'Unknown message type: {msg_type}')
+
+    async def force_logout(self, event):
+        """Relay force logout signal to frontend."""
+        await self.send(text_data=json.dumps({
+            'type': 'force_logout'
+        }))
+        await self.close(code=4003)
 
     async def broadcast_presence(self, event: dict):
         if event.get('user_id') == getattr(self, 'me', None).id:

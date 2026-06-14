@@ -202,3 +202,27 @@ class Friendship(models.Model):
             cls.objects.filter(user2=profile).values_list('user1_id', flat=True)
         )
         return ids
+
+# ---------------------------------------------------------------------------
+# User Session (for "Devices & Active Sessions")
+# ---------------------------------------------------------------------------
+class UserSession(models.Model):
+    """
+    Tracks active devices and sessions for a user.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='active_sessions')
+    session_key = models.CharField(max_length=40, unique=True)
+    device_name = models.CharField(max_length=255, blank=True, null=True)  # e.g., Windows, macOS, iPhone
+    os = models.CharField(max_length=255, blank=True, null=True)  # e.g., Windows 10
+    browser = models.CharField(max_length=255, blank=True, null=True)  # e.g., Chrome 114
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Session'
+        verbose_name_plural = 'User Sessions'
+
+    def __str__(self):
+        return f'{self.user.username} - {self.device_name} ({self.ip_address})'

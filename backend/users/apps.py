@@ -39,6 +39,8 @@ class UsersConfig(AppConfig):
         from django.db.models.signals import post_migrate
         post_migrate.connect(self._reset_online_flags, sender=self)
 
+        import users.signals  # Import signals for UserSession Tracking
+
     @staticmethod
     def _reset_online_flags(sender, **kwargs):
         """Reset all stale is_online flags to False when migrations are run."""

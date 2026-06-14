@@ -35,7 +35,23 @@
     </div>
 
     <!-- Profile form -->
-    <form method="post" enctype="multipart/form-data">
+    <style>
+      /* Style the default Django file input to match the theme */
+      input[type="file"] {
+        @apply block w-full text-sm text-divine-text border border-divine-border rounded-lg cursor-pointer bg-divine-darker focus:outline-none;
+      }
+      input[type="file"]::file-selector-button {
+        @apply px-4 py-2 mr-3 font-semibold text-divine-text bg-divine-card border-none cursor-pointer transition-colors hover:bg-divine-gold/10 hover:text-divine-gold;
+      }
+      /* Light mode overrides for file input */
+      :root[data-theme="light"] input[type="file"]::file-selector-button {
+        @apply bg-gray-200 text-gray-800 hover:bg-divine-gold/20 hover:text-divine-gold;
+      }
+      :root[data-theme="light"] input[type="file"] {
+        @apply bg-gray-50 border-gray-300 text-gray-700;
+      }
+    </style>
+    <form method="post" enctype="multipart/form-data" id="profileForm">
       {% csrf_token %}
 
       <div class="mb-5">
@@ -50,7 +66,7 @@
         </div>
         {% if profile.avatar and profile.avatar.name %}
         <div class="mt-2">
-          <button type="button" onclick="removeAvatar()" class="sdh-liquid-btn btn-danger !py-1.5 !px-4 text-xs shadow-none">
+          <button type="button" onclick="removeAvatar()" class="sdh-liquid-btn btn-danger !py-1.5 !px-4 text-xs shadow-none transition-all hover:-translate-y-0.5">
             <span>🗑️ Remove Profile Picture</span>
           </button>
         </div>
@@ -65,6 +81,32 @@
 
   </div>
 
+  <!-- ── Devices & Active Sessions ────────────────────────────────────── -->
+  <div class="mt-8 bg-divine-card border border-divine-border rounded-2xl p-8">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+      <div>
+        <h2 class="text-lg font-semibold text-divine-text mb-1">Devices & Active Sessions</h2>
+        <p class="text-divine-muted text-sm">
+          Manage the devices where you are currently logged in.
+        </p>
+      </div>
+      <button id="terminateOtherSessionsBtn" class="sdh-liquid-btn btn-secondary text-xs !py-1.5 !px-3 shrink-0" style="display: none;">
+        <span>🔒 Terminate All Other Sessions</span>
+      </button>
+    </div>
+    
+    <div id="sessionsListContainer" class="flex flex-col gap-3">
+      <!-- Loading skeleton or sessions will be inserted here -->
+      <div class="animate-pulse flex space-x-4">
+        <div class="rounded-full bg-white/5 h-10 w-10"></div>
+        <div class="flex-1 space-y-3 py-1">
+          <div class="h-2 bg-white/5 rounded w-1/4"></div>
+          <div class="h-2 bg-white/5 rounded w-1/2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Help & Support ──────────────────────────────────────────────── -->
   <div class="mt-8 bg-divine-card border border-divine-border rounded-2xl p-8">
     <h2 class="text-lg font-semibold text-divine-text mb-1">Help & Support</h2>
@@ -72,7 +114,7 @@
       Found an issue or have a suggestion? Let us know so we can improve Sandesh.
     </p>
     <button onclick="openBugReportModal()"
-            class="sdh-liquid-btn btn-secondary !border-divine-gold/30 hover:!border-divine-gold">
+            class="sdh-liquid-btn btn-secondary !border-divine-gold/30 hover:!border-divine-gold hover:shadow-[0_0_15px_rgba(255,215,0,0.25)] hover:-translate-y-0.5 transition-all">
       <span>🐛 Report a Bug</span>
     </button>
   </div>
@@ -223,5 +265,120 @@ async function removeAvatar() {
     alert('Error removing avatar.');
   }
 }
+
+// ── Sessions Management ────────────────────────────────────────────────
+async function loadSessions() {
+  try {
+    const resp = await fetch('{% url "users:session_list" %}');
+    const data = await resp.json();
+    const container = document.getElementById('sessionsListContainer');
+    const terminateOtherBtn = document.getElementById('terminateOtherSessionsBtn');
+
+    if (data.sessions && data.sessions.length > 0) {
+      container.innerHTML = '';
+      let otherSessionsCount = 0;
+
+      data.sessions.forEach(s => {
+        if (!s.is_current) otherSessionsCount++;
+        
+        let iconSvg = '';
+        if (s.device_name && s.device_name.toLowerCase().includes('mobile')) {
+          iconSvg = '<svg class="w-6 h-6 text-divine-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>';
+        } else {
+          iconSvg = '<svg class="w-6 h-6 text-divine-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>';
+        }
+
+        const dateStr = s.last_activity ? new Date(s.last_activity).toLocaleString() : 'Unknown';
+        
+        const card = document.createElement('div');
+        card.className = 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-divine-darker rounded-xl p-4 border border-divine-border transition hover:border-divine-gold/30';
+        
+        card.innerHTML = `
+          <div class="flex items-start sm:items-center gap-4 min-w-0">
+            <div class="p-2 bg-divine-card rounded-lg border border-divine-border shadow-inner shrink-0">
+              ${iconSvg}
+            </div>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-medium text-divine-text truncate">${s.os || 'Unknown OS'} &middot; ${s.browser || 'Unknown Browser'}</span>
+                ${s.is_current ? '<span class="px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 text-[10px] font-bold uppercase tracking-wider shrink-0">Active Now</span>' : ''}
+              </div>
+              <div class="text-xs text-divine-muted mt-1 space-y-0.5">
+                <p class="truncate">📍 ${s.location || 'Location Unknown'} &middot; ${s.ip_address || 'Unknown IP'}</p>
+                <p class="truncate">🕒 Last active: ${s.is_current ? 'Just now' : dateStr}</p>
+              </div>
+            </div>
+          </div>
+          <div class="flex sm:shrink-0 ml-12 sm:ml-0 mt-2 sm:mt-0">
+          ${!s.is_current ? `
+            <button onclick="terminateSession('${s.session_key}')" class="text-xs font-semibold px-4 py-2 rounded-lg text-red-500 bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:!text-white hover:border-red-500 shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:-translate-y-0.5 transition-all w-full sm:w-auto cursor-pointer text-center">
+              Terminate
+            </button>
+          ` : `
+            <a href="{% url 'users:logout' %}" class="text-xs font-semibold px-4 py-2 rounded-lg text-red-500 bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:!text-white hover:border-red-500 shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:-translate-y-0.5 transition-all w-full sm:w-auto text-center cursor-pointer block">
+              End Session
+            </a>
+          `}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      if (otherSessionsCount > 0) {
+        terminateOtherBtn.style.display = 'block';
+      } else {
+        terminateOtherBtn.style.display = 'none';
+      }
+    } else {
+      container.innerHTML = '<p class="text-sm text-divine-muted">No active sessions found.</p>';
+    }
+  } catch (err) {
+    console.error('Failed to load sessions', err);
+  }
+}
+
+async function terminateSession(sessionKey) {
+  if (!confirm('Are you sure you want to terminate this session?')) return;
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  try {
+    const resp = await fetch(`/api/sessions/${sessionKey}/terminate/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrfToken,
+      }
+    });
+    if (resp.ok) {
+      loadSessions();
+    } else {
+      alert('Failed to terminate session.');
+    }
+  } catch (err) {
+    console.error('Termination error', err);
+  }
+}
+
+document.getElementById('terminateOtherSessionsBtn')?.addEventListener('click', async () => {
+  if (!confirm('Are you sure you want to log out of all other devices?')) return;
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  try {
+    const resp = await fetch(`/api/sessions/terminate-others/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrfToken,
+      }
+    });
+    if (resp.ok) {
+      loadSessions();
+    } else {
+      alert('Failed to terminate other sessions.');
+    }
+  } catch (err) {
+    console.error('Termination error', err);
+  }
+});
+
+// Load sessions on page load
+document.addEventListener('DOMContentLoaded', loadSessions);
+
 </script>
 {% endblock %}

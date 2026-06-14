@@ -37,4 +37,9 @@ urlpatterns = [
     path('api/send-friend-request/', views.send_friend_request_view, name='send_friend_request'),
     path('api/respond-friend-request/', views.respond_friend_request_view, name='respond_friend_request'),
     path('api/friend-requests/', views.friend_requests_view, name='friend_requests'),
+
+    # Session management APIs
+    path('api/sessions/', views.session_list_api, name='session_list'),
+    path('api/sessions/<str:session_key>/terminate/', views.terminate_session_api, name='terminate_session'),
+    path('api/sessions/terminate-others/', views.terminate_other_sessions_api, name='terminate_other_sessions'),
 ]
