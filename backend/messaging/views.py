@@ -577,12 +577,12 @@ def get_chatbot_friends(request):
 
 @login_required
 @csrf_protect
-@require_http_methods(['GET', 'POST'])
+@require_http_methods(['GET', 'POST', 'PUT', 'DELETE'])
 def manage_auto_wish_events(request):
     from .models import AutoWishEvent
     if request.method == 'GET':
         events = AutoWishEvent.objects.filter(user=request.user).values(
-            'id', 'event_type', 'event_date', 'language_preference', 'created_at'
+            'id', 'event_type', 'custom_event_name', 'event_date', 'language_preference', 'scheduled_message', 'is_approved', 'target_user__username', 'created_at'
         )
         return JsonResponse({'status': 'ok', 'events': list(events)})
     
@@ -594,9 +594,13 @@ def manage_auto_wish_events(request):
             event_date = data.get('event_date')
             language_preference = data.get('language_preference')
             target_username = data.get('target_username')
+            custom_event_name = data.get('custom_event_name', '')
 
             if not all([event_type, event_date, language_preference, target_username]):
                 return JsonResponse({'error': 'Missing required fields.'}, status=400)
+
+            if event_type == 'custom' and not custom_event_name:
+                return JsonResponse({'error': 'Custom event name is required.'}, status=400)
 
             from django.contrib.auth.models import User
             try:
@@ -608,14 +612,72 @@ def manage_auto_wish_events(request):
             if target.profile.id not in Friendship.get_friend_profile_ids(request.user.profile):
                 return JsonResponse({'error': 'You can only schedule wishes for your friends.'}, status=403)
 
+            sender_name = request.user.first_name if request.user.first_name else request.user.username
+            evt_name = custom_event_name if custom_event_name else 'special day'
+            
+            from messaging.chatbot import _gemini_reply
+            prompt = f"Write a warm, personal, and friendly 1-paragraph {evt_name} wish from {sender_name} to {target.first_name or target.username}. Write at least 3-4 sentences in a single paragraph."
+            if language_preference == AutoWishEvent.LANGUAGE_HINGLISH:
+                prompt += " Write it COMPLETELY in Hinglish (Hindi written in English alphabet). Do NOT use pure English. Write a proper paragraph."
+
+            try:
+                generated_text = _gemini_reply(prompt, [], request.user)
+                if not generated_text or "⚠️" in generated_text:
+                    # Fallback
+                    if language_preference == AutoWishEvent.LANGUAGE_HINGLISH:
+                        generated_text = f"🎉 Mubarak ho aapka {evt_name}! From {sender_name} 💫"
+                    else:
+                        generated_text = f"🎉 Wishing you all the best on your {evt_name}! From {sender_name} ✨"
+            except Exception:
+                generated_text = f"🎉 Wishing you all the best on your {evt_name}! From {sender_name} ✨"
+
+            text = generated_text
+
             event = AutoWishEvent.objects.create(
                 user=request.user,
                 target_user=target,
                 event_type=event_type,
+                custom_event_name=custom_event_name,
                 event_date=event_date,
-                language_preference=language_preference
+                language_preference=language_preference,
+                scheduled_message=text,
+                is_approved=False
             )
-            return JsonResponse({'status': 'ok', 'event_id': event.id}, status=201)
+            return JsonResponse({'status': 'ok', 'event_id': event.id, 'scheduled_message': text})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+            
+    elif request.method == 'PUT':
+        import json
+        try:
+            data = json.loads(request.body)
+            event_id = data.get('event_id')
+            approved_message = data.get('approved_message')
+            if not event_id or not approved_message:
+                return JsonResponse({'error': 'Missing required fields.'}, status=400)
+            
+            event = AutoWishEvent.objects.get(id=event_id, user=request.user)
+            event.scheduled_message = approved_message
+            event.is_approved = True
+            event.save()
+            return JsonResponse({'status': 'ok', 'message': 'Auto-wish approved and scheduled.'})
+        except AutoWishEvent.DoesNotExist:
+            return JsonResponse({'error': 'Event not found.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    elif request.method == 'DELETE':
+        import json
+        try:
+            data = json.loads(request.body)
+            event_id = data.get('event_id')
+            if not event_id:
+                return JsonResponse({'error': 'Event ID required.'}, status=400)
+            event = AutoWishEvent.objects.get(id=event_id, user=request.user)
+            event.delete()
+            return JsonResponse({'status': 'ok', 'message': 'Auto-wish deleted successfully.'})
+        except AutoWishEvent.DoesNotExist:
+            return JsonResponse({'error': 'Event not found.'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
 

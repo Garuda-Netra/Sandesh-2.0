@@ -17,31 +17,16 @@ class Command(BaseCommand):
         # Find events where month and day match today
         events = AutoWishEvent.objects.filter(
             event_date__month=today.month,
-            event_date__day=today.day
+            event_date__day=today.day,
+            is_approved=True
         )
         
         count = 0
         channel_layer = get_channel_layer()
         
         for event in events:
-            sender_name = event.user.first_name or event.user.username
             target = event.target_user if event.target_user else event.user
-
-            # Generate message based on language
-            if event.language_preference == AutoWishEvent.LANGUAGE_ENGLISH:
-                if event.event_type == AutoWishEvent.EVENT_TYPE_BIRTHDAY:
-                    text = f"🎉 Happy Birthday! {sender_name} scheduled this wish for you ✨"
-                elif event.event_type == AutoWishEvent.EVENT_TYPE_ANNIVERSARY:
-                    text = f"🎉 Happy Anniversary! {sender_name} scheduled this wish for you ✨"
-                else:
-                    text = f"🎉 Wishing you all the best on your special day! From {sender_name} ✨"
-            else:
-                if event.event_type == AutoWishEvent.EVENT_TYPE_BIRTHDAY:
-                    text = f"🎂 Happy Birthday dost! {sender_name} ne yeh wish schedule ki thi 💫"
-                elif event.event_type == AutoWishEvent.EVENT_TYPE_ANNIVERSARY:
-                    text = f"🎉 Happy Anniversary! {sender_name} ne yeh wish schedule ki thi 💫"
-                else:
-                    text = f"🎉 Mubarak ho aapka special day! From {sender_name} 💫"
+            text = event.scheduled_message
 
             # Save the message to DB for persistence
             msg = AutoWishMessage.objects.create(

@@ -489,8 +489,11 @@ class AutoWishEvent(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='auto_wish_events')
     target_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_auto_wishes', null=True, blank=True)
     event_type = models.CharField(max_length=20, choices=EVENT_TYPES, default=EVENT_TYPE_BIRTHDAY)
+    custom_event_name = models.CharField(max_length=100, blank=True, null=True, help_text="Used when event_type is Custom")
     event_date = models.DateField()
     language_preference = models.CharField(max_length=20, choices=LANGUAGES, default=LANGUAGE_ENGLISH)
+    scheduled_message = models.TextField(blank=True, default='')
+    is_approved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
