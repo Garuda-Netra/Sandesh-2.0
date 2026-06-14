@@ -2435,26 +2435,36 @@
           const membersList = document.getElementById('upmMembersList');
           if (membersSection && membersList && groupData.members) {
             membersSection.classList.remove('hidden');
-            membersList.innerHTML = groupData.members.map(m => `
-              <div class="flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl cursor-pointer transition-colors" onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${m.username}', ${m.user_id})">
-                ${m.avatar_url ? 
-                  `<img src="${m.avatar_url}" class="w-8 h-8 rounded-full object-cover bg-divine-surface" />` : 
-                  `<div class="w-8 h-8 rounded-full bg-divine-surface border border-divine-border flex items-center justify-center text-xs font-bold text-divine-text">${m.username[0].toUpperCase()}</div>`
-                }
-                <div class="flex-1 min-w-0">
-                  <p class="text-[13px] font-bold truncate text-divine-text">${m.username === window.SDH_DATA.currentUser ? 'You' : (m.display_name || m.username)}</p>
-                  <p class="text-[10px] uppercase tracking-widest text-divine-gold truncate">
-                    ${m.role}
-                    <span class="mx-1 opacity-50 capitalize normal-case font-normal text-divine-muted">•</span>
-                    <span class="normal-case tracking-normal font-medium ${m.is_online ? 'text-green-500' : 'text-divine-muted/70'}">${m.is_online ? 'Active' : (m.last_seen ? 'Seen ' + _relativeTime(m.last_seen) : 'Offline')}</span>
-                  </p>
+            
+            const myMember = groupData.members.find(m => m.username === window.SDH_DATA.currentUser);
+            const isAdminOrOwner = myMember && (myMember.role === 'owner' || myMember.role === 'admin');
+
+            membersList.innerHTML = groupData.members.map(m => {
+              const isMe = m.username === window.SDH_DATA.currentUser;
+              const canRemove = isAdminOrOwner && !isMe && m.role !== 'owner';
+              return `
+              <div class="flex items-center justify-between hover:bg-white/5 p-2 rounded-xl transition-colors">
+                <div class="flex items-center gap-3 cursor-pointer flex-1 min-w-0" onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${m.username}', ${m.user_id})">
+                  ${m.avatar_url ? 
+                    `<img src="${m.avatar_url}" class="w-8 h-8 rounded-full object-cover bg-divine-surface" />` : 
+                    `<div class="w-8 h-8 rounded-full bg-divine-surface border border-divine-border flex items-center justify-center text-xs font-bold text-divine-text shrink-0">${m.username[0].toUpperCase()}</div>`
+                  }
+                  <div class="flex-1 min-w-0">
+                    <p class="text-[13px] font-bold truncate text-divine-text">${isMe ? 'You' : (m.display_name || m.username)}</p>
+                    <p class="text-[10px] uppercase tracking-widest text-divine-gold truncate">
+                      ${m.role}
+                      <span class="mx-1 opacity-50 capitalize normal-case font-normal text-divine-muted">•</span>
+                      <span class="normal-case tracking-normal font-medium ${m.is_online ? 'text-green-500' : 'text-divine-muted/70'}">${m.state === 'invited' ? 'Invited' : (m.is_online ? 'Active' : (m.last_seen ? 'Last seen ' + _relativeTime(m.last_seen) : 'Offline'))}</span>
+                    </p>
+                  </div>
                 </div>
+                ${canRemove ? `<button onclick="SDH.Chat.removeGroupMember(${groupId}, ${m.user_id})" class="ml-2 text-red-400 hover:text-red-300 text-[11px] font-bold px-2.5 py-1.5 bg-red-400/10 hover:bg-red-400/20 rounded-lg transition-colors border border-red-400/20 whitespace-nowrap">Remove</button>` : ''}
               </div>
-            `).join('');
+            `}).join('');
             
             // Unhide Invite Member button for all members
             const inviteBtn = document.getElementById('upmInviteMemberBtn');
-            const myMember = groupData.members.find(m => m.username === window.SDH_DATA.currentUser);
+            const myMemberRef = groupData.members.find(m => m.username === window.SDH_DATA.currentUser);
             if (myMember) {
               if (inviteBtn) {
                 inviteBtn.classList.remove('hidden');
@@ -2998,25 +3008,25 @@
           
           data.members.forEach(member => {
             const isMe = member.user_id === window.SDH_DATA.userId;
-            const isInvited = member.state === 'invited';
-            const canRemove = isAdminOrOwner && !isMe && member.role !== 'owner' && !isInvited;
+            const canRemove = isAdminOrOwner && !isMe && member.role !== 'owner';
             const div = document.createElement('div');
-            div.className = 'flex items-center justify-between bg-black/20 p-2 rounded-lg';
+            div.className = 'flex items-center justify-between hover:bg-white/5 p-2 rounded-xl transition-colors mb-2';
             div.innerHTML = `
-              <div class="flex items-center gap-2 overflow-hidden">
-                <div class="w-8 h-8 rounded-full bg-divine-surface flex items-center justify-center text-xs font-bold text-divine-gold shrink-0">
-                  ${member.avatar_url ? `<img src="${member.avatar_url}" class="w-full h-full object-cover rounded-full">` : member.username.charAt(0).toUpperCase()}
-                </div>
-                <div class="min-w-0">
-                  <p class="text-xs text-white/90 font-medium truncate">${member.username} ${isMe ? '(You)' : ''}</p>
-                  <p class="text-[10px] text-white/40 capitalize">
+              <div class="flex items-center gap-3 cursor-pointer flex-1 min-w-0" onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${member.username}', ${member.user_id})">
+                ${member.avatar_url ? 
+                  `<img src="${member.avatar_url}" class="w-8 h-8 rounded-full object-cover bg-divine-surface" />` : 
+                  `<div class="w-8 h-8 rounded-full bg-divine-surface border border-divine-border flex items-center justify-center text-xs font-bold text-divine-text shrink-0">${member.username[0].toUpperCase()}</div>`
+                }
+                <div class="flex-1 min-w-0">
+                  <p class="text-[13px] font-bold truncate text-divine-text">${isMe ? 'You' : (member.display_name || member.username)}</p>
+                  <p class="text-[10px] uppercase tracking-widest text-divine-gold truncate">
                     ${member.role}
-                    <span class="mx-1 opacity-50">•</span>
-                    <span class="${member.is_online ? 'text-green-400' : 'text-white/40'}">${isInvited ? 'Invited' : (member.is_online ? 'Active' : (member.last_seen ? 'Seen ' + _relativeTime(member.last_seen) : 'Offline'))}</span>
+                    <span class="mx-1 opacity-50 capitalize normal-case font-normal text-divine-muted">•</span>
+                    <span class="normal-case tracking-normal font-medium ${member.is_online ? 'text-green-500' : 'text-divine-muted/70'}">${member.state === 'invited' ? 'Invited' : (member.is_online ? 'Active' : (member.last_seen ? 'Last seen ' + _relativeTime(member.last_seen) : 'Offline'))}</span>
                   </p>
                 </div>
               </div>
-              ${canRemove ? `<button onclick="SDH.Chat.removeGroupMember(${data.id}, ${member.user_id})" class="text-red-400 hover:text-red-300 text-xs px-2 py-1 bg-red-400/10 hover:bg-red-400/20 rounded-md transition-colors">Remove</button>` : ''}
+              ${canRemove ? `<button onclick="SDH.Chat.removeGroupMember(${data.id}, ${member.user_id})" class="ml-2 text-red-400 hover:text-red-300 text-[11px] font-bold px-2.5 py-1.5 bg-red-400/10 hover:bg-red-400/20 rounded-lg transition-colors border border-red-400/20 whitespace-nowrap">Remove</button>` : ''}
             `;
             membersListEl.appendChild(div);
           });
