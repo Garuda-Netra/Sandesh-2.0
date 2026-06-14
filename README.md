@@ -4,7 +4,7 @@
 
 Welcome to **Sandesh 2.0**, a fast, secure, and user-friendly real-time messaging application designed to make online communication feel natural and seamless.
 
-We created Sandesh to provide a clean and intuitive chat experience. The goal was simple: build a messaging app that is fast, highly responsive, and beautifully designed without any unnecessary clutter or tracking. Whether you prefer a sleek dark mode or a clean light mode, Sandesh adapts to your preference while keeping your conversations secure.
+I created Sandesh with a clear vision: to provide a clean, intuitive, and deeply personal chat experience. My goal was simple—to build a messaging application that is incredibly fast, highly responsive, beautifully designed, and completely free of unnecessary clutter or invasive tracking. Whether you prefer the elegance of a sleek dark mode or the crispness of a light theme, Sandesh effortlessly adapts to your style while ensuring that your conversations remain entirely secure and private.
 
 No ads, no tracking—just a reliable space to connect with the people who matter.
 
