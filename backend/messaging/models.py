@@ -487,6 +487,7 @@ class AutoWishEvent(models.Model):
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='auto_wish_events')
+    target_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_auto_wishes', null=True, blank=True)
     event_type = models.CharField(max_length=20, choices=EVENT_TYPES, default=EVENT_TYPE_BIRTHDAY)
     event_date = models.DateField()
     language_preference = models.CharField(max_length=20, choices=LANGUAGES, default=LANGUAGE_ENGLISH)
@@ -498,7 +499,8 @@ class AutoWishEvent(models.Model):
         verbose_name_plural = 'Auto Wish Events'
 
     def __str__(self):
-        return f"{self.user.username}'s {self.event_type} on {self.event_date}"
+        target = self.target_user.username if self.target_user else self.user.username
+        return f"{self.user.username}'s {self.event_type} for {target} on {self.event_date}"
 
 class AutoWishMessage(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='auto_wish_messages')

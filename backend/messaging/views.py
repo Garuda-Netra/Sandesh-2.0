@@ -553,6 +553,29 @@ def chatbot_reply(request):
 # Auto-Wish API
 # ---------------------------------------------------------------------------
 @login_required
+@require_GET
+def get_chatbot_friends(request):
+    try:
+        from users.models import Friendship
+        from django.contrib.auth.models import User
+        profile = request.user.profile
+        friend_profile_ids = Friendship.get_friend_profile_ids(profile)
+        if not friend_profile_ids:
+            return JsonResponse({'status': 'ok', 'friends': []})
+            
+        friends = []
+        users = User.objects.filter(profile__id__in=friend_profile_ids)
+        for u in users:
+            friends.append({
+                'id': u.id,
+                'username': u.username,
+                'name': f"{u.first_name} {u.last_name}".strip() or u.username
+            })
+        return JsonResponse({'status': 'ok', 'friends': friends})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
 @csrf_protect
 @require_http_methods(['GET', 'POST'])
 def manage_auto_wish_events(request):
@@ -570,12 +593,24 @@ def manage_auto_wish_events(request):
             event_type = data.get('event_type')
             event_date = data.get('event_date')
             language_preference = data.get('language_preference')
+            target_username = data.get('target_username')
 
-            if not all([event_type, event_date, language_preference]):
+            if not all([event_type, event_date, language_preference, target_username]):
                 return JsonResponse({'error': 'Missing required fields.'}, status=400)
+
+            from django.contrib.auth.models import User
+            try:
+                target = User.objects.get(username=target_username)
+            except User.DoesNotExist:
+                return JsonResponse({'error': 'Target friend not found.'}, status=404)
+
+            from users.models import Friendship
+            if target.profile.id not in Friendship.get_friend_profile_ids(request.user.profile):
+                return JsonResponse({'error': 'You can only schedule wishes for your friends.'}, status=403)
 
             event = AutoWishEvent.objects.create(
                 user=request.user,
+                target_user=target,
                 event_type=event_type,
                 event_date=event_date,
                 language_preference=language_preference

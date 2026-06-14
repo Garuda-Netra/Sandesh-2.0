@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/unread/', views.unread_counts, name='unread_counts'),
     path('api/chat-setting/<str:username>/', views.chat_setting_api, name='chat_setting_api'),
     path('api/chatbot/', views.chatbot_reply, name='chatbot_reply'),
+    path('api/chatbot/friends/', views.get_chatbot_friends, name='chatbot_friends'),
     path('api/chatbot/events/', views.manage_auto_wish_events, name='chatbot_events'),
     path('api/chatbot/pending-wishes/', views.get_pending_wishes, name='chatbot_pending_wishes'),
     # Secure file transfer

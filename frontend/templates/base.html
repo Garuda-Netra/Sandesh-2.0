@@ -537,6 +537,13 @@
 
       <form id="autoWishForm" onsubmit="submitAutoWish(event)">
         <div class="mb-4">
+          <label class="block text-sm font-medium text-divine-muted mb-2">Target Friend</label>
+          <select id="awTargetFriend" required class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+            <option value="" disabled selected>Loading friends...</option>
+          </select>
+        </div>
+
+        <div class="mb-4">
           <label class="block text-sm font-medium text-divine-muted mb-2">Event Type</label>
           <select id="awEventType" required class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
             <option value="birthday">Birthday</option>
@@ -578,13 +585,34 @@
       }
     }
 
-    function openAutoWishModal() {
+    async function openAutoWishModal() {
       const modal = document.getElementById('autoWishModal');
       const content = document.getElementById('autoWishModalContent');
+      const targetFriendSelect = document.getElementById('awTargetFriend');
+      
       modal.classList.remove('hidden');
       void modal.offsetWidth;
       modal.classList.remove('opacity-0');
       content.classList.remove('scale-95');
+
+      targetFriendSelect.innerHTML = '<option value="" disabled selected>Loading friends...</option>';
+      try {
+        const resp = await fetch('/messaging/api/chatbot/friends/');
+        const data = await resp.json();
+        if (data.status === 'ok' && data.friends.length > 0) {
+          targetFriendSelect.innerHTML = '<option value="" disabled selected>Select a friend</option>';
+          data.friends.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.username;
+            opt.textContent = f.name;
+            targetFriendSelect.appendChild(opt);
+          });
+        } else {
+          targetFriendSelect.innerHTML = '<option value="" disabled selected>No friends found</option>';
+        }
+      } catch (e) {
+        targetFriendSelect.innerHTML = '<option value="" disabled selected>Error loading friends</option>';
+      }
     }
 
     function closeAutoWishModal() {
@@ -623,7 +651,8 @@
           body: JSON.stringify({
             event_type: eventType,
             event_date: eventDate,
-            language_preference: language
+            language_preference: language,
+            target_username: document.getElementById('awTargetFriend').value
           })
         });
         
