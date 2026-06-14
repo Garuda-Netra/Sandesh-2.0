@@ -62,6 +62,32 @@
       if (this.isOpen()) {
         this.open(false);
       }
+
+      this.fetchPendingWishes();
+    },
+
+    fetchPendingWishes() {
+      fetch('/messaging/api/chatbot/pending-wishes/')
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'ok' && data.wishes && data.wishes.length > 0) {
+            data.wishes.forEach(w => this.receiveWish(w.message));
+          }
+        })
+        .catch(err => console.error('Error fetching pending wishes:', err));
+    },
+
+    receiveWish(message) {
+      this.appendMessage('assistant', message);
+      if (!this.isOpen()) {
+        // Add a notification badge to the toggle button
+        if (!this.toggleBtn.querySelector('.sdh-bot-badge')) {
+          const badge = document.createElement('span');
+          badge.className = 'sdh-bot-badge absolute -top-1 -right-1 flex h-3 w-3';
+          badge.innerHTML = '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-divine-gold opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-divine-gold"></span>';
+          this.toggleBtn.appendChild(badge);
+        }
+      }
     },
 
     isOpen() {
@@ -76,6 +102,10 @@
         localStorage.setItem(OPEN_KEY, '1');
       }
       this.scrollToBottom();
+      
+      // Remove badge if present
+      const badge = this.toggleBtn.querySelector('.sdh-bot-badge');
+      if (badge) badge.remove();
     },
 
     close() {

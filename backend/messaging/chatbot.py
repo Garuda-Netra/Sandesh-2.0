@@ -17,7 +17,7 @@ from typing import Iterable
 from django.conf import settings
 
 
-import google.generativeai as genai
+from google import genai
 
 _DEFAULT_SYSTEM_PROMPT = (
     "You are Vyasa, a helpful, general-purpose assistant. You must answer every question the user asks. "
@@ -56,9 +56,14 @@ def _normalize_history(history: Iterable[dict]) -> list[dict]:
         if role == "assistant":
             role = "model"
             
-        sanitized.append({"role": role, "parts": [content[:800]]})
+        sanitized.append({"role": role, "parts": [{"text": content[:800]}]})
 
-    return sanitized[-8:]
+    # Ensure history starts with user, if not, drop the first item
+    history_slice = sanitized[-8:]
+    if history_slice and history_slice[0]["role"] == "model":
+        history_slice = history_slice[1:]
+        
+    return history_slice
 
 
 def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
@@ -66,7 +71,7 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
     if not api_key:
         return None
         
-    model_name = getattr(settings, "CHATBOT_MODEL", "gemini-1.5-flash")
+    model_name = getattr(settings, "CHATBOT_MODEL", "gemini-3.5-flash")
     temperature = float(getattr(settings, "CHATBOT_TEMPERATURE", 0.7))
     max_tokens = int(getattr(settings, "CHATBOT_MAX_TOKENS", 500))
     system_prompt = (getattr(settings, "CHATBOT_SYSTEM_PROMPT", "") or "").strip()
@@ -74,22 +79,20 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
         system_prompt = _DEFAULT_SYSTEM_PROMPT
 
     try:
-        genai.configure(api_key=api_key)
+        client = genai.Client(api_key=api_key)
         
-        # Configure model with system instruction and generation config
-        generation_config = genai.types.GenerationConfig(
+        config = genai.types.GenerateContentConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
-        )
-        
-        model = genai.GenerativeModel(
-            model_name=model_name,
             system_instruction=system_prompt,
-            generation_config=generation_config
         )
         
         # Start a chat session with the previous history
-        chat = model.start_chat(history=history)
+        chat = client.chats.create(
+            model=model_name,
+            config=config,
+            history=history
+        )
         
         # Send the new message
         response = chat.send_message(message)

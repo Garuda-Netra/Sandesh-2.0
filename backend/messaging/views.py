@@ -549,6 +549,59 @@ def chatbot_reply(request):
     reply = generate_chatbot_reply(message, history, user=request.user)
     return JsonResponse({'reply': reply})
 
+# ---------------------------------------------------------------------------
+# Auto-Wish API
+# ---------------------------------------------------------------------------
+@login_required
+@csrf_protect
+@require_http_methods(['GET', 'POST'])
+def manage_auto_wish_events(request):
+    from .models import AutoWishEvent
+    if request.method == 'GET':
+        events = AutoWishEvent.objects.filter(user=request.user).values(
+            'id', 'event_type', 'event_date', 'language_preference', 'created_at'
+        )
+        return JsonResponse({'status': 'ok', 'events': list(events)})
+    
+    elif request.method == 'POST':
+        import json
+        try:
+            data = json.loads(request.body)
+            event_type = data.get('event_type')
+            event_date = data.get('event_date')
+            language_preference = data.get('language_preference')
+
+            if not all([event_type, event_date, language_preference]):
+                return JsonResponse({'error': 'Missing required fields.'}, status=400)
+
+            event = AutoWishEvent.objects.create(
+                user=request.user,
+                event_type=event_type,
+                event_date=event_date,
+                language_preference=language_preference
+            )
+            return JsonResponse({'status': 'ok', 'event_id': event.id}, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+@require_GET
+def get_pending_wishes(request):
+    from .models import AutoWishMessage
+    messages = AutoWishMessage.objects.filter(user=request.user, is_delivered=False)
+    
+    pending = []
+    for msg in messages:
+        pending.append({
+            'id': msg.id,
+            'message': msg.message,
+            'created_at': msg.created_at.isoformat()
+        })
+        msg.is_delivered = True
+        msg.save()
+
+    return JsonResponse({'status': 'ok', 'wishes': pending})
+
 
 # ---------------------------------------------------------------------------
 # File Upload

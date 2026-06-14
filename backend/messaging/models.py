@@ -464,3 +464,52 @@ def auto_delete_group_avatar_on_delete(sender, instance, **kwargs):
     """Deletes the avatar file when a Group is deleted."""
     if instance.avatar:
         instance.avatar.delete(save=False)
+
+
+# ---------------------------------------------------------------------------
+# Auto-Wish System Models
+# ---------------------------------------------------------------------------
+class AutoWishEvent(models.Model):
+    EVENT_TYPE_BIRTHDAY = 'birthday'
+    EVENT_TYPE_ANNIVERSARY = 'anniversary'
+    EVENT_TYPE_CUSTOM = 'custom'
+    EVENT_TYPES = [
+        (EVENT_TYPE_BIRTHDAY, 'Birthday'),
+        (EVENT_TYPE_ANNIVERSARY, 'Anniversary'),
+        (EVENT_TYPE_CUSTOM, 'Custom'),
+    ]
+
+    LANGUAGE_ENGLISH = 'english'
+    LANGUAGE_HINGLISH = 'hinglish'
+    LANGUAGES = [
+        (LANGUAGE_ENGLISH, 'English'),
+        (LANGUAGE_HINGLISH, 'Hinglish'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='auto_wish_events')
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPES, default=EVENT_TYPE_BIRTHDAY)
+    event_date = models.DateField()
+    language_preference = models.CharField(max_length=20, choices=LANGUAGES, default=LANGUAGE_ENGLISH)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Auto Wish Event'
+        verbose_name_plural = 'Auto Wish Events'
+
+    def __str__(self):
+        return f"{self.user.username}'s {self.event_type} on {self.event_date}"
+
+class AutoWishMessage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='auto_wish_messages')
+    message = models.TextField()
+    is_delivered = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Auto Wish Message'
+        verbose_name_plural = 'Auto Wish Messages'
+
+    def __str__(self):
+        return f"Wish for {self.user.username} (Delivered: {self.is_delivered})"

@@ -118,6 +118,13 @@ SDH.WS = (() => {
       return;
     }
 
+    if (data.type === 'auto_wish') {
+      if (window.SDH && window.SDH.Chatbot && typeof window.SDH.Chatbot.receiveWish === 'function') {
+        window.SDH.Chatbot.receiveWish(data.message);
+      }
+      return;
+    }
+
     SDH.Chat?._onWsMessage?.(data);
   }
 

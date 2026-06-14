@@ -289,6 +289,9 @@
           </div>
         </div>
         <div class="sdh-bot-actions flex gap-2">
+          <button id="sdhAutoWishBtn" onclick="openAutoWishModal()" class="sdh-liquid-btn btn-secondary !p-2 !rounded-lg" type="button" title="Auto-Wish Settings" aria-label="Auto-Wish Settings">
+            <span class="relative z-10 text-lg leading-none">🎉</span>
+          </button>
           <button id="sdhBotClear" class="sdh-liquid-btn btn-secondary !p-2 !rounded-lg" type="button" title="Clear chat" aria-label="Clear chat">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4 relative z-10">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M9 6V4h6v2m-1 3v9m-4-9v9" />
@@ -520,6 +523,127 @@
 
       animate();
     })();
+  </script>
+
+  <!-- ── Auto-Wish Modal ─────────────────────────────────────── -->
+  <div id="autoWishModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300" role="dialog" aria-modal="true" onclick="if(event.target===this)closeAutoWishModal()">
+    <div class="relative bg-divine-card border border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 sm:p-8 transform scale-95 transition-transform duration-300" id="autoWishModalContent">
+      <button onclick="closeAutoWishModal()" class="absolute top-4 right-4 text-divine-muted hover:text-divine-text transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+
+      <h3 class="text-xl font-bold text-divine-text mb-2">🎉 Auto-Wish Settings</h3>
+      <p class="text-sm text-divine-muted mb-6">Schedule automated greetings for your special days!</p>
+
+      <form id="autoWishForm" onsubmit="submitAutoWish(event)">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-divine-muted mb-2">Event Type</label>
+          <select id="awEventType" required class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+            <option value="birthday">Birthday</option>
+            <option value="anniversary">Anniversary</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-divine-muted mb-2">Event Date</label>
+          <input type="date" id="awEventDate" required class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-divine-muted mb-2">Language Preference</label>
+          <select id="awLanguage" required onchange="updateAWEmojiPreview()" class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+            <option value="english">English</option>
+            <option value="hinglish">Hinglish</option>
+          </select>
+          <p id="awEmojiPreview" class="text-xs text-divine-gold mt-2">Preview: ✨ Joy and Success</p>
+          <p class="text-xs text-red-400 mt-2 hidden" id="awError"></p>
+        </div>
+
+        <button type="submit" id="awSubmitBtn" class="w-full sdh-liquid-btn btn-ancient">
+          <span>Add Event</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function updateAWEmojiPreview() {
+      const lang = document.getElementById('awLanguage').value;
+      const preview = document.getElementById('awEmojiPreview');
+      if (lang === 'hinglish') {
+        preview.textContent = 'Preview: 💫 Khush raho, mast raho';
+      } else {
+        preview.textContent = 'Preview: ✨ Joy and Success';
+      }
+    }
+
+    function openAutoWishModal() {
+      const modal = document.getElementById('autoWishModal');
+      const content = document.getElementById('autoWishModalContent');
+      modal.classList.remove('hidden');
+      void modal.offsetWidth;
+      modal.classList.remove('opacity-0');
+      content.classList.remove('scale-95');
+    }
+
+    function closeAutoWishModal() {
+      const modal = document.getElementById('autoWishModal');
+      const content = document.getElementById('autoWishModalContent');
+      modal.classList.add('opacity-0');
+      content.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        document.getElementById('autoWishForm').reset();
+        document.getElementById('awError').classList.add('hidden');
+        updateAWEmojiPreview();
+      }, 300);
+    }
+
+    async function submitAutoWish(event) {
+      event.preventDefault();
+      const eventType = document.getElementById('awEventType').value;
+      const eventDate = document.getElementById('awEventDate').value;
+      const language = document.getElementById('awLanguage').value;
+      const errorElem = document.getElementById('awError');
+      const btn = document.getElementById('awSubmitBtn');
+
+      errorElem.classList.add('hidden');
+      btn.disabled = true;
+      btn.querySelector('span').textContent = 'Saving...';
+
+      try {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+        const resp = await fetch('/messaging/api/chatbot/events/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({
+            event_type: eventType,
+            event_date: eventDate,
+            language_preference: language
+          })
+        });
+        
+        const data = await resp.json();
+        
+        if (resp.ok) {
+          alert('Auto-Wish Event added successfully!');
+          closeAutoWishModal();
+        } else {
+          errorElem.textContent = data.error || 'Failed to add event.';
+          errorElem.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorElem.textContent = 'An error occurred. Please try again.';
+        errorElem.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.querySelector('span').textContent = 'Add Event';
+      }
+    }
   </script>
 
   <!-- ── Bug Report Modal ─────────────────────────────────────── -->
