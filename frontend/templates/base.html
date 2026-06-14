@@ -202,6 +202,14 @@
             </svg>
             Profile
           </a>
+          <button onclick="openBugReportModal()"
+                  class="w-full flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            Report Bug
+          </button>
           <div class="border-t border-divine-border"></div>
           <a href="{% url 'users:logout' %}"
              class="flex items-center gap-2 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:bg-divine-surface transition-colors">
@@ -509,5 +517,119 @@
     })();
   </script>
 
+  <!-- ── Bug Report Modal ─────────────────────────────────────── -->
+  <div id="bugReportModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300" role="dialog" aria-modal="true" onclick="if(event.target===this)closeBugReportModal()">
+    <div class="relative bg-divine-card border border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 sm:p-8 transform scale-95 transition-transform duration-300" id="bugReportModalContent">
+      <button onclick="closeBugReportModal()" class="absolute top-4 right-4 text-divine-muted hover:text-divine-text transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+
+      <h3 class="text-xl font-bold text-divine-text mb-2">Report a Bug</h3>
+      <p class="text-sm text-divine-muted mb-6">Describe the issue you're facing. You can attach up to 5 screenshots (JPEG only) to help us understand.</p>
+
+      <form id="bugReportForm" onsubmit="submitBugReport(event)">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-divine-muted mb-2">Description</label>
+          <textarea id="bugDescription" required rows="4" class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors resize-none placeholder-divine-muted/50" placeholder="What happened?"></textarea>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-divine-muted mb-2">Screenshots (Up to 5 JPEGs)</label>
+          <input type="file" id="bugImages" accept=".jpg,.jpeg" multiple class="block w-full text-sm text-divine-muted file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-divine-surface file:text-divine-gold hover:file:bg-divine-border transition-colors border border-divine-border rounded-xl p-2 bg-divine-card">
+          <p class="text-xs text-red-400 mt-2 hidden" id="bugReportError"></p>
+        </div>
+
+        <button type="submit" id="bugSubmitBtn" class="w-full sdh-liquid-btn btn-ancient">
+          <span>Submit Report</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openBugReportModal() {
+      const modal = document.getElementById('bugReportModal');
+      const content = document.getElementById('bugReportModalContent');
+      document.getElementById('userDropdown').classList.add('hidden'); // Close dropdown
+      modal.classList.remove('hidden');
+      // trigger reflow
+      void modal.offsetWidth;
+      modal.classList.remove('opacity-0');
+      content.classList.remove('scale-95');
+    }
+
+    function closeBugReportModal() {
+      const modal = document.getElementById('bugReportModal');
+      const content = document.getElementById('bugReportModalContent');
+      modal.classList.add('opacity-0');
+      content.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        document.getElementById('bugReportForm').reset();
+        document.getElementById('bugReportError').classList.add('hidden');
+      }, 300);
+    }
+
+    async function submitBugReport(event) {
+      event.preventDefault();
+      const desc = document.getElementById('bugDescription').value;
+      const fileInput = document.getElementById('bugImages');
+      const files = fileInput.files;
+      const errorElem = document.getElementById('bugReportError');
+      const btn = document.getElementById('bugSubmitBtn');
+
+      if (files.length > 5) {
+        errorElem.textContent = 'Maximum 5 images allowed.';
+        errorElem.classList.remove('hidden');
+        return;
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type !== 'image/jpeg') {
+          errorElem.textContent = 'Only JPEG images are allowed.';
+          errorElem.classList.remove('hidden');
+          return;
+        }
+      }
+
+      errorElem.classList.add('hidden');
+      btn.disabled = true;
+      btn.querySelector('span').textContent = 'Submitting...';
+
+      const formData = new FormData();
+      formData.append('description', desc);
+      for (let i = 0; i < files.length; i++) {
+        formData.append('images', files[i]);
+      }
+
+      try {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+        const resp = await fetch('{% url "users:report_bug" %}', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken,
+          },
+          body: formData
+        });
+        
+        const data = await resp.json();
+        
+        if (resp.ok) {
+          alert('Bug report submitted successfully! Thank you.');
+          closeBugReportModal();
+        } else {
+          errorElem.textContent = data.error || 'Failed to submit report.';
+          errorElem.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorElem.textContent = 'An error occurred. Please try again.';
+        errorElem.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.querySelector('span').textContent = 'Submit Report';
+      }
+    }
+  </script>
 </body>
 </html>

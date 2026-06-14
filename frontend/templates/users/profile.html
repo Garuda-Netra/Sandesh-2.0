@@ -45,7 +45,16 @@
 
       <div class="mb-6">
         <label class="block text-sm font-medium text-divine-muted mb-2">Avatar</label>
-        {{ form.avatar }}
+        <div class="text-sm text-divine-text bg-divine-surface p-3 rounded-xl border border-divine-border mb-3">
+          {{ form.avatar }}
+        </div>
+        {% if profile.avatar and profile.avatar.name %}
+        <div class="mt-2">
+          <button type="button" onclick="removeAvatar()" class="sdh-liquid-btn btn-danger !py-1.5 !px-4 text-xs shadow-none">
+            <span>🗑️ Remove Profile Picture</span>
+          </button>
+        </div>
+        {% endif %}
       </div>
 
       <button type="submit"
@@ -54,6 +63,18 @@
       </button>
     </form>
 
+  </div>
+
+  <!-- ── Help & Support ──────────────────────────────────────────────── -->
+  <div class="mt-8 bg-divine-card border border-divine-border rounded-2xl p-8">
+    <h2 class="text-lg font-semibold text-divine-text mb-1">Help & Support</h2>
+    <p class="text-divine-muted text-sm mb-5">
+      Found an issue or have a suggestion? Let us know so we can improve Sandesh.
+    </p>
+    <button onclick="openBugReportModal()"
+            class="sdh-liquid-btn btn-secondary !border-divine-gold/30 hover:!border-divine-gold">
+      <span>🐛 Report a Bug</span>
+    </button>
   </div>
 
   <!-- ── Danger Zone ─────────────────────────────────────────────────── -->
@@ -182,5 +203,25 @@
     }
   });
 })();
+
+async function removeAvatar() {
+  if (!confirm('Are you sure you want to remove your profile picture?')) return;
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  try {
+    const resp = await fetch('{% url "users:remove_avatar" %}', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrfToken,
+      }
+    });
+    if (resp.ok) {
+      window.location.reload();
+    } else {
+      alert('Failed to remove avatar. Please try again.');
+    }
+  } catch (err) {
+    alert('Error removing avatar.');
+  }
+}
 </script>
 {% endblock %}

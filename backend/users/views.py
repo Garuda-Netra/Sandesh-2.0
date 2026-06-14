@@ -827,6 +827,65 @@ def profile_view(request):
 # API: Fetch Target User Profile and Bio
 # ---------------------------------------------------------------------------
 @login_required
+@require_POST
+@csrf_protect
+def remove_avatar_view(request):
+    try:
+        profile = request.user.profile
+        if profile.avatar:
+            profile.avatar.delete(save=True)
+        return JsonResponse({'status': 'ok'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+from django.core.mail import EmailMessage
+from django.core.cache import cache
+
+@login_required
+@require_POST
+@csrf_protect
+def report_bug_view(request):
+    user_id = request.user.id
+    cache_key = f'bug_report_count_{user_id}'
+    report_count = cache.get(cache_key, 0)
+
+    if report_count >= 3:
+        return JsonResponse({'error': 'Rate limit exceeded. Try again in an hour.'}, status=429)
+
+    description = request.POST.get('description', '').strip()
+    if not description:
+        return JsonResponse({'error': 'Description is required'}, status=400)
+
+    images = request.FILES.getlist('images')
+    if len(images) > 5:
+        return JsonResponse({'error': 'Maximum 5 images allowed'}, status=400)
+
+    email = EmailMessage(
+        subject=f'Bug Report from {request.user.username}',
+        body=description,
+        from_email=None,
+        to=['rajkuma4rr2005@gmail.com'],
+    )
+
+    for img in images:
+        if not img.name.lower().endswith(('.jpg', '.jpeg')):
+            return JsonResponse({'error': 'Only JPEG images are allowed'}, status=400)
+        email.attach(img.name, img.read(), img.content_type)
+
+    try:
+        email.send(fail_silently=False)
+        cache.set(cache_key, report_count + 1, timeout=3600)
+        return JsonResponse({'status': 'ok'})
+    except Exception as e:
+        # Fallback for development if email is not configured properly but we still want to simulate success
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': f'Failed to send report: {str(e)}'}, status=500)
+
+# ---------------------------------------------------------------------------
+# API: Fetch Target User Profile and Bio
+# ---------------------------------------------------------------------------
+@login_required
 @require_GET
 def user_profile_api(request, username):
     """

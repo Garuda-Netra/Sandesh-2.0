@@ -25,6 +25,8 @@ urlpatterns = [
 
     # API endpoints
     path('api/profile/<str:username>/', views.user_profile_api, name='user_profile_api'),
+    path('api/remove-avatar/', views.remove_avatar_view, name='remove_avatar'),
+    path('api/report-bug/', views.report_bug_view, name='report_bug'),
     path('api/users/', views.user_list, name='user_list'),
     path('api/search-users/', views.search_users, name='search_users'),
     path('api/remove-user/', views.remove_user_view, name='remove_user'),

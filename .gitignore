@@ -68,3 +68,5 @@ ehthumbs.db
 # Temporary Files
 backend/db_dump.txt
 frontend/static/js/recover*
+
+firebase-credentials.json
