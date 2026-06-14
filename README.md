@@ -1,6 +1,6 @@
 # Sandesh 2.0
 
-**Built with ❤️ by Raj**
+**Engineered & Crafted ❤️ by Raj**
 
 Welcome to **Sandesh 2.0**, a fast, secure, and user-friendly real-time messaging application designed to make online communication feel natural and seamless.
 
