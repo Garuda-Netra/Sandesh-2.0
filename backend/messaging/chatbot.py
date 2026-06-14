@@ -69,8 +69,11 @@ def _normalize_history(history: Iterable[dict]) -> list[dict]:
 def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
     api_key = getattr(settings, "GEMINI_API_KEY", "")
     if not api_key:
-        return None
-        
+        return "⚠️ **Configuration Error**: Gemini API key is missing. Please set it in your `.env` file."
+    
+    if api_key.strip() == "your_api_key_here" or api_key.strip() == "":
+        return "⚠️ **Configuration Error**: Your Gemini API key is set to a default placeholder (`your_api_key_here`). Please replace it with your actual key from Google AI Studio."
+
     model_name = getattr(settings, "CHATBOT_MODEL", "gemini-3.5-flash")
     temperature = float(getattr(settings, "CHATBOT_TEMPERATURE", 0.7))
     max_tokens = int(getattr(settings, "CHATBOT_MAX_TOKENS", 500))
@@ -99,5 +102,12 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
         
         return response.text.strip() or None
     except Exception as e:
-        print(f"Gemini API Error: {e}")
-        return None
+        error_str = str(e)
+        print(f"Gemini API Error: {error_str}")
+        
+        if "API key not valid" in error_str:
+            return "⚠️ **Configuration Error**: The provided Gemini API Key is invalid. Please verify your key in Google AI Studio and update your `.env` or system environment variables."
+        elif "API_KEY_INVALID" in error_str:
+            return "⚠️ **Configuration Error**: Your Gemini API Key is missing or invalid."
+            
+        return f"⚠️ **API Error**: I couldn't process that request right now. Error details: `{error_str}`"
