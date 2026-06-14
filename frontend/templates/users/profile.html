@@ -269,7 +269,7 @@ async function removeAvatar() {
 // ── Sessions Management ────────────────────────────────────────────────
 async function loadSessions() {
   try {
-    const resp = await fetch('{% url "users:session_list" %}');
+    const resp = await fetch('{% url "users:session_list" %}', { cache: 'no-store' });
     const data = await resp.json();
     const container = document.getElementById('sessionsListContainer');
     const terminateOtherBtn = document.getElementById('terminateOtherSessionsBtn');
@@ -311,7 +311,7 @@ async function loadSessions() {
           </div>
           <div class="flex sm:shrink-0 ml-12 sm:ml-0 mt-2 sm:mt-0">
           ${!s.is_current ? `
-            <button onclick="terminateSession('${s.session_key}')" class="text-xs font-semibold px-4 py-2 rounded-lg text-red-500 bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:!text-white hover:border-red-500 shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:-translate-y-0.5 transition-all w-full sm:w-auto cursor-pointer text-center">
+            <button onclick="terminateSession('${s.session_key}')" id="btn-term-${s.session_key}" class="text-xs font-semibold px-4 py-2 rounded-lg text-red-500 bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:!text-white hover:border-red-500 shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:-translate-y-0.5 transition-all w-full sm:w-auto cursor-pointer text-center">
               Terminate
             </button>
           ` : `
@@ -340,6 +340,8 @@ async function loadSessions() {
 async function terminateSession(sessionKey) {
   if (!confirm('Are you sure you want to terminate this session?')) return;
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const btn = document.getElementById(`btn-term-${sessionKey}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Terminating...'; }
   try {
     const resp = await fetch(`/api/sessions/${sessionKey}/terminate/`, {
       method: 'POST',
@@ -348,18 +350,26 @@ async function terminateSession(sessionKey) {
       }
     });
     if (resp.ok) {
+      alert('Session terminated successfully.');
       loadSessions();
     } else {
       alert('Failed to terminate session.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Terminate'; }
     }
   } catch (err) {
     console.error('Termination error', err);
+    alert('An error occurred.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Terminate'; }
   }
 }
 
-document.getElementById('terminateOtherSessionsBtn')?.addEventListener('click', async () => {
+document.getElementById('terminateOtherSessionsBtn')?.addEventListener('click', async (e) => {
   if (!confirm('Are you sure you want to log out of all other devices?')) return;
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const btn = e.currentTarget;
+  const originalText = btn.innerHTML;
+  btn.innerHTML = 'Terminating...';
+  btn.disabled = true;
   try {
     const resp = await fetch(`/api/sessions/terminate-others/`, {
       method: 'POST',
@@ -368,12 +378,17 @@ document.getElementById('terminateOtherSessionsBtn')?.addEventListener('click', 
       }
     });
     if (resp.ok) {
+      alert('All other sessions terminated successfully.');
       loadSessions();
     } else {
       alert('Failed to terminate other sessions.');
     }
   } catch (err) {
     console.error('Termination error', err);
+    alert('An error occurred.');
+  } finally {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
   }
 });
 
