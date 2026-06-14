@@ -172,7 +172,11 @@ SDH.Chat = (() => {
 
     // 5. Show a toast notification
     const deletedBy = data.deleted_by || 'The owner';
-    showToast(`"${data.group_name}" was deleted by ${deletedBy}.`, 'info');
+    if (data.reason === 'removed') {
+      showToast(`You have been removed from the group "${data.group_name}" by ${deletedBy}.`, 'info');
+    } else {
+      showToast(`"${data.group_name}" was deleted by ${deletedBy}.`, 'info');
+    }
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

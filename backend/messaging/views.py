@@ -1713,6 +1713,8 @@ def group_remove_member(request, group_id):
     )
     group.save()
 
+    role_str = "the owner" if my_membership.role == GroupMembership.ROLE_OWNER else "an admin"
+
     # Send WebSocket notification to the removed member
     from channels.layers import get_channel_layer
     from asgiref.sync import async_to_sync
@@ -1723,7 +1725,8 @@ def group_remove_member(request, group_id):
             'type': 'group_deleted',
             'group_id': group.id,
             'group_name': group.name,
-            'deleted_by': f'an admin ({request.user.username})',
+            'deleted_by': f'{role_str} ({request.user.username})',
+            'reason': 'removed',
         }
     )
 
@@ -1858,6 +1861,7 @@ def group_message_history(request, group_id):
     per_page = _positive_int(request.GET.get('per_page'), 50, max_value=100)
 
     messages_qs = GroupMessage.objects.filter(group=group)
+    messages_qs = messages_qs.filter(timestamp__gte=membership.joined_at)
     if membership.cleared_at:
         messages_qs = messages_qs.filter(timestamp__gt=membership.cleared_at)
     
