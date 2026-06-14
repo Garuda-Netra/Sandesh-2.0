@@ -622,14 +622,12 @@ def manage_auto_wish_events(request):
 
             try:
                 generated_text = _gemini_reply(prompt, [], request.user)
-                if not generated_text or "⚠️" in generated_text:
-                    # Fallback
-                    if language_preference == AutoWishEvent.LANGUAGE_HINGLISH:
-                        generated_text = f"🎉 Mubarak ho aapka {evt_name}! From {sender_name} 💫"
-                    else:
-                        generated_text = f"🎉 Wishing you all the best on your {evt_name}! From {sender_name} ✨"
-            except Exception:
-                generated_text = f"🎉 Wishing you all the best on your {evt_name}! From {sender_name} ✨"
+                if not generated_text:
+                    return JsonResponse({'error': 'Chatbot failed to generate a wish. Please try again.'}, status=400)
+                if "⚠️" in generated_text:
+                    return JsonResponse({'error': generated_text}, status=400)
+            except Exception as e:
+                return JsonResponse({'error': f'AI Error: {str(e)}'}, status=400)
 
             text = generated_text
 
