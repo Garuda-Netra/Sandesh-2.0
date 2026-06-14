@@ -598,38 +598,84 @@ def upload_file(request):
     if message_type not in ('file', 'image', 'video'):
         message_type = Message.MESSAGE_TYPE_FILE
 
-    # ── Resolve receiver ────────────────────────────────────────
-    receiver = User.objects.filter(username=receiver_username).first()
-    if not receiver:
-        return JsonResponse({'error': 'Recipient not found.'}, status=404)
-
-    blocked, reason = _is_chat_blocked(request.user, receiver)
-    if blocked:
-        return JsonResponse({'error': reason}, status=403)
-
-    is_self_chat = receiver == request.user
-
-    # ── Persist Message ─────────────────────────────────────────
-    msg = Message.objects.create(
-        sender=request.user,
-        receiver=receiver,
-        message='',
-        message_type=message_type,
-        original_filename=file_name,
-        file_name=file_name,
-        mime_type=mime_type,
-        file=uploaded,
-        is_delivered=is_self_chat,
-        is_read=is_self_chat,
-    )
-
-    # Automatically unhide users when messaging resumes
-    if not is_self_chat:
+    is_group = receiver_username.startswith('group_')
+    
+    if is_group:
+        group_id = receiver_username.replace('group_', '')
+        from .models import Group, GroupMembership, GroupMessage
+        group = Group.objects.filter(id=group_id).first()
+        if not group:
+            return JsonResponse({'error': 'Recipient group not found.'}, status=404)
+            
+        if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+            return JsonResponse({'error': 'You are not a member of this group.'}, status=403)
+            
+        msg = GroupMessage.objects.create(
+            group=group,
+            sender=request.user,
+            message='',
+            message_type=message_type,
+            original_filename=file_name,
+            file_name=file_name,
+            mime_type=mime_type,
+            file=uploaded,
+        )
+        
         try:
-            request.user.profile.hidden_users.remove(receiver.profile)
-            receiver.profile.hidden_users.remove(request.user.profile)
+            room_group = f'chat_group_{group.id}'
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            payload = {
+                'type': 'broadcast_group_message',
+                'message_id': msg.id,
+                'sender': request.user.username,
+                'group_id': group.id,
+                'message': '',
+                'message_type': msg.message_type,
+                'original_filename': msg.file_name,
+                'mime_type': msg.mime_type,
+                'timestamp': msg.timestamp.isoformat(),
+                'file_id': msg.id,
+            }
+            async_to_sync(get_channel_layer().group_send)(room_group, payload)
         except Exception:
             pass
+            
+    else:
+        # ── Resolve receiver ────────────────────────────────────────
+        receiver = User.objects.filter(username=receiver_username).first()
+        if not receiver:
+            return JsonResponse({'error': 'Recipient not found.'}, status=404)
+    
+        blocked, reason = _is_chat_blocked(request.user, receiver)
+        if blocked:
+            return JsonResponse({'error': reason}, status=403)
+    
+        is_self_chat = receiver == request.user
+    
+        # ── Persist Message ─────────────────────────────────────────
+        msg = Message.objects.create(
+            sender=request.user,
+            receiver=receiver,
+            message='',
+            message_type=message_type,
+            original_filename=file_name,
+            file_name=file_name,
+            mime_type=mime_type,
+            file=uploaded,
+            is_delivered=is_self_chat,
+            is_read=is_self_chat,
+        )
+    
+        # Automatically unhide users when messaging resumes
+        if not is_self_chat:
+            try:
+                request.user.profile.hidden_users.remove(receiver.profile)
+                receiver.profile.hidden_users.remove(request.user.profile)
+            except Exception:
+                pass
+
+
 
     return JsonResponse({
         'status': 'ok',
@@ -656,19 +702,39 @@ def download_file(request, file_id):
 
     Only the sender and receiver of the message may download.
     """
-    msg = get_object_or_404(
-        Message,
+    msg = Message.objects.filter(
         pk=file_id,
         message_type__in=(
             Message.MESSAGE_TYPE_FILE,
             Message.MESSAGE_TYPE_IMAGE,
             Message.MESSAGE_TYPE_VIDEO,
-        ),
-    )
+        )
+    ).first()
+    
+    is_group = False
+    
+    if not msg:
+        from .models import GroupMessage, GroupMembership
+        msg = GroupMessage.objects.filter(
+            pk=file_id,
+            message_type__in=(
+                GroupMessage.MESSAGE_TYPE_FILE,
+                GroupMessage.MESSAGE_TYPE_IMAGE,
+                GroupMessage.MESSAGE_TYPE_VIDEO,
+            )
+        ).first()
+        is_group = True
+
+    if not msg:
+        raise Http404('File not found.')
 
     # ── Authorisation: only sender or receiver ──────────────────
-    if request.user not in (msg.sender, msg.receiver):
-        raise Http404('File not found.')
+    if is_group:
+        if not GroupMembership.objects.filter(group=msg.group, user=request.user).exists():
+            raise Http404('File not found.')
+    else:
+        if request.user not in (msg.sender, msg.receiver):
+            raise Http404('File not found.')
 
     if not msg.file:
         return JsonResponse({'error': 'No file stored for this message.'}, status=404)
