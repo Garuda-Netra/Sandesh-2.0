@@ -167,9 +167,11 @@ def chat_view(request):
         'last_seen': None,
         'is_self_chat': True,
         'is_blocked': False,
+        'is_chat_blocked': False,
     })
 
     for u in users:
+        is_chat_blocked, _ = _is_chat_blocked(request.user, u)
         try:
             profile = u.profile
             is_online = profile.is_online
@@ -177,12 +179,14 @@ def chat_view(request):
         except UserProfile.DoesNotExist:
             is_online = False
             last_seen = None
+            
         user_data.append({
             'user': u,
-            'is_online': is_online,
-            'last_seen': last_seen,
+            'is_online': False if is_chat_blocked else is_online,
+            'last_seen': None if is_chat_blocked else last_seen,
             'is_self_chat': False,
             'is_blocked': u.id in blocked_user_ids,
+            'is_chat_blocked': is_chat_blocked,
         })
 
     # Put self first, then online users
