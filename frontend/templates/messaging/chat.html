@@ -851,10 +851,22 @@
 <!-- ══════════════════════════════════════════════════════════════
      EMOJI PICKER (lightweight)
 ══════════════════════════════════════════════════════════════ -->
-<div id="emojiPicker" class="sdh-emoji-picker hidden fixed z-40 p-3 rounded-2xl grid grid-cols-8 gap-1"
-  style="bottom:80px; right:24px; width:280px;"></div>
+<div id="emojiPicker" class="sdh-emoji-picker hidden fixed z-40 p-3 rounded-2xl flex flex-col gap-2"
+  style="bottom:80px; right:24px; width:280px;">
+  <!-- Emoji Picker Header -->
+  <div class="flex justify-between items-center pb-1 border-b border-white/10 select-none">
+    <span class="text-[10px] font-bold text-divine-gold uppercase tracking-wider">Select Emoji</span>
+    <button onclick="SDH.Chat.toggleEmojiPicker()" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors duration-150" title="Close">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+  <!-- Emoji Grid -->
+  <div id="emojiGrid" class="grid grid-cols-8 gap-1"></div>
+</div>
 <script>
-  document.getElementById('emojiPicker').innerHTML = ["😊", "😂", "❤️", "🔥", "⚡", "🙏", "✨", "🌙", "🌟", "💫", "🎵", "🎶", "👑", "🦋", "🌺", "🙌", "😍", "🤣", "😎", "💎", "🚀", "🌈", "🎯", "🔮", "💡", "⚔️", "🛡️", "🌸", "🎉", "💥", "🤦", "🌹", "🤦‍♂️"]
+  document.getElementById('emojiGrid').innerHTML = ["😊", "😂", "❤️", "🔥", "⚡", "🙏", "✨", "🌙", "🌟", "💫", "🎵", "🎶", "👑", "🦋", "🌺", "🙌", "😍", "🤣", "😎", "💎", "🚀", "🌈", "🎯", "🔮", "💡", "⚔️", "🛡️", "🌸", "🎉", "💥", "🤦", "🌹", "🤦‍♂️"]
     .map(e => `<button class="sdh-emoji-btn w-8 h-8 flex items-center justify-center rounded-xl text-lg" onclick="SDH.Chat.insertEmoji('${e}')">${e}</button>`).join('');
 </script>
 
