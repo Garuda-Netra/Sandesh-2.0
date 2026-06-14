@@ -301,6 +301,24 @@
   --btn-border: rgba(245, 158, 11, 0.4) !important;
 }
 
+[data-theme="light"] .sdh-liquid-btn.btn-secondary::before {
+  --btn-gradient: rgba(168, 85, 247, 0.10) !important;
+  --btn-border: rgba(168, 85, 247, 0.4) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover::before {
+  --btn-gradient: rgba(168, 85, 247, 0.20) !important;
+  --btn-border: rgba(168, 85, 247, 0.6) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary {
+  color: var(--c-text);
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover {
+  color: var(--c-gold);
+}
+
 /* Ensure chatbot suggestions are visible in light mode */
 [data-theme="light"] .sdh-bot-suggestion.btn-ancient {
   color: #1f2937 !important;
@@ -2729,6 +2747,25 @@ body {
   border-color: rgba(180, 170, 230, 0.6);
 }
 
+/* ─── Kebab Menus Visibility (Light Mode) ─── */
+[data-theme="light"] .sdh-sidebar-kebab button,
+[data-theme="light"] .user-ctx-wrap > button {
+  color: #4b5563 !important; /* Tailwind gray-600 */
+}
+[data-theme="light"] .sdh-sidebar-kebab button svg,
+[data-theme="light"] .user-ctx-wrap > button svg {
+  color: #4b5563 !important;
+}
+[data-theme="light"] .sdh-sidebar-kebab button:hover,
+[data-theme="light"] .user-ctx-wrap > button:hover {
+  color: #9333ea !important; /* Tailwind purple-600 */
+  background: rgba(147, 51, 234, 0.15) !important;
+}
+[data-theme="light"] .sdh-sidebar-kebab button:hover svg,
+[data-theme="light"] .user-ctx-wrap > button:hover svg {
+  color: #9333ea !important;
+}
+
 
 /* ════════════════════════════════════════════════════════════════
    SELECTION HIGHLIGHT
@@ -4234,4 +4271,5 @@ body {
 
 [data-theme="light"] .sdh-cg-members-list input[type="checkbox"] {
   accent-color: #f59e0b;
-}
+}. i s - s c r o l l i n g   *   {   p o i n t e r - e v e n t s :   n o n e   ! i m p o r t a n t ;   }  
+ 

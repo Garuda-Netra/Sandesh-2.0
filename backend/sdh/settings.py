@@ -117,11 +117,23 @@ if _REDIS_URL:
             },
         },
     }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _REDIS_URL,
+        }
+    }
 else:
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels.layers.InMemoryChannelLayer',
         },
+    }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'sdh-presence-cache',
+        }
     }
 
 # ---------------------------------------------------------------------------

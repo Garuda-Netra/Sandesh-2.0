@@ -243,7 +243,7 @@ class ChatSetting(models.Model):
     Stores per-chat configuration such as message retention periods.
     """
     RETENTION_CHOICES = [
-        (1, '1 Day'),
+        (2, '2 Days'),
         (7, '1 Week'),
         (30, '1 Month'),
         (180, '6 Months'),
@@ -251,7 +251,7 @@ class ChatSetting(models.Model):
 
     user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='+')
     user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='+')
-    retention_days = models.IntegerField(default=7, choices=RETENTION_CHOICES)
+    retention_days = models.IntegerField(default=2, choices=RETENTION_CHOICES)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -319,6 +319,7 @@ class GroupMembership(models.Model):
         max_length=10, choices=ROLE_CHOICES, default=ROLE_MEMBER,
     )
     joined_at = models.DateTimeField(auto_now_add=True)
+    cleared_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when the user last cleared the group chat.")
     muted = models.BooleanField(default=False)
 
     class Meta:
@@ -336,6 +337,44 @@ class GroupMembership(models.Model):
     @property
     def is_admin_or_owner(self):
         return self.role in (self.ROLE_OWNER, self.ROLE_ADMIN)
+
+
+class GroupInvite(models.Model):
+    """
+    Tracks group invitations sent to users.
+    """
+    STATUS_PENDING = 'pending'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_DECLINED = 'declined'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_ACCEPTED, 'Accepted'),
+        (STATUS_DECLINED, 'Declined'),
+    ]
+
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name='invites'
+    )
+    inviter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='sent_group_invites'
+    )
+    invitee = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='received_group_invites'
+    )
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('group', 'invitee')
+        verbose_name = 'Group Invite'
+        verbose_name_plural = 'Group Invites'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Invite to {self.invitee.username} for {self.group.name} by {self.inviter.username}'
+
 
 
 class GroupMessage(models.Model):

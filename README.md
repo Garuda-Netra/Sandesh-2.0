@@ -1,90 +1,84 @@
-# Sandesh 2.0 — The Cosmic Edition 🌌
+# Sandesh 2.0
 
-> **Engineered & Crafted with ❤️ by Raj**
+**Built with ❤️ by Raj**
 
-Welcome to **Sandesh 2.0**—a real-time messaging platform that actually feels like a living, breathing space.
+Welcome to **Sandesh 2.0**, a fast, secure, and user-friendly real-time messaging application designed to make online communication feel natural and seamless.
 
-I built Sandesh because I was tired of using chat apps that felt stiff, cluttered, and soulless. I didn't want just another messaging clone; I wanted a platform that feels **alive, beautifully fluid, and incredibly fast**, while keeping your conversations totally secure. The result? A premium chat ecosystem wrapped in a gorgeous "Cosmic" dark mode (or a sleek "Saffron" light mode), filled with buttery-smooth animations, and completely free of clutter.
+We created Sandesh to provide a clean and intuitive chat experience. The goal was simple: build a messaging app that is fast, highly responsive, and beautifully designed without any unnecessary clutter or tracking. Whether you prefer a sleek dark mode or a clean light mode, Sandesh adapts to your preference while keeping your conversations secure.
 
-No ads. No creepy tracking algorithms. Just you, your favorite people, and a beautiful space to connect.
-
----
-
-## ✨ Why You'll Love Sandesh
-
-- **Breathtaking Aesthetics & Cultural Touches:** Jump into a premium UI designed with modern glassmorphism, glowing accents, and smooth liquid buttons. We've even added subtle cultural nods—like the typing effect on the landing page that spells out "वसुधैव कुटुम्बकम्" (*The world is one family*). It looks and feels stunning whether you're using it on an iPhone, Android, iPad, Mac, or Windows PC.
-- **True Real-Time Messaging:** Powered by highly optimized WebSockets. When you hit send, it's there. No refreshing, no lagging, no waiting around.
-- **Disappearing Messages:** Want more privacy? You can easily set your messages to automatically vanish after 1 day, 1 week, 1 month, or 6 months. It's your digital footprint, and you're in total control.
-- **Moments (24-hour Stories):** Share your day with beautifully implemented "Moments." You can view your friends' stories, which are wrapped in sleek, glowing rings that adapt perfectly to both light and dark modes.
-- **Crystal-Clear Voice & Video Calls:** Start high-quality peer-to-peer WebRTC calls directly from your browser. One click is all it takes to see or hear your friends.
-- **Smart "Missed Call" System:** If you try to reach someone who is offline, Sandesh acts like your personal assistant, instantly dropping a clean, professional "Missed Call" card into your chat feed.
-- **Flexible & Secure Sign-in:** Hate remembering usernames? We get it. You can securely sign in using your **Username, Email, or Phone Number**. Phone numbers are instantly validated and neatly formatted with correct international country codes.
-- **End-to-End Polish:** See exactly who is online in real time, watch typing indicators pop up seamlessly when someone is writing to you, and enjoy a strict layout that never breaks. No weird background scrolling or overlapping keyboards—just a perfectly stable, native app feel.
-- **Your Personal Space:** Need to drop quick notes, files, or ideas just for yourself? Enjoy a dedicated "Saved Messages" space built specifically for that.
+No ads, no tracking—just a reliable space to connect with the people who matter.
 
 ---
 
-## 🛠️ What's Under the Hood?
+## ✨ Features
 
-Sandesh is engineered to be as robust and secure as it is beautiful.
+- **Responsive Design:** A modern, glassmorphism-inspired UI that looks great and works seamlessly across desktops, tablets, and mobile devices.
+- **Real-Time Messaging:** Powered by highly optimized WebSockets, your messages are delivered instantly without the need to refresh.
+- **Privacy Control:** Take control of your data with disappearing messages. You can set messages to automatically delete after 2 days, 1 week, 1 month, or 6 months.
+- **Moments:** Share what you're up to with 24-hour status updates, complete with read receipts and reactions.
+- **Voice & Video Calls:** Start high-quality, peer-to-peer calls directly from your browser using WebRTC.
+- **Missed Call Alerts:** If someone tries to reach you while you're offline, you'll receive a clear "Missed Call" notification in your chat.
+- **Flexible Login:** Sign in securely using your username, email, or phone number.
+- **Real-Time Indicators:** See who is online and when they are typing to you. 
+- **Saved Messages:** A dedicated private space to keep notes, files, or ideas just for yourself.
 
-| Component | Technology Powering It |
+---
+
+## 🛠️ Technology Stack
+
+Sandesh is built using robust and modern technologies:
+
+| Component | Technology |
 |---|---|
-| **Backend Core** | Django 5, Python 3 |
-| **Real-Time Engine** | Django Channels, WebSockets, Daphne (ASGI) |
-| **P2P Calling** | WebRTC (with STUN/TURN fallback for rock-solid reliability) |
+| **Backend** | Django 5, Python 3 |
+| **Real-Time Engine** | Django Channels, WebSockets, Daphne |
+| **Calling Integration**| WebRTC (with STUN/TURN fallback) |
 | **Database** | PostgreSQL (Production) / SQLite (Local) |
-| **Media & File Storage** | Cloudinary (Production) / Local filesystem |
-| **Frontend UI** | Vanilla HTML, CSS, JavaScript (Zero heavy frameworks weighing it down!) |
+| **File Storage** | Cloudinary (Production) / Local Filesystem |
+| **Frontend** | Vanilla HTML, CSS, JavaScript |
 
 ---
 
-## 🚀 Run It Locally in Minutes
+## 🚀 Running Locally
 
-Want to take Sandesh for a spin on your own machine? It's incredibly straightforward. All you need is Python installed—no Docker or complicated database setups required.
+Want to test Sandesh on your own machine? Getting started is easy. You only need Python installed—no Docker or complex database setups are required.
 
 ```bash
-# 1. Grab the code
+# 1. Clone the repository
 git clone https://github.com/Garuda-Netra/Sandesh-2.0.git
 cd Sandesh-2.0
 
-# 2. Create your isolated environment
+# 2. Create and activate a virtual environment
 python -m venv .venv
 
-# Activate it:
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # Mac / Linux
+# On Windows:
+.venv\Scripts\activate
+# On Mac/Linux:
+# source .venv/bin/activate
 
-# 3. Install the magic ingredients
+# 3. Install the dependencies
 pip install -r backend/requirements.txt
 
-# 4. Set up your local database
+# 4. Set up the database
 cd backend
 python manage.py migrate
 
-# 5. Bring Sandesh to life
+# 5. Start the application
 python manage.py runserver
 ```
 
-Boom. 💥 You're live! Open **http://127.0.0.1:8000** in your favorite browser.
+You're all set! Open **http://127.0.0.1:8000** in your browser.
 
-*(Pro tip: Want full admin powers? Run `python manage.py createsuperuser` and log in to the admin panel!)*
+*(Tip: To access the admin panel, create a superuser by running `python manage.py createsuperuser` and logging in.)*
 
 ---
 
-## ☁️ Taking It to the Cloud (Production)
+## ☁️ Deployment
 
-Ready to show it to the world? Sandesh is perfectly tuned to deploy flawlessly on platforms like **Railway**, **Render**, or **Heroku**. 
-The engine automatically detects your environment and effortlessly switches from local SQLite and storage to rock-solid PostgreSQL and Cloudinary the moment you feed it your production variables!
+Sandesh is ready for production and can be easily deployed to cloud platforms like **Railway**, **Render**, or **Heroku**. The application automatically switches from local settings to production services (like PostgreSQL and Cloudinary) when the appropriate environment variables are provided.
 
-**Essential Environment Variables for Production:**
+**Key Environment Variables for Production:**
 - `SECRET_KEY`, `DEBUG=False`, `ALLOWED_HOSTS`
-- `DATABASE_URL` (Postgres) & `REDIS_URL` (For lightning-fast WebSockets)
+- `DATABASE_URL` (For PostgreSQL) & `REDIS_URL` (For WebSockets)
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
-- `TURN_SERVER_URL`, `TURN_SERVER_USERNAME`, `TURN_SERVER_CREDENTIAL` (For flawless WebRTC calls across any network)
-
----
-
-### A Final Note from the Creator
-
-> *"Code shouldn't just function; it should feel amazing to use. I poured my heart into every pixel and every line of code to make sure Sandesh respects your time and your eyes. I hope you enjoy messaging on Sandesh as much as I loved bringing it to life."* — **Raj**
+- `TURN_SERVER_URL`, `TURN_SERVER_USERNAME`, `TURN_SERVER_CREDENTIAL` (For WebRTC calls over different networks)

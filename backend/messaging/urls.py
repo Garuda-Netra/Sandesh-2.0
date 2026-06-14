@@ -42,8 +42,11 @@ urlpatterns = [
     path('api/groups/<int:group_id>/update/', views.group_update, name='group_update'),
     path('api/groups/<int:group_id>/members/add/', views.group_add_members, name='group_add_members'),
     path('api/groups/<int:group_id>/members/remove/', views.group_remove_member, name='group_remove_member'),
+    path('api/groups/<int:group_id>/clear/', views.clear_group_chat, name='clear_group_chat'),
     path('api/groups/<int:group_id>/members/leave/', views.group_leave, name='group_leave'),
     path('api/groups/<int:group_id>/members/role/', views.group_change_role, name='group_change_role'),
     path('api/groups/<int:group_id>/history/', views.group_message_history, name='group_message_history'),
     path('api/groups/messages/<int:message_id>/reads/', views.group_message_reads, name='group_message_reads'),
+    path('api/groups/invites/pending/', views.pending_group_invites, name='pending_group_invites'),
+    path('api/groups/invites/<int:invite_id>/respond/', views.group_invite_respond, name='group_invite_respond'),
 ]

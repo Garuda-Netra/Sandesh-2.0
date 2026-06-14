@@ -78,6 +78,12 @@
         case 'user_removed':         handleUserRemoved(data);                 break;
         case 'chat_setting_update':  handleChatSettingUpdate(data);           break;
         case 'friend_request':       handleFriendRequest(data);               break;
+        case 'friend_request_accepted': handleFriendRequestAccepted(data);    break;
+        case 'group_invite':         handleGroupInvite(data);                 break;
+        case 'group_deleted':        handleGroupDeleted(data);                break;
+        case 'group_member_update':  handleGroupMemberUpdate(data);           break;
+        case 'user_blocked':         handleUserBlocked(data);                 break;
+        case 'user_unblocked':       handleUserUnblocked(data);               break;
         case 'new_moment':           SDH.Moments?.handleNewMomentEvent?.(data.moment); break;
         case 'delete_moment':        SDH.Moments?.handleDeleteMomentEvent?.(data.user_id, data.moment_id); break;
         case 'moment_viewed':        SDH.Moments?.handleMomentViewedEvent?.(data.moment_id, data.viewer); break;
@@ -94,6 +100,79 @@
       await loadFriendRequests();
       showToast(`New friend request from ${data.sender}`, 'info');
       Notif.show(`New Friend Request`, `From ${data.sender}`, 'sdh-friend-request');
+    }
+
+    function handleFriendRequestAccepted(data) {
+      showToast(`${data.new_friend} accepted your friend request!`, 'success');
+      _refreshSidebar();
+    }
+
+    // ── Real-time Sidebar Refresher ──────────────────────────────────────────
+    async function _refreshSidebar() {
+      try {
+        const res = await fetch(location.href);
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newUserListHTML = doc.getElementById('userList').innerHTML;
+        const currentList = document.getElementById('userList');
+        if (currentList) {
+          currentList.innerHTML = newUserListHTML;
+        }
+      } catch (err) {
+        console.error('[Chat] Failed to refresh sidebar:', err);
+      }
+    }
+
+    function handleGroupInvite(data) {
+      Notif.show(`Group Invitation`, `${data.inviter} invited you to join ${data.group_name}`, `sdh-group-invite-${data.invite_id}`);
+      showGroupInviteModal(data);
+    }
+
+    function handleGroupDeleted(data) {
+      const deletedGroupKey = `group_${data.group_id}`;
+
+      // 1. Remove the group from the sidebar
+      const sidebarItem = document.getElementById(`group-item-${data.group_id}`);
+      if (sidebarItem) sidebarItem.remove();
+
+      // 2. Clear any unread badge state for this group
+      delete unreadCounts[deletedGroupKey];
+
+      // 3. Close the userProfileModal if it's open (group info panel)
+      const profileModal = document.getElementById('userProfileModal');
+      if (profileModal && !profileModal.classList.contains('hidden')) {
+        profileModal.classList.add('hidden');
+      }
+
+      // 4. If the user is currently viewing this group chat, clean up completely
+      if (activeUser === deletedGroupKey) {
+        // Disconnect WebSocket cleanly (suppresses reconnection)
+        SDH.WS?.disconnect();
+
+        // Clear active state
+        activeUser = null;
+        activeUserId = null;
+        sessionStorage.removeItem('ndm_last_chat');
+        sessionStorage.removeItem('ndm_last_chat_id');
+        sessionStorage.removeItem('ndm_last_chat_name');
+
+        // Reset the chat area to the empty/welcome state
+        const container = document.getElementById('messagesContainer');
+        if (container) container.innerHTML = _defaultEmptyStateInnerHtml();
+
+        // Reset header
+        const usernameEl = document.getElementById('chatUsername');
+        if (usernameEl) usernameEl.textContent = '';
+        _setHeaderStatus('', 'default');
+
+        // Hide the input bar since no chat is selected
+        document.getElementById('inputBar')?.classList.add('hidden');
+      }
+
+      // 5. Show a toast notification
+      const deletedBy = data.deleted_by || 'The owner';
+      showToast(`"${data.group_name}" was deleted by ${deletedBy}.`, 'info');
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -229,14 +308,23 @@
 
       const displayContent = data.message_type === 'text' ? (data.message || '') : null;
 
-      if (!isFromMe && !activeUser.startsWith('group_') && data.sender !== activeUser) {
-        unreadCounts[data.sender] = (unreadCounts[data.sender] || 0) + 1;
-        updateUnreadBadge(data.sender);
-        Notif.show(
-          `New message from ${data.sender}`,
-          data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`,
-          `sdh-${data.sender}`,
-        );
+      const isGroupMsg = data.type === 'group_message' || !!data.group_id;
+      const chatTarget = isGroupMsg ? `group_${data.group_id}` : (isFromMe ? data.receiver : data.sender);
+
+      if (activeUser !== chatTarget) {
+        if (!isFromMe) {
+          unreadCounts[chatTarget] = (unreadCounts[chatTarget] || 0) + 1;
+          updateUnreadBadge(chatTarget);
+          
+          let notifTitle = isGroupMsg ? `New message in Group` : `New message from ${data.sender}`;
+          if (isGroupMsg && data.sender) notifTitle = `New message from ${data.sender} in Group`;
+
+          Notif.show(
+            notifTitle,
+            data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`,
+            `sdh-${chatTarget}`,
+          );
+        }
         return;
       }
 
@@ -272,9 +360,21 @@
       scrollToBottom();
     }
 
+    function handleGroupMemberUpdate(data) {
+      if (activeUser && activeUser.startsWith('group_')) {
+        const gid = activeUser.split('_')[1];
+        if (data.group_id == gid || (data.group_id === undefined)) {
+          const modal = document.getElementById('userProfileModal');
+          if (modal && !modal.classList.contains('hidden')) {
+             SDH.Chat.showGroupProfile(gid);
+          }
+        }
+      }
+    }
+
     function handleChatSettingUpdate(data) {
       if (data.updated_by === activeUser || data.updated_by === window.SDH_DATA.currentUser) {
-        const labels = { 1: '1 Day', 7: '1 Week', 30: '1 Month', 180: '6 Months' };
+        const labels = { 2: '2 Days', 7: '1 Week', 30: '1 Month', 180: '6 Months' };
         const label = labels[data.retention_days] || (data.retention_days + ' days');
         
         appendSystemMessage(`${data.updated_by === window.SDH_DATA.currentUser ? 'You' : data.updated_by} set the message retention period to ${label}.`);
@@ -902,6 +1002,51 @@
      * Sent by the server when the current user hides someone
      * (optional real-time confirmation path).
      */
+    function handleUserBlocked(data) {
+      // Find the user we need to obscure (the other person)
+      const otherUser = data.blocker_username === window.SDH_DATA.currentUser ? data.blocked_username : data.blocker_username;
+      
+      const item = document.getElementById(`user-item-${otherUser}`);
+      if (item) {
+        // Set default avatar
+        const img = item.querySelector('img.sdh-avatar-img');
+        if (img) img.src = '/static/images/default_avatar.png';
+        
+        // Hide online indicator
+        const statusDot = item.querySelector('.sdh-status-dot');
+        if (statusDot) statusDot.remove();
+        
+        // Hide last seen
+        const lastSeen = item.querySelector('.sdh-last-seen');
+        if (lastSeen) lastSeen.textContent = '';
+      }
+      
+      // If the active chat is with this user, update chat header
+      if (activeUser === otherUser) {
+        const headerImg = document.getElementById('chatHeaderAvatar');
+        if (headerImg) headerImg.src = '/static/images/default_avatar.png';
+        const headerStatus = document.getElementById('chatHeaderStatus');
+        if (headerStatus) headerStatus.textContent = '';
+      }
+      
+      // If we are the blocker, update the UI
+      if (data.blocker_username === window.SDH_DATA.currentUser && activeUser === otherUser) {
+        _updateBlockUI(true);
+      }
+    }
+
+    function handleUserUnblocked(data) {
+      _refreshSidebar();
+      
+      const otherUser = data.unblocker_username === window.SDH_DATA.currentUser ? data.unblocked_username : data.unblocker_username;
+      if (data.unblocker_username === window.SDH_DATA.currentUser && activeUser === otherUser) {
+        _updateBlockUI(false);
+      }
+      if (activeUser === otherUser) {
+         selectConversation(otherUser);
+      }
+    }
+
     function handleUserRemoved(data) {
       const username = data.removed_username;
       if (!username) return;
@@ -917,12 +1062,22 @@
     //  Clear All Chat Handlers
     // ═════════════════════════════════════════════════════════════════════
 
-    /** Handles the real-time chat_cleared event for both participants. */
+    /** Handles the real-time chat_cleared event for both participants or groups. */
     function handleChatCleared(data) {
-      const { cleared_by, other_user } = data;
+      const { cleared_by, other_user, group_id } = data;
       const me = window.SDH_DATA.currentUser;
-      // Only act if the cleared conversation is the currently open one
-      const partner = cleared_by === me ? other_user : cleared_by;
+      
+      let partner = null;
+      if (group_id) {
+        // For groups, the partner is group_X
+        partner = 'group_' + group_id;
+        // Group chat clears are one-sided, so only process if I cleared it
+        if (cleared_by !== me) return;
+      } else {
+        // For 1-on-1 chats
+        partner = cleared_by === me ? other_user : cleared_by;
+      }
+      
       if (activeUser !== partner) return;
 
       renderedIds.clear();
@@ -930,15 +1085,27 @@
 
       const container = document.getElementById('messagesContainer');
       if (container) {
-        container.innerHTML = `
-          <div class="flex flex-col items-center justify-center h-full text-center text-divine-muted py-16">
-            <div class="text-5xl mb-4 opacity-20">&#x1F4AC;</div>
-            <p class="text-sm font-medium">No messages yet</p>
-            <p class="text-xs mt-2 opacity-50">Start a conversation</p>
-          </div>`;
+        // Apply smooth slide-away animation to all message elements
+        const children = Array.from(container.children);
+        children.forEach(child => {
+            child.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            child.style.opacity = '0';
+            child.style.transform = 'translateY(20px) scale(0.95)';
+        });
+        
+        // Wait for animation, then clear and show empty state
+        setTimeout(() => {
+          container.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full text-center text-divine-muted py-16 animate-msg-appear">
+              <div class="text-5xl mb-4 opacity-20">&#x1F4AC;</div>
+              <p class="text-sm font-medium">No messages yet</p>
+              <p class="text-xs mt-2 opacity-50">Start a conversation</p>
+            </div>
+          `;
+        }, 400);
       }
 
-      if (cleared_by !== me) {
+      if (!group_id && cleared_by !== me) {
         showToast(`${cleared_by} cleared the chat history.`, 'info');
       } else {
         showToast('Chat history cleared.', 'success');
@@ -956,7 +1123,11 @@
       document.getElementById('clearChatModal')?.classList.add('hidden');
       if (!activeUser) return;
       try {
-        const res = await fetch(`/messaging/api/clear-chat/${activeUser}/`, {
+        let endpointUrl = `/messaging/api/clear-chat/${activeUser}/`;
+        if (activeUser.startsWith('group_') && activeUserId) {
+            endpointUrl = `/messaging/api/groups/${activeUserId}/clear/`;
+        }
+        const res = await fetch(endpointUrl, {
           method: 'POST',
           headers: { 'X-CSRFToken': window.SDH_DATA.csrfToken, 'Content-Type': 'application/json' },
         });
@@ -1282,6 +1453,9 @@
 
         // Text message
         const payload = { type: 'chat_message', receiver: activeUser, message_type: 'text', message: rawText };
+        if (activeUser.startsWith('group_')) {
+          payload.type = 'group_message';
+        }
 
         const tempId = `temp_${Date.now()}`;
         appendMessage({
@@ -1417,7 +1591,9 @@
 
     function handleTypingIndicator(data) {
       if (_isSelfChat(activeUser)) return;
-      if (data.sender !== activeUser) return;
+      if (data.sender === window.SDH_DATA.currentUser) return;
+      if (!activeUser.startsWith('group_') && data.sender !== activeUser) return;
+
       const bubble = document.getElementById('typingBubble');
       const name   = document.getElementById('typingName');
       if (!bubble) return;
@@ -1463,6 +1639,13 @@
         }
       }
 
+      // Update internal user cache so if we select them later, it's correct
+      const u = window.SDH_DATA?.users?.find(x => x.username === data.username);
+      if (u) {
+        u.is_online = isActive;
+        if (data.last_seen) u.last_seen = data.last_seen;
+      }
+
       // Update chat header for the active conversation
       if (data.username === activeUser) {
         if (_isSelfChat(activeUser)) return;
@@ -1478,18 +1661,33 @@
     }
 
     function _reorderSidebar() {
-      const list = document.getElementById('userList');
-      if (!list) return;
-      const items = Array.from(list.querySelectorAll('.user-item'));
-      items.sort((a, b) => {
-        const aSelf = a.dataset.self === '1' ? 0 : 1;
-        const bSelf = b.dataset.self === '1' ? 0 : 1;
-        if (aSelf !== bSelf) return aSelf - bSelf;
-        const aO = document.getElementById(`online-dot-${a.dataset.username}`)?.classList.contains('sdh-online-dot--on') ? 0 : 1;
-        const bO = document.getElementById(`online-dot-${b.dataset.username}`)?.classList.contains('sdh-online-dot--on') ? 0 : 1;
-        return aO !== bO ? aO - bO : (a.dataset.username || '').localeCompare(b.dataset.username || '');
-      });
-      items.forEach(el => list.appendChild(el));
+      // Reorder direct messages
+      const dmList = document.getElementById('dmsContainer');
+      if (dmList) {
+        const items = Array.from(dmList.querySelectorAll('.user-item'));
+        items.sort((a, b) => {
+          const aSelf = a.dataset.self === '1' ? 0 : 1;
+          const bSelf = b.dataset.self === '1' ? 0 : 1;
+          if (aSelf !== bSelf) return aSelf - bSelf;
+          const aO = document.getElementById(`online-dot-${a.dataset.username}`)?.classList.contains('sdh-online-dot--on') ? 0 : 1;
+          const bO = document.getElementById(`online-dot-${b.dataset.username}`)?.classList.contains('sdh-online-dot--on') ? 0 : 1;
+          return aO !== bO ? aO - bO : (a.dataset.username || '').localeCompare(b.dataset.username || '');
+        });
+        items.forEach(el => dmList.appendChild(el));
+      }
+
+      // Reorder groups
+      const groupList = document.getElementById('groupsContainer');
+      if (groupList) {
+        const gItems = Array.from(groupList.querySelectorAll('.user-item'));
+        gItems.sort((a, b) => {
+          const aName = a.querySelector('.sdh-user-name')?.textContent.trim() || '';
+          const bName = b.querySelector('.sdh-user-name')?.textContent.trim() || '';
+          return aName.localeCompare(bName);
+        });
+        gItems.forEach(el => groupList.appendChild(el));
+      }
+
       _updateOnlineCount();
     }
 
@@ -1514,10 +1712,15 @@
     //  Select user
     // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
     async function selectUser(username, userId) {
+      if (window.innerWidth < 640) closeSidebar();
       if (activeUser === username) return;
       activeUser = username; activeUserId = userId;
       sessionStorage.setItem('ndm_last_chat', username);
       if (userId) sessionStorage.setItem('ndm_last_chat_id', String(userId));
+      
+      if (SDH.WS) {
+        SDH.WS.connectWebSocket(userId, false);
+      }
 
       renderedIds.clear();
       dateSeparators.clear();
@@ -1594,6 +1797,18 @@
       closeSidebar();
       if (!_isSelfChat(username)) SDH.WebRTC?.setRemoteUser(username);
       Notif.requestPermission();
+    }
+
+    function handleGroupMemberUpdate(data) {
+      if (activeUser && activeUser.startsWith('group_')) {
+        const gid = activeUser.split('_')[1];
+        if (data.group_id == gid || (data.group_id === undefined)) {
+          const modal = document.getElementById('userProfileModal');
+          if (modal && !modal.classList.contains('hidden')) {
+             SDH.Chat.showGroupProfile(gid);
+          }
+        }
+      }
     }
 
     function handleChatSettingUpdate(data) {
@@ -1746,7 +1961,13 @@
     function filterUsers(query) {
       const q = query.toLowerCase();
       document.querySelectorAll('.user-item').forEach(el => {
-        el.style.display = (el.dataset.username?.toLowerCase() || '').includes(q) ? '' : 'none';
+        const username = el.dataset.username?.toLowerCase() || '';
+        const groupName = el.querySelector('.sdh-user-name')?.textContent.toLowerCase() || '';
+        if (username.includes(q) || groupName.includes(q)) {
+          el.style.display = '';
+        } else {
+          el.style.display = 'none';
+        }
       });
     }
 
@@ -1762,14 +1983,39 @@
       document.getElementById('sidebarOverlay')?.classList.add('hidden');
     }
 
-    // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
-    //  Scroll + Toast
-    // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
+    // ── Scroll + Toast ────────────────────────────────────────────────────────
+    let isScrollingTimeout = null;
+
+    function _initScrollOptimization() {
+      const container = document.getElementById('messagesContainer');
+      if (!container) return;
+      container.addEventListener('scroll', () => {
+        if (!container.classList.contains('is-scrolling')) {
+          container.classList.add('is-scrolling');
+        }
+        clearTimeout(isScrollingTimeout);
+        isScrollingTimeout = setTimeout(() => {
+          container.classList.remove('is-scrolling');
+        }, 150); // Re-enable pointer events 150ms after scroll stops
+      }, { passive: true });
+    }
+    
+    // Call this once on load
+    document.addEventListener('DOMContentLoaded', _initScrollOptimization);
+
     function scrollToBottom(instant = false) {
       const el = document.getElementById('messagesContainer');
       if (!el) return;
-      if (instant) el.scrollTop = el.scrollHeight;
-      else setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
+      if (instant) {
+        el.scrollTop = el.scrollHeight;
+      } else {
+        requestAnimationFrame(() => {
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: 'smooth'
+          });
+        });
+      }
     }
 
     function showToast(message, type = 'info') {
@@ -1855,10 +2101,98 @@
       _updateOnlineCount();
       // Load friend requests
       await loadFriendRequests();
+      // Load pending group invites
+      await fetchPendingGroupInvites();
       // Show notification permission banner if not yet decided
       if ('Notification' in window && Notification.permission === 'default') {
         const banner = document.getElementById('notifPrompt');
         if (banner) banner.classList.replace('hidden', 'flex');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  Group Invite Functions
+    // ═══════════════════════════════════════════════════════════════════
+
+    async function fetchPendingGroupInvites() {
+      if (!window.SDH_DATA.groupPendingInvitesUrl) return;
+      try {
+        const res = await fetch(window.SDH_DATA.groupPendingInvitesUrl);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.invites && data.invites.length > 0) {
+          // Display them one by one or all at once. Showing sequentially via delay or stacking them
+          data.invites.forEach((invite, idx) => {
+            setTimeout(() => {
+              showGroupInviteModal(invite);
+            }, idx * 500);
+          });
+        }
+      } catch (err) {
+        console.error('[Chat] fetchPendingGroupInvites error:', err);
+      }
+    }
+
+    function showGroupInviteModal(invite) {
+      // Check if already open
+      if (document.getElementById(`group-invite-modal-${invite.invite_id}`)) return;
+
+      const modalHtml = `
+        <div id="group-invite-modal-${invite.invite_id}" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div class="bg-divine-deep border border-divine-gold/20 rounded-2xl p-6 w-full max-w-sm shadow-2xl transform transition-all relative overflow-hidden">
+            <!-- Decorative accent -->
+            <div class="absolute -top-10 -right-10 w-32 h-32 bg-divine-gold/10 rounded-full blur-2xl"></div>
+            
+            <div class="flex items-center gap-4 mb-5">
+              <div class="w-12 h-12 rounded-full bg-divine-gold/20 flex items-center justify-center flex-shrink-0 text-divine-gold text-xl font-bold">
+                ${(invite.group_name && invite.group_name[0]) ? invite.group_name[0].toUpperCase() : 'G'}
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-white leading-tight">Group Invitation</h3>
+                <p class="text-sm text-divine-muted mt-1"><span class="text-divine-gold font-medium">${invite.inviter}</span> invited you to join <span class="text-white font-medium">${invite.group_name}</span></p>
+              </div>
+            </div>
+            
+            <div class="flex gap-3 mt-6">
+              <button onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'decline')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 hover:text-white font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-white/20">
+                Decline Invite
+              </button>
+              <button onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'accept')" class="flex-1 py-2.5 rounded-xl bg-divine-gold text-divine-deep hover:bg-yellow-400 font-bold text-sm transition-all shadow-[0_0_15px_rgba(212,175,55,0.4)] hover:shadow-[0_0_20px_rgba(212,175,55,0.6)] focus:outline-none focus:ring-2 focus:ring-divine-gold/50">
+                Join Group
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    async function respondGroupInvite(inviteId, action) {
+      const modal = document.getElementById(`group-invite-modal-${inviteId}`);
+      if (modal) {
+        modal.classList.add('opacity-0', 'scale-95');
+        setTimeout(() => modal.remove(), 200);
+      }
+
+      try {
+        const url = window.SDH_DATA.groupInviteRespondUrl.replace('/0/', `/${inviteId}/`);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': window.SDH_DATA.csrfToken },
+          body: JSON.stringify({ action })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(action === 'accept' ? 'Joined group successfully!' : 'Invite declined.', 'success');
+          if (action === 'accept') {
+            // Soft refresh sidebar instead of full reload
+            _refreshSidebar();
+          }
+        } else {
+          showToast(data.error || 'Failed to respond to invite', 'error');
+        }
+      } catch (err) {
+        showToast('Network error responding to invite', 'error');
       }
     }
 
@@ -1965,8 +2299,8 @@
 
         if (action === 'accept') {
           showToast('Friend request accepted! They now appear in your chat list.', 'success');
-          // Reload the page to refresh the sidebar with the new friend
-          location.reload();
+          // Soft refresh sidebar instead of full reload
+          _refreshSidebar();
         } else {
           showToast('Friend request rejected.', 'info');
         }
@@ -2007,6 +2341,18 @@
     }
 
     /** Fetch and display a friend's user profile in the premium modal. */
+    function openAvatarViewer() {
+      const upmAvatarImg = document.getElementById('upmAvatarImg');
+      if (upmAvatarImg && !upmAvatarImg.classList.contains('hidden') && upmAvatarImg.src) {
+        const viewerModal = document.getElementById('avatarViewerModal');
+        const viewerImg = document.getElementById('avatarViewerImg');
+        if (viewerModal && viewerImg) {
+          viewerImg.src = upmAvatarImg.src;
+          viewerModal.classList.remove('hidden');
+        }
+      }
+    }
+
     async function showUserProfile(username, userId) {
       if (!username) return;
 
@@ -2030,6 +2376,8 @@
       const joinedEl = document.getElementById('upmJoined');
       const lastSeenEl = document.getElementById('upmLastSeen');
       const messageBtn = document.getElementById('upmMessageBtn');
+      const inviteBtnInit = document.getElementById('upmInviteMemberBtn');
+      if (inviteBtnInit) inviteBtnInit.classList.add('hidden');
 
       // Set skeleton / loading states
       displayNameEl.textContent = 'Loading...';
@@ -2039,6 +2387,7 @@
       phoneEl.textContent = '—';
       joinedEl.textContent = 'Joined —';
       lastSeenEl.textContent = 'Last seen —';
+      lastSeenEl.classList.remove('hidden');
 
       avatarText.textContent = username[0].toUpperCase();
       avatarText.classList.remove('hidden');
@@ -2078,6 +2427,8 @@
             is_online: true,
             last_seen: null
           };
+          
+          if (lastSeenEl) lastSeenEl.classList.add('hidden');
 
           // Show members section
           const membersSection = document.getElementById('upmMembersSection');
@@ -2092,10 +2443,29 @@
                 }
                 <div class="flex-1 min-w-0">
                   <p class="text-[13px] font-bold truncate text-divine-text">${m.username === window.SDH_DATA.currentUser ? 'You' : (m.display_name || m.username)}</p>
-                  <p class="text-[10px] uppercase tracking-widest text-divine-gold truncate">${m.role}</p>
+                  <p class="text-[10px] uppercase tracking-widest text-divine-gold truncate">
+                    ${m.role}
+                    <span class="mx-1 opacity-50 capitalize normal-case font-normal text-divine-muted">•</span>
+                    <span class="normal-case tracking-normal font-medium ${m.is_online ? 'text-green-500' : 'text-divine-muted/70'}">${m.is_online ? 'Active' : (m.last_seen ? 'Seen ' + _relativeTime(m.last_seen) : 'Offline')}</span>
+                  </p>
                 </div>
               </div>
             `).join('');
+            
+            // Unhide Invite Member button for all members
+            const inviteBtn = document.getElementById('upmInviteMemberBtn');
+            const myMember = groupData.members.find(m => m.username === window.SDH_DATA.currentUser);
+            if (myMember) {
+              if (inviteBtn) {
+                inviteBtn.classList.remove('hidden');
+                inviteBtn.onclick = () => {
+                  document.getElementById('userProfileModal').classList.add('hidden');
+                  openInviteMemberModal(groupId, groupData.members.map(m => m.user_id));
+                };
+              }
+            } else {
+              if (inviteBtn) inviteBtn.classList.add('hidden');
+            }
           }
         } else {
           const membersSection = document.getElementById('upmMembersSection');
@@ -2358,6 +2728,106 @@
       }
     }
 
+    let currentInviteGroupId = null;
+
+    function openInviteMemberModal(groupId, currentMemberIds) {
+      currentInviteGroupId = groupId;
+      const modal = document.getElementById('inviteMemberModal');
+      if (modal) {
+        const list = document.getElementById('imMembersList');
+        list.innerHTML = '';
+        
+        let count = 0;
+        document.querySelectorAll('.sdh-user-item').forEach(el => {
+           const uId = parseInt(el.dataset.userid, 10);
+           if (!uId || uId === window.SDH_DATA.userId || currentMemberIds.includes(uId)) return;
+           
+           const uName = el.querySelector('.sdh-user-name')?.textContent.trim() || 'Unknown';
+           const uImg = el.querySelector('img')?.src || '';
+           
+           const div = document.createElement('label');
+           div.className = 'sdh-im-member-row flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all hover:bg-white/5';
+           
+           let avatarHtml = `<div class="w-8 h-8 rounded-full bg-divine-surface flex items-center justify-center text-xs font-bold text-divine-gold shrink-0">${uName.charAt(0).toUpperCase()}</div>`;
+           if (uImg) {
+             avatarHtml = `<div class="w-8 h-8 rounded-full bg-divine-surface flex items-center justify-center text-xs font-bold text-divine-gold shrink-0"><img src="${uImg}" class="w-8 h-8 object-cover rounded-full shrink-0" alt="" onerror="this.parentElement.innerHTML = '${uName.charAt(0).toUpperCase()}';"></div>`;
+           }
+           
+           div.innerHTML = `
+             <div class="flex items-center gap-3">
+               ${avatarHtml}
+               <span class="text-sm font-medium text-white/90">${uName}</span>
+             </div>
+             <input type="checkbox" value="${uId}" class="im-member-checkbox w-4 h-4 rounded border-divine-border text-divine-gold focus:ring-divine-gold bg-black/40 cursor-pointer">
+           `;
+           list.appendChild(div);
+           count++;
+        });
+        if (count === 0) {
+           list.innerHTML = `
+            <div class="flex flex-col items-center justify-center p-6 text-center">
+              <svg class="w-8 h-8 text-fuchsia-400/50 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              <p class="sdh-im-empty-msg text-xs font-medium text-divine-text opacity-70">No eligible users available to invite.</p>
+            </div>`;
+        }
+        modal.classList.remove('hidden');
+      }
+    }
+
+    function closeInviteMemberModal() {
+      const modal = document.getElementById('inviteMemberModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        currentInviteGroupId = null;
+      }
+    }
+
+    async function submitInviteMember() {
+      if (!currentInviteGroupId) return;
+      const checkboxes = document.querySelectorAll('.im-member-checkbox:checked');
+      const memberIds = Array.from(checkboxes).map(c => parseInt(c.value, 10));
+      
+      if (memberIds.length === 0) {
+        showToast('Please select at least one member to invite.', 'error');
+        return;
+      }
+      
+      const btn = event.currentTarget;
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<span>Sending...</span>';
+      btn.disabled = true;
+      
+      try {
+        const res = await fetch(`/messaging/api/groups/${currentInviteGroupId}/members/add/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': window.SDH_DATA.csrfToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ member_ids: memberIds })
+        });
+        
+        if (!res.ok) {
+          const j = await res.json().catch(e=>{});
+          throw new Error(j?.error || 'Failed to send invites');
+        }
+        
+        showToast('Invites sent successfully!', 'success');
+        const groupIdToRefresh = currentInviteGroupId;
+        closeInviteMemberModal();
+        if (groupIdToRefresh) {
+            showGroupProfile(groupIdToRefresh); // Refresh member list/data
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+      }
+    }
+
     async function submitCreateGroup() {
       const name = document.getElementById('cgName').value.trim();
       const desc = document.getElementById('cgDescription').value.trim();
@@ -2386,13 +2856,14 @@
         if (!res.ok) throw new Error(await res.text());
         showToast('Group created successfully!', 'success');
         closeCreateGroupModal();
-        location.reload(); 
+        _refreshSidebar(); 
       } catch (err) {
         showToast('Failed to create group: ' + err.message, 'error');
       }
     }
 
     async function selectGroup(groupId, groupName) {
+      if (window.innerWidth < 640) closeSidebar();
       if (activeUser === `group_${groupId}`) return;
       activeUser = `group_${groupId}`; 
       activeUserId = groupId;
@@ -2444,6 +2915,9 @@
 
       await loadGroupHistory(groupId, groupName);
 
+      unreadCounts[`group_${groupId}`] = 0;
+      updateUnreadBadge(`group_${groupId}`);
+
       _setHeaderStatus('Group Chat', 'connected');
       closeSidebar();
       if (window.Notif) Notif.requestPermission();
@@ -2476,6 +2950,7 @@
       phoneEl.textContent = '—';
       joinedEl.textContent = '—';
       lastSeenEl.textContent = '—';
+      lastSeenEl.classList.add('hidden');
       if(avatarText) { avatarText.textContent = 'G'; avatarText.classList.remove('hidden'); }
       if(avatarImg) { avatarImg.classList.add('hidden'); avatarImg.src = ''; }
       if(statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
@@ -2508,9 +2983,23 @@
           membersListEl.innerHTML = '';
           const isAdminOrOwner = data.my_role === 'owner' || data.my_role === 'admin';
           
+          const inviteBtn = document.getElementById('upmInviteMemberBtn');
+          if (inviteBtn) {
+            if (isAdminOrOwner) {
+              inviteBtn.classList.remove('hidden');
+              inviteBtn.onclick = () => {
+                const currentGroupMembers = data.members.map(m => m.user_id);
+                SDH.Chat.openInviteMemberModal(groupId, currentGroupMembers);
+              };
+            } else {
+              inviteBtn.classList.add('hidden');
+            }
+          }
+          
           data.members.forEach(member => {
             const isMe = member.user_id === window.SDH_DATA.userId;
-            const canRemove = isAdminOrOwner && !isMe && member.role !== 'owner';
+            const isInvited = member.state === 'invited';
+            const canRemove = isAdminOrOwner && !isMe && member.role !== 'owner' && !isInvited;
             const div = document.createElement('div');
             div.className = 'flex items-center justify-between bg-black/20 p-2 rounded-lg';
             div.innerHTML = `
@@ -2520,7 +3009,11 @@
                 </div>
                 <div class="min-w-0">
                   <p class="text-xs text-white/90 font-medium truncate">${member.username} ${isMe ? '(You)' : ''}</p>
-                  <p class="text-[10px] text-white/40 capitalize">${member.role}</p>
+                  <p class="text-[10px] text-white/40 capitalize">
+                    ${member.role}
+                    <span class="mx-1 opacity-50">•</span>
+                    <span class="${member.is_online ? 'text-green-400' : 'text-white/40'}">${isInvited ? 'Invited' : (member.is_online ? 'Active' : (member.last_seen ? 'Seen ' + _relativeTime(member.last_seen) : 'Offline'))}</span>
+                  </p>
                 </div>
               </div>
               ${canRemove ? `<button onclick="SDH.Chat.removeGroupMember(${data.id}, ${member.user_id})" class="text-red-400 hover:text-red-300 text-xs px-2 py-1 bg-red-400/10 hover:bg-red-400/20 rounded-md transition-colors">Remove</button>` : ''}
@@ -2531,7 +3024,7 @@
 
         const disbandBtn = document.getElementById('disbandGroupBtn');
         if (disbandBtn) {
-           if (data.my_role === 'owner') disbandBtn.classList.remove('hidden');
+           if (data.my_role === 'owner' || data.my_role === 'admin') disbandBtn.classList.remove('hidden');
            else disbandBtn.classList.add('hidden');
         }
       } catch (err) {
@@ -2566,6 +3059,21 @@
 
     async function leaveCurrentGroup() {
       if (!activeUser?.startsWith('group_') || !activeUserId) return;
+      
+      try {
+        const infoRes = await fetch(`/messaging/api/groups/${activeUserId}/`);
+        if (infoRes.ok) {
+          const gInfo = await infoRes.json();
+          if (gInfo.my_role === 'owner' || gInfo.my_role === 'admin') {
+            if (confirm('You are an admin of this group. Do you want to DELETE the entire group for everyone instead of just leaving?\n\nClick OK to DELETE the group.\nClick Cancel to continue with LEAVING.')) {
+              return disbandCurrentGroup();
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to check group role", e);
+      }
+      
       if (!confirm('Are you sure you want to leave this group?')) return;
       try {
         const res = await fetch(`/messaging/api/groups/${activeUserId}/members/leave/`, {
@@ -2577,7 +3085,8 @@
         });
         if (!res.ok) throw new Error(await res.text());
         showToast('You left the group.', 'success');
-        location.reload(); 
+        _resetConversationPanel();
+        _refreshSidebar(); 
       } catch (err) {
         showToast('Could not leave group: ' + err.message, 'error');
       }
@@ -2594,8 +3103,7 @@
           }
         });
         if (!res.ok) throw new Error('Forbidden or failed');
-        showToast('Group has been deleted.', 'success');
-        location.reload();
+        // Real-time cleanup is handled by the group_deleted WebSocket event
       } catch (err) {
         showToast('Could not delete group: ' + err.message, 'error');
       }
@@ -2620,10 +3128,29 @@
           }
         });
         if (!res.ok) throw new Error('Forbidden or failed');
-        showToast('Group has been deleted.', 'success');
-        location.reload();
+        // Real-time cleanup is handled by the group_deleted WebSocket event
       } catch (err) {
         showToast('Could not delete group: ' + err.message, 'error');
+      }
+    }
+
+    /** Clear Group Chat */
+    async function clearCurrentGroupChat() {
+      if (!activeUser?.startsWith('group_') || !activeUserId) return;
+      if (!confirm('Are you sure you want to clear your chat history for this group? This will only remove messages from your view.')) return;
+      
+      try {
+        const res = await fetch(`/messaging/api/groups/${activeUserId}/clear/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': window.SDH_DATA.csrfToken,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!res.ok) throw new Error('Forbidden or failed');
+        // UI cleared by chat_cleared WebSocket event
+      } catch (err) {
+        showToast('Could not clear chat: ' + err.message, 'error');
       }
     }
 
@@ -2649,7 +3176,7 @@
         }
 
         for (const msg of data.messages) {
-          const isFromMe = msg.sender_id === window.SDH_DATA.currentUserId;
+          const isFromMe = msg.sender === window.SDH_DATA.currentUser;
           const effectiveType = msg.is_system_message ? 'system' : msg.message_type;
           
           if (effectiveType === 'system') {
@@ -2788,15 +3315,22 @@
       // Badge util
       updateUnreadBadge,
       // Profiles
+      openAvatarViewer,
       showUserProfile,
       showActiveUserProfile,
+      // Group Invites
+      respondGroupInvite,
       openCreateGroupModal,
       closeCreateGroupModal,
       submitCreateGroup,
+      openInviteMemberModal,
+      closeInviteMemberModal,
+      submitInviteMember,
       selectGroup,
       showGroupProfile,
       leaveCurrentGroup,
       disbandCurrentGroup,
+      clearCurrentGroupChat,
       removeGroupMember,
       toggleSidebarKebab,
       deleteGroupFromSidebar,

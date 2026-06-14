@@ -204,6 +204,18 @@ SDH.WebRTC = (() => {
           SDH.Chat.showToast(data.isCameraOff ? 'Remote user turned off their camera' : 'Remote user turned on their camera', 'info');
         }
         break;
+      case 'call-upgrade':
+        if (data.call_type === 'video') {
+          currentCallType = 'video';
+          const remoteAudio = document.getElementById('remoteAudio');
+          const remoteVideo = document.getElementById('remoteVideo');
+          if (remoteAudio && remoteVideo && remoteAudio.srcObject) {
+            remoteVideo.srcObject = remoteAudio.srcObject;
+          }
+          updateAudioVisual();
+          if (SDH.Chat && SDH.Chat.showToast) SDH.Chat.showToast('Call upgraded to video', 'info');
+        }
+        break;
     }
   }
 
@@ -623,11 +635,49 @@ SDH.WebRTC = (() => {
   }
 
   // ── Toggle camera ─────────────────────────────────────────────
-  function toggleCamera() {
+  async function toggleCamera() {
     const videoTracks = localStream?.getVideoTracks();
-    if (!videoTracks?.length) return;
+    if (!videoTracks || videoTracks.length === 0) {
+      if (!localStream) return;
+      try {
+        const vidConstraints = QUALITY.video[currentQuality || 'medium'].video;
+        const vidStream = await navigator.mediaDevices.getUserMedia({ video: vidConstraints });
+        const track = vidStream.getVideoTracks()[0];
+        if (!track) return;
+
+        localStream.addTrack(track);
+        currentCallType = 'video';
+        isCameraOff = false;
+
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) localVideo.srcObject = localStream;
+
+        if (peerConnection) {
+          peerConnection.addTrack(track, localStream);
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          sendSignal({ type: 'offer', sdp: offer });
+        }
+
+        sendSignal({ type: 'call-upgrade', call_type: 'video' });
+        _updateCamBtnUI();
+        updateAudioVisual();
+        if (window.SDH?.Chat?.showToast) SDH.Chat.showToast('Upgraded to video call', 'success');
+      } catch (err) {
+        console.error('[WebRTC] Failed to upgrade to video:', err);
+        if (window.SDH?.Chat?.showToast) SDH.Chat.showToast('Could not access camera.', 'error');
+      }
+      return;
+    }
+
     isCameraOff = !isCameraOff;
     videoTracks.forEach(t => { t.enabled = !isCameraOff; });
+    _updateCamBtnUI();
+    updateAudioVisual();
+    sendSignal({ type: 'call-camera', isCameraOff: isCameraOff });
+  }
+
+  function _updateCamBtnUI() {
     const btn = document.getElementById('btnCam');
     if (btn) {
       btn.title = isCameraOff ? 'Turn camera on' : 'Turn camera off';
@@ -645,8 +695,6 @@ SDH.WebRTC = (() => {
         btn.innerHTML = `<svg class="w-5 h-5 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>`;
       }
     }
-    updateAudioVisual();
-    sendSignal({ type: 'call-camera', isCameraOff: isCameraOff });
   }
 
   // ── Quality change (UI-triggered) ────────────────────────────

@@ -49,7 +49,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         self.me = self.scope['user']
-        self._presence_debounce_seconds = 1.0
+        self._presence_debounce_seconds = 30.0
 
         # Reject soft-deleted accounts
         if await self.is_account_deleted(self.me):
@@ -77,8 +77,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Mark user active only when their first chat socket connects.
         # Switching chats closes/reopens sockets; we avoid flapping presence.
         became_online = await self._incr_active_connections()
-        if became_online:
-            await self.set_online(True)
+        await self.set_online(True)
 
         await self.accept()
         logger.info(f'[WS] {self.me.username} connected to room {self.room}')
@@ -95,17 +94,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-        # Broadcast Active status to ALL connected users only on the 0→1 transition
-        if became_online:
-            await self.channel_layer.group_send(
-                'presence_all',
-                {
-                    'type': 'presence_update',
-                    'username': self.me.username,
-                    'status': 'active',
-                    'last_seen': None,
-                }
-            )
+        # Broadcast Active status to ALL connected users
+        await self.channel_layer.group_send(
+            'presence_all',
+            {
+                'type': 'broadcast_presence',
+                'user_id': self.me.id,
+                'username': self.me.username,
+                'is_online': True,
+                'last_seen': None
+            }
+        )
 
         # Immediately send the other user's current presence to this connection
         other_presence = await self.get_user_presence(self.other_user)
@@ -143,10 +142,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_send(
                 'presence_all',
                 {
-                    'type': 'presence_update',
+                    'type': 'broadcast_presence',
+                    'user_id': self.me.id,
                     'username': self.me.username,
-                    'status': 'inactive',
-                    'last_seen': last_seen_iso,
+                    'is_online': False,
+                    'last_seen': last_seen_iso
                 }
             )
         except Exception as exc:
@@ -174,11 +174,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
         elif msg_type == 'read_receipt':
             await self.handle_read_receipt(data)
         elif msg_type == 'ping':
+            await self._verify_and_restore_online_status()
             await self.send(text_data=json.dumps({'type': 'pong'}))
         elif msg_type == 'retention_update':
             await self.handle_retention_update(data)
         else:
             await self.send_error(f'Unknown message type: {msg_type}')
+
+    async def broadcast_presence(self, event: dict):
+        if event.get('user_id') == getattr(self, 'me', None).id:
+            return
+        await self.send(text_data=json.dumps({
+            'type': 'presence',
+            'user_id': event.get('user_id'),
+            'username': event.get('username'),
+            'status': 'active' if event.get('is_online') else 'inactive',
+            'last_seen': event.get('last_seen')
+        }))
 
     # ---- Chat message handler ----------------------------------------------
 
@@ -272,6 +284,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'is_typing': bool(data.get('is_typing', False)),
             }
         )
+
+    async def broadcast_group_message(self, event: dict):
+        """Handle group messages forwarded from GroupChatConsumer."""
+        payload = {k: v for k, v in event.items() if k != 'type'}
+        payload['type'] = 'group_message'
+        await self.send(text_data=json.dumps(payload))
 
     async def handle_delivered_receipt(self, data: dict):
         """Receiver notifies sender that a specific message was delivered."""
@@ -370,8 +388,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Relay a chat_cleared event so both participants wipe their UI."""
         await self.send(text_data=json.dumps({
             'type': 'chat_cleared',
-            'cleared_by': event['cleared_by'],
-            'other_user': event['other_user'],
+            'cleared_by': event.get('cleared_by'),
+            'other_user': event.get('other_user'),
+            'group_id': event.get('group_id'),
         }))
 
     async def friend_request(self, event):
@@ -379,6 +398,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'friend_request',
             'sender': event['sender'],
+        }))
+
+    async def friend_request_accepted(self, event):
+        """Relay friend request accepted event so sender updates sidebar."""
+        await self.send(text_data=json.dumps({
+            'type': 'friend_request_accepted',
+            'new_friend': event['new_friend'],
+        }))
+
+    async def group_invite(self, event):
+        """Relays a group invite notification to the user."""
+        await self.send(text_data=json.dumps({
+            'type': 'group_invite',
+            'invite_id': event['invite_id'],
+            'group_id': event['group_id'],
+            'group_name': event['group_name'],
+            'inviter': event['inviter'],
+        }))
+
+    async def group_deleted(self, event):
+        """Relays a group deletion notification to the user."""
+        await self.send(text_data=json.dumps({
+            'type': 'group_deleted',
+            'group_id': event['group_id'],
+            'group_name': event['group_name'],
+            'deleted_by': event['deleted_by'],
         }))
 
     async def new_moment(self, event):
@@ -410,6 +455,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'type': 'moment_reacted',
             'moment_id': event['moment_id'],
             'reaction': event['reaction']
+        }))
+
+    async def user_blocked(self, event):
+        """Relay a user blocked event to the client."""
+        await self.send(text_data=json.dumps({
+            'type': 'user_blocked',
+            'blocker_id': event['blocker_id'],
+            'blocker_username': event['blocker_username'],
+            'blocked_id': event['blocked_id'],
+            'blocked_username': event['blocked_username']
+        }))
+
+    async def user_unblocked(self, event):
+        """Relay a user unblocked event to the client."""
+        await self.send(text_data=json.dumps({
+            'type': 'user_unblocked',
+            'unblocker_id': event['unblocker_id'],
+            'unblocker_username': event['unblocker_username'],
+            'unblocked_id': event['unblocked_id'],
+            'unblocked_username': event['unblocked_username']
         }))
 
     # ---- Utilities ---------------------------------------------------------
@@ -544,6 +609,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         from users.models import UserProfile
         try:
             profile, _ = UserProfile.objects.get_or_create(user=self.me)
+            
+            # Detailed log for production monitoring and debugging
+            if profile.is_online != status:
+                logger.info(f'[Presence] User {self.me.username} toggling status: {profile.is_online} -> {status}')
+                
             profile.is_online = status
             profile.last_seen = timezone.now()
             profile.save(update_fields=['is_online', 'last_seen'])
@@ -552,6 +622,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as exc:
             logger.warning(f'[WS] set_online error: {exc}')
         return None
+
+    async def _verify_and_restore_online_status(self):
+        """Self-healing heartbeat utility: restores status if database/cache got desynced."""
+        try:
+            profile = await self._get_my_profile()
+            if not profile or not profile.is_online:
+                logger.info(f'[Presence] Heartbeat self-heal: restoring {self.me.username} to online state')
+                await self.set_online(True)
+                await self.channel_layer.group_send(
+                    'presence_all',
+                    {
+                        'type': 'broadcast_presence',
+                        'user_id': self.me.id,
+                        'username': self.me.username,
+                        'is_online': True,
+                        'last_seen': None
+                    }
+                )
+        except Exception as exc:
+            logger.warning(f'[WS] self-healing heartbeat check failed: {exc}')
+
+    @database_sync_to_async
+    def _get_my_profile(self):
+        from users.models import UserProfile
+        try:
+            return UserProfile.objects.filter(user=self.me).first()
+        except Exception:
+            return None
 
     # ---- Presence connection counting (cache) -----------------------------
 
@@ -573,8 +671,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             current = int(cache.get(key, 0) or 0)
             new_val = current + 1
-            # Keep a short TTL so stale keys self-heal if a process dies.
-            cache.set(key, new_val, timeout=60 * 10)
+            # Use timeout=None so active connections never expire prematurely.
+            cache.set(key, new_val, timeout=None)
             return current == 0
         except Exception as exc:
             logger.warning(f'[WS] incr_active_connections error: {exc}')
@@ -590,7 +688,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if new_val == 0:
                 cache.delete(key)
                 return current > 0
-            cache.set(key, new_val, timeout=60 * 10)
+            # Use timeout=None so active connections never expire prematurely.
+            cache.set(key, new_val, timeout=None)
             return False
         except Exception as exc:
             logger.warning(f'[WS] decr_active_connections error: {exc}')
@@ -811,7 +910,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
 # ---------------------------------------------------------------------------
 # 3. GroupChatConsumer
 # ---------------------------------------------------------------------------
-class GroupChatConsumer(AsyncWebsocketConsumer):
+class GroupChatConsumer(ChatConsumer):
     """
     Handles real-time messaging within a group.
 
@@ -834,12 +933,42 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             return
 
         await self.channel_layer.group_add(self.room_group, self.channel_name)
+        await self.channel_layer.group_add('presence_all', self.channel_name)
+        
+        self.personal_group = f'user_chat_{self.me.id}'
+        await self.channel_layer.group_add(self.personal_group, self.channel_name)
+        
+        self._presence_debounce_seconds = 30.0
+        became_online = await self._incr_active_connections()
+        
+        # Always update DB and broadcast presence to override cache desyncs
+        await self.set_online(True)
+        await self.channel_layer.group_send(
+            'presence_all',
+            {
+                'type': 'broadcast_presence',
+                'user_id': self.me.id,
+                'username': self.me.username,
+                'is_online': True,
+                'last_seen': None
+            }
+        )
+
         await self.accept()
         logger.info(f'[WS-Group] {self.me.username} connected to group {self.group_id}')
 
     async def disconnect(self, code):
         if hasattr(self, 'room_group'):
             await self.channel_layer.group_discard(self.room_group, self.channel_name)
+            
+        await self.channel_layer.group_discard('presence_all', self.channel_name)
+        if hasattr(self, 'personal_group'):
+            await self.channel_layer.group_discard(self.personal_group, self.channel_name)
+            
+        if hasattr(self, 'me'):
+            became_offline = await self._decr_active_connections()
+            if became_offline:
+                asyncio.create_task(self._debounced_offline())
 
     async def receive(self, text_data=None, bytes_data=None):
         try:
@@ -857,6 +986,7 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
         elif msg_type == 'mark_read':
             await self.handle_mark_read(data)
         elif msg_type == 'ping':
+            await self._verify_and_restore_online_status()
             await self.send(text_data=json.dumps({'type': 'pong'}))
         else:
             await self.send_error(f'Unknown message type: {msg_type}')
@@ -873,19 +1003,29 @@ class GroupChatConsumer(AsyncWebsocketConsumer):
             await self.send_error('Failed to save message.')
             return
 
-        await self.channel_layer.group_send(
-            self.room_group,
-            {
-                'type': 'broadcast_group_message',
-                'message_id': msg['id'],
-                'sender': self.me.username,
-                'sender_id': self.me.id,
-                'message': message_text,
-                'message_type': 'text',
-                'timestamp': msg['timestamp'],
-                'is_system_message': False,
-            }
-        )
+        payload = {
+            'type': 'broadcast_group_message',
+            'message_id': msg['id'],
+            'sender': self.me.username,
+            'sender_id': self.me.id,
+            'message': message_text,
+            'message_type': 'text',
+            'timestamp': msg['timestamp'],
+            'is_system_message': False,
+            'group_id': self.group_id,
+        }
+
+        member_ids = await self._get_group_member_ids()
+        for user_id in member_ids:
+            await self.channel_layer.group_send(
+                f'user_chat_{user_id}',
+                payload
+            )
+
+    @database_sync_to_async
+    def _get_group_member_ids(self):
+        from .models import GroupMembership
+        return list(GroupMembership.objects.filter(group_id=self.group_id).values_list('user_id', flat=True))
 
     async def handle_typing(self, data):
         """Broadcast typing indicator to all group members."""

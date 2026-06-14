@@ -133,7 +133,7 @@ def firebase_login_view(request):
             return JsonResponse({'status': 'error', 'error': 'Account deleted.'}, status=403)
 
         # Log in the user
-        login(request, user, backend='users.backends.EmailPhoneUsernameBackend')
+        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
         return JsonResponse({
             'status': 'success',
             'redirect_url': reverse('messaging:chat')
@@ -267,6 +267,20 @@ def remove_user_view(request):
     if should_block:
         # WhatsApp-style: block only — do NOT hide from chat list
         my_profile.blocked_users.add(target_profile)
+        
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        event_data = {
+            'type': 'user_blocked',
+            'blocker_id': request.user.id,
+            'blocker_username': request.user.username,
+            'blocked_id': target_user.id,
+            'blocked_username': target_user.username,
+        }
+        async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', event_data)
+        async_to_sync(channel_layer.group_send)(f'user_chat_{target_user.id}', event_data)
+
         return JsonResponse({
             'status': 'blocked',
             'removed_user_id': target_user.id,
@@ -316,6 +330,19 @@ def unblock_user_view(request):
         return JsonResponse({'error': 'Target profile not found'}, status=404)
 
     my_profile.blocked_users.remove(target_profile)
+
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+    event_data = {
+        'type': 'user_unblocked',
+        'unblocker_id': request.user.id,
+        'unblocker_username': request.user.username,
+        'unblocked_id': target_user.id,
+        'unblocked_username': target_user.username,
+    }
+    async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', event_data)
+    async_to_sync(channel_layer.group_send)(f'user_chat_{target_user.id}', event_data)
 
     return JsonResponse({
         'status': 'unblocked',
@@ -414,11 +441,13 @@ def user_list(request):
         .filter(profile__is_active_account=True)
         .select_related('profile')
     )
+    from messaging.views import _is_chat_blocked
     data = []
     blocked_set = set(blocked_ids)
     for u in users:
+        is_blocked, _ = _is_chat_blocked(request.user, u)
         try:
-            is_online = u.profile.is_online
+            is_online = u.profile.is_online if not is_blocked else False
         except UserProfile.DoesNotExist:
             is_online = False
         data.append({
@@ -508,15 +537,18 @@ def search_users(request):
         .values_list('user_id', flat=True)
     ) if blocked_profile_ids else set()
 
+    from messaging.views import _is_chat_blocked
+
     data = []
     for u in qs:
+        is_blocked, _ = _is_chat_blocked(request.user, u)
         try:
             profile    = u.profile
-            is_online  = profile.is_online
-            avatar_url = profile.avatar.url if profile.avatar else None
+            is_online  = profile.is_online if not is_blocked else False
+            avatar_url = profile.avatar.url if profile.avatar and not is_blocked else None
             last_seen  = (
                 profile.last_seen.strftime('%b ') + str(profile.last_seen.day)
-                if (not is_online and profile.last_seen)
+                if (not is_online and profile.last_seen and not is_blocked)
                 else None
             )
         except Exception:
@@ -669,6 +701,19 @@ def respond_friend_request_view(request):
         Friendship.add_friendship(fr.from_user, fr.to_user)
         fr.from_user.hidden_users.remove(fr.to_user)
         fr.to_user.hidden_users.remove(fr.from_user)
+
+        # Notify the sender so their sidebar updates in real-time
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_chat_{fr.from_user.user.id}",
+            {
+                "type": "friend_request_accepted",
+                "new_friend": fr.to_user.user.username,
+            }
+        )
+
         return JsonResponse({'status': 'accepted'})
     else:
         fr.status = FriendRequest.STATUS_REJECTED
@@ -802,6 +847,22 @@ def user_profile_api(request, username):
     if target_user != request.user:
         if not Friendship.are_friends(my_profile, target_profile):
             return JsonResponse({'error': 'You can only view profile details of accepted friends.'}, status=403)
+
+    from messaging.views import _is_chat_blocked
+    is_blocked, _ = _is_chat_blocked(request.user, target_user) if target_user != request.user else (False, '')
+
+    if is_blocked:
+        return JsonResponse({
+            'username': target_user.username,
+            'display_name': target_profile.display_name,
+            'bio': '',
+            'phone_number': '',
+            'email': '',
+            'avatar_url': None,
+            'is_online': False,
+            'last_seen': None,
+            'date_joined': None,
+        })
 
     avatar_url = target_profile.avatar.url if target_profile.avatar else None
 

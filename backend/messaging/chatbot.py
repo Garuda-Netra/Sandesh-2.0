@@ -18,9 +18,8 @@ from django.conf import settings
 
 
 _DEFAULT_SYSTEM_PROMPT = (
-    "You are Vyasa, a helpful, general-purpose assistant. Answer a wide range of "
-    "questions clearly and safely. Ask clarifying questions when needed. "
-    "Default to 1-2 short sentences unless the user asks for detail."
+    "You are Vyasa, a helpful, general-purpose assistant. You must answer every question the user asks. "
+    "Give short and very simple answers by default so they are easy to understand."
 )
 
 
@@ -32,18 +31,11 @@ def generate_chatbot_reply(message: str, history: Iterable[dict] | None = None, 
 
     normalized_history = _normalize_history(history or [])
 
-    if _use_openai():
-        reply = _openai_reply(cleaned, normalized_history, user)
-        if reply:
-            return reply
+    reply = _openai_reply(cleaned, normalized_history, user)
+    if reply:
+        return reply
 
-    return _local_reply(cleaned, user)
-
-
-def _use_openai() -> bool:
-    provider = str(getattr(settings, "CHATBOT_PROVIDER", "local") or "local").lower()
-    api_key = getattr(settings, "CHATBOT_OPENAI_API_KEY", "")
-    return provider == "openai" and bool(api_key)
+    return "I am currently experiencing technical difficulties. Please try again later."
 
 
 def _normalize_history(history: Iterable[dict]) -> list[dict]:
@@ -111,50 +103,3 @@ def _openai_reply(message: str, history: list[dict], user=None) -> str | None:
         return None
     except Exception:
         return None
-
-
-def _local_reply(message: str, user=None) -> str:
-    text = message.lower().strip()
-    name = getattr(user, "username", "")
-
-    greetings = [
-        "Hi{suffix}! How can I help you today?",
-        "Hello{suffix}! What can I help you with?",
-        "Hey{suffix}! What do you want to work on today?",
-    ]
-
-    if re.search(r"\b(hi|hello|hey|yo|good morning|good evening)\b", text):
-        suffix = f" {name}" if name else ""
-        return random.choice(greetings).format(suffix=suffix)
-
-    if re.search(r"\b(thanks|thank you|appreciate)\b", text):
-        return "You are welcome. Want to explore a feature next?"
-
-    if re.search(r"\b(who are you|what are you)\b", text):
-        return "I am Vyasa, your general-purpose assistant. Ask me anything."
-
-    if re.search(r"\b(help|support|what can you do|capabilities)\b", text):
-        return (
-            "I can help with summaries, explanations, writing, brainstorming, planning, "
-            "and troubleshooting."
-        )
-
-    if re.search(r"\b(summarize|summary|tl;dr)\b", text):
-        return "Share the text and I will summarize it for you."
-
-    if re.search(r"\b(explain|definition|what is|how does)\b", text):
-        return "Tell me the concept or topic and the level of detail you want."
-
-    if re.search(r"\b(write|draft|email|message|cover letter|proposal)\b", text):
-        return "Tell me the audience, tone, and key points, and I will draft it."
-
-    if re.search(r"\b(brainstorm|ideas|creative|name)\b", text):
-        return "Share your goal, constraints, and style so I can brainstorm effectively."
-
-    if re.search(r"\b(code|bug|error|stack trace|debug)\b", text):
-        return "Paste the code or error message and describe what you expected to happen."
-
-    if re.search(r"\b(math|calculate|equation)\b", text):
-        return "Share the exact problem and I will work through it."
-
-    return "I can help. Share a bit more context or your goal."

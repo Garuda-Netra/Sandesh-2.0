@@ -12,20 +12,38 @@ class UsersConfig(AppConfig):
 
     def ready(self):
         """
-        Schedule stale is_online flag reset for after migrations are complete.
-        This prevents ghost-active users that remain marked online after
-        an unclean shutdown or server restart, without triggering the
-        'Accessing the database during app initialization' warning.
+        Schedule stale is_online flag reset for after migrations are complete,
+        clear the cache registry on startup, and establish a first-request listener
+        to safely wipe any stale online states.
         """
+        # Clear cache completely on startup to wipe stale connection counts
+        from django.core.cache import cache
+        try:
+            cache.clear()
+        except Exception:
+            pass
+
+        from django.core.signals import request_started
+
+        def reset_stale_flags_on_first_request(sender, **kwargs):
+            if not getattr(self, '_stale_flags_reset', False):
+                self._stale_flags_reset = True
+                try:
+                    from .models import UserProfile
+                    UserProfile.objects.filter(is_online=True).update(is_online=False)
+                except Exception:
+                    pass
+
+        request_started.connect(reset_stale_flags_on_first_request)
+
         from django.db.models.signals import post_migrate
         post_migrate.connect(self._reset_online_flags, sender=self)
 
     @staticmethod
     def _reset_online_flags(sender, **kwargs):
-        """Reset all stale is_online flags to False when the server starts."""
+        """Reset all stale is_online flags to False when migrations are run."""
         try:
             from .models import UserProfile
             UserProfile.objects.filter(is_online=True).update(is_online=False)
         except Exception:
-            # Database may not be ready on the very first migrate run.
             pass

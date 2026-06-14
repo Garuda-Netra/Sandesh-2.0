@@ -17,14 +17,14 @@ window.SDH = window.SDH || {};
 SDH.UserSearch = (() => {
 
   // ── Constants ────────────────────────────────────────────────
-  const SEARCH_URL    = window.SDH_DATA?.searchUsersUrl || '/users/api/search-users/';
-  const DEBOUNCE_MS   = 280;
+  const SEARCH_URL = window.SDH_DATA?.searchUsersUrl || '/users/api/search-users/';
+  const DEBOUNCE_MS = 280;
 
   // ── State ────────────────────────────────────────────────────
-  let debounceTimer   = null;
-  let originalHTML    = null;   // server-rendered list (saved once on init)
-  let lastQuery       = '';
-  let currentAbort    = null;   // AbortController for in-flight requests
+  let debounceTimer = null;
+  let originalHTML = null;   // server-rendered list (saved once on init)
+  let lastQuery = '';
+  let currentAbort = null;   // AbortController for in-flight requests
 
   // ── Helpers ──────────────────────────────────────────────────
 
@@ -46,10 +46,10 @@ SDH.UserSearch = (() => {
    * structure (outer div + clickable inner + three-dot context menu).
    */
   function buildUserItemHTML(user) {
-    const initial    = esc(user.username.charAt(0).toUpperCase());
-    const username   = esc(user.username);
-    const userId     = Number(user.id);
-    const dotClass   = user.is_online
+    const initial = esc(user.username.charAt(0).toUpperCase());
+    const username = esc(user.username);
+    const userId = Number(user.id);
+    const dotClass = user.is_online
       ? 'sdh-online-dot--on'
       : 'sdh-online-dot--off';
 
@@ -83,7 +83,7 @@ SDH.UserSearch = (() => {
 
     // ── Friendship Status Actions ──
     let actionHTML = '';
-    
+
     if (user.friendship_status === 'friend' || user.friendship_status === 'blocked') {
       // Normal behavior: clicking the row opens the chat
       actionHTML = `
@@ -185,7 +185,7 @@ SDH.UserSearch = (() => {
         <div class="flex items-center gap-3 flex-1 min-w-0 ${rowCursorClass}" ${rowClickAttr}>
 
           <!-- Avatar -->
-          <div class="relative flex-shrink-0">
+          <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showUserProfile('${username}', '${userId}')">
             ${avatarHTML}
             <span id="online-dot-${username}"
                   class="sdh-online-dot absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full

@@ -1,31 +1,35 @@
-# ── Python ──────────────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.pycache
 
-# ── Virtual environments ─────────────────────────────────────────
+# Virtual Environments
 .venv/
 venv/
 env/
 ENV/
 
-# ── Environment & secrets ─────────────────────────────────────────
+# Environment Variables & Secrets
 .env
 .env.*
 !.env.example
 
-# ── Django runtime data ──────────────────────────────────────────
+# Django Runtime Data
 db.sqlite3
 backend/db.sqlite3
 backend/media/
 backend/staticfiles/
 
-# ── Agent / IDE Data ──────────────────────────────────────────────
+# IDE / Editor Data
 .gemini/
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# ── Uploaded files (user content, stored on Cloudinary in prod) ──
+# Uploaded Files
 *.pdf
 *.doc
 *.docx
@@ -38,44 +42,29 @@ backend/staticfiles/
 *.rar
 *.7z
 
-# ── Packaging & build ────────────────────────────────────────────
+# Packaging & Build
 *.egg-info/
 .eggs/
 pip-wheel-metadata/
 build/
 dist/
 
-# ── Testing & coverage ───────────────────────────────────────────
+# Testing & Coverage
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
 htmlcov/
 
-# ── Logs ─────────────────────────────────────────────────────────
+# Logs
 *.log
 
-# ── OS files ─────────────────────────────────────────────────────
+# OS System Files
 .DS_Store
 .DS_Store?
 Thumbs.db
 ehthumbs.db
 
-# ── IDE / editor ─────────────────────────────────────────────────
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# ── 🌌 Cosmic Dust (Things we leave behind) ───────────────────────
-# "Not everything that wanders needs to be tracked." 
-# These are temporary files and artifacts we don't want polluting 
-# the beautiful Sandesh ecosystem.
-.env.local
-.env.development
-.DS_Store
-
-# -- Temp Recovery Files --------------------------------------
+# Temporary Files
 backend/db_dump.txt
 frontend/static/js/recover*
-

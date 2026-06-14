@@ -51,6 +51,8 @@
     groupCreateUrl: "{% url 'messaging:group_create' %}",
     groupListUrl: "{% url 'messaging:group_list' %}",
     groupInfoBaseUrl: "/messaging/api/groups/",
+    groupInviteRespondUrl: "{% url 'messaging:group_invite_respond' invite_id=0 %}",
+    groupPendingInvitesUrl: "{% url 'messaging:pending_group_invites' %}",
     wsBase: "",
     // TURN server config (injected from server environment)
     turnServerUrl: "{{ turn_server_url|default:'' }}",
@@ -178,6 +180,7 @@
       <div class="px-4 py-2 mt-2 flex items-center justify-between">
         <span class="text-[10px] font-bold uppercase tracking-widest text-divine-gold/60">Groups</span>
       </div>
+      <div id="groupsContainer">
       {% for group in groups %}
       <div id="group-item-{{ group.id }}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5 group/usr" 
            data-group="1" data-groupid="{{ group.id }}" data-role="{{ group.role }}">
@@ -186,7 +189,7 @@
           onclick="SDH.Chat.selectGroup('{{ group.id }}', '{{ group.name|escapejs }}')">
           
           <!-- Avatar -->
-          <div class="relative flex-shrink-0">
+          <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showGroupProfile('{{ group.id }}')">
             {% if group.avatar_url %}
             <img src="{{ group.avatar_url }}" alt="{{ group.name }}"
               class="sdh-avatar w-11 h-11 rounded-full object-cover"
@@ -203,6 +206,8 @@
             <div class="flex items-center justify-between gap-2">
               <span class="sdh-user-name text-sm font-semibold truncate" style="color:var(--c-text)">
                 {{ group.name }}
+              </span>
+              <span id="unread-group_{{ group.id }}" class="sdh-unread-badge hidden flex-shrink-0 text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full bg-divine-gold text-divine-deep">
               </span>
             </div>
             <p class="text-[11px] truncate mt-0.5 text-divine-muted/60">
@@ -236,6 +241,7 @@
         {% endif %}
       </div>
       {% endfor %}
+      </div>
       <div class="border-t border-divine-border/20 mx-4 my-2"></div>
       {% endif %}
 
@@ -243,7 +249,8 @@
       <div class="px-4 py-2 mt-1">
         <span class="text-[10px] font-bold uppercase tracking-widest text-divine-gold/60">Direct Messages</span>
       </div>
-
+      
+      <div id="dmsContainer">
       {% if users %}
       {% for item in users %}
       <div id="user-item-{{ item.user.username }}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5
@@ -254,7 +261,7 @@
           onclick="SDH.Chat.selectUser('{{ item.user.username }}', '{{ item.user.id }}')">
 
           <!-- Avatar -->
-          <div class="relative flex-shrink-0">
+          <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showUserProfile('{{ item.user.username|escapejs }}', '{{ item.user.id }}')">
             {% if item.user.profile.avatar and item.user.profile.avatar.name %}
             <img src="{{ item.user.profile.avatar.url }}" alt="{{ item.user.username }}"
               class="sdh-avatar w-11 h-11 rounded-full object-cover"
@@ -361,6 +368,7 @@
         <p class="text-xs mt-1 opacity-60">Register more users to start messaging</p>
       </div>
       {% endif %}
+      </div>
     </div>
 
     <!-- Sidebar footer: current user -->
@@ -531,6 +539,14 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span>Disappearing Messages</span>
+                </button>
+                <!-- Clear Group Chat -->
+                <button onclick="SDH.Chat.clearCurrentGroupChat(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-yellow-400 hover:bg-yellow-500/10 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  <span>Clear Chat</span>
                 </button>
 
                 <!-- Leave Group -->
@@ -1163,6 +1179,19 @@
 
 
 <!-- ══════════════════════════════════════════════════════════════
+     AVATAR VIEWER — Modal
+══════════════════════════════════════════════════════════════ -->
+<div id="avatarViewerModal" class="hidden fixed inset-0 z-[150] bg-black/95 backdrop-blur-xl transition-opacity duration-300 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+  <button class="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center text-white/50 hover:text-white bg-white/10 hover:bg-white/20 transition-all z-20" title="Close" onclick="document.getElementById('avatarViewerModal').classList.add('hidden')">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+    </svg>
+  </button>
+  <img id="avatarViewerImg" src="" class="max-w-[90vw] max-h-[90vh] object-contain rounded-full shadow-2xl animate-msg-appear border-4 border-divine-card" />
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
      USER PROFILE — Premium Cosmic Modal
 ══════════════════════════════════════════════════════════════ -->
 <div id="userProfileModal"
@@ -1201,7 +1230,7 @@
       <div class="flex flex-col items-center -mt-12 mb-6 text-center relative">
         <!-- Avatar Wrapper -->
         <div id="upmAvatarWrapper"
-          class="w-24 h-24 rounded-full p-1.5 bg-divine-card relative group shadow-2xl mb-4 transition-transform duration-500 hover:scale-105 border border-divine-border/50">
+          class="w-24 h-24 rounded-full p-1.5 bg-divine-card relative group shadow-2xl mb-4 transition-transform duration-500 hover:scale-105 border border-divine-border/50 cursor-pointer" onclick="SDH.Chat.openAvatarViewer()">
           <!-- Animated rotating gradient border effect -->
           <div
             class="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/50 via-indigo-500/50 to-fuchsia-500/50 animate-[spin_4s_linear_infinite] opacity-50 group-hover:opacity-80 transition-opacity blur-[3px] -z-10">
@@ -1341,14 +1370,21 @@
       </div>
 
       <!-- ── Actions ── -->
-      <div class="flex gap-4 mt-8">
+      <div class="flex gap-2 sm:gap-3 mt-8">
         <button onclick="document.getElementById('userProfileModal').classList.add('hidden')"
-          class="flex-1 py-3 px-4 rounded-xl text-sm font-bold tracking-wide text-divine-text bg-divine-surface hover:bg-divine-border/50 border border-divine-border/30 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500/20">
+          class="flex-1 py-2.5 px-2 sm:px-3 rounded-xl text-[13px] font-bold tracking-wide text-rose-500 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-rose-500/20 whitespace-nowrap">
           Close
         </button>
+        <button id="upmInviteMemberBtn" onclick="SDH.Chat.openInviteMemberModal()"
+          class="hidden flex-1 py-2.5 px-2 sm:px-3 rounded-xl text-[13px] font-bold tracking-wide text-white bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 shadow-[0_4px_15px_rgba(217,70,239,0.2)] hover:shadow-[0_6px_20px_rgba(217,70,239,0.4)] hover:-translate-y-0.5 transition-all duration-300 border border-fuchsia-500/20 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 flex items-center justify-center gap-1.5 whitespace-nowrap">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Invite Member
+        </button>
         <button id="upmMessageBtn"
-          class="flex-1 py-3 px-4 rounded-xl text-sm font-bold tracking-wide text-white bg-gradient-to-r from-indigo-700/80 to-purple-700/80 hover:from-indigo-600 hover:to-purple-600 shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_30px_rgba(124,58,237,0.5)] hover:-translate-y-0.5 transition-all duration-300 border border-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/50 flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          class="flex-1 py-2.5 px-2 sm:px-3 rounded-xl text-[13px] font-bold tracking-wide text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_4px_15px_rgba(124,58,237,0.2)] hover:shadow-[0_6px_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5 transition-all duration-300 border border-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/50 flex items-center justify-center gap-1.5 whitespace-nowrap">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
@@ -1629,12 +1665,12 @@
         </p>
         <div class="space-y-2">
           <label class="flex items-center gap-3 p-3 rounded-xl border border-divine-border hover:border-divine-gold/50 cursor-pointer transition-colors bg-divine-surface">
-            <input type="radio" name="retention_days" value="1" class="text-divine-gold bg-divine-surface border-divine-border focus:ring-divine-gold focus:ring-offset-divine-card w-4 h-4">
-            <span class="text-sm font-medium">1 Day</span>
+            <input type="radio" name="retention_days" value="2" checked class="text-divine-gold bg-divine-surface border-divine-border focus:ring-divine-gold focus:ring-offset-divine-card w-4 h-4">
+            <span class="text-sm font-medium">2 Days (Default)</span>
           </label>
           <label class="flex items-center gap-3 p-3 rounded-xl border border-divine-border hover:border-divine-gold/50 cursor-pointer transition-colors bg-divine-surface">
-            <input type="radio" name="retention_days" value="7" checked class="text-divine-gold bg-divine-surface border-divine-border focus:ring-divine-gold focus:ring-offset-divine-card w-4 h-4">
-            <span class="text-sm font-medium">1 Week (Default)</span>
+            <input type="radio" name="retention_days" value="7" class="text-divine-gold bg-divine-surface border-divine-border focus:ring-divine-gold focus:ring-offset-divine-card w-4 h-4">
+            <span class="text-sm font-medium">1 Week</span>
           </label>
           <label class="flex items-center gap-3 p-3 rounded-xl border border-divine-border hover:border-divine-gold/50 cursor-pointer transition-colors bg-divine-surface">
             <input type="radio" name="retention_days" value="30" class="text-divine-gold bg-divine-surface border-divine-border focus:ring-divine-gold focus:ring-offset-divine-card w-4 h-4">
@@ -1724,7 +1760,7 @@
 <script src="{% static 'js/moments.js' %}?v=2.2"></script>
 <script src="{% static 'js/fileUpload.js' %}?v=2.0"></script>
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
-<script src="{% static 'js/chat.js' %}?v=2.1"></script>
+<script src="{% static 'js/chat.js' %}?v=2.4"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.0"></script>
 <script src="{% static 'js/userSearch.js' %}?v=2.0"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->
@@ -1806,6 +1842,48 @@
         <button onclick="SDH.Chat.submitCreateGroup()" id="cgSubmitBtn" class="sdh-liquid-btn btn-primary px-5 py-2.5 flex items-center gap-2">
           <span>Create Group</span>
           <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Invite Member Modal ─────────────────────────────────────── -->
+  <div id="inviteMemberModal" class="hidden fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm">
+    <div class="bg-white/70 dark:bg-[#12121a]/70 backdrop-blur-3xl w-full max-w-md mx-4 rounded-3xl border border-white/40 dark:border-white/10 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-scale-in">
+      
+      <!-- Header -->
+      <div class="px-6 py-5 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-white/20 dark:bg-white/5 backdrop-blur-2xl relative z-10">
+        <h3 class="text-lg font-bold text-divine-text flex items-center gap-2">
+          <svg class="w-5 h-5 text-divine-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Invite Member
+        </h3>
+        <button onclick="SDH.Chat.closeInviteMemberModal()" class="text-divine-text transition-colors p-1.5 bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 rounded-full hover:shadow-md">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 space-y-6 relative overflow-hidden">
+        <div class="relative z-10">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 pl-1">Select Members to Invite</label>
+          <div id="imMembersList" class="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar border border-white/30 dark:border-white/10 rounded-2xl p-2 bg-white/30 dark:bg-black/30 backdrop-blur-2xl shadow-[inset_0_1px_2px_rgba(255,255,255,0.3)] dark:shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]">
+            <!-- Members populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-4 border-t border-black/5 dark:border-white/5 bg-white/20 dark:bg-white/5 backdrop-blur-2xl flex justify-end gap-3 relative z-10">
+        <button onclick="SDH.Chat.closeInviteMemberModal()" class="px-5 py-2.5 rounded-2xl text-[13px] font-semibold text-slate-700 dark:text-slate-200 bg-white/40 dark:bg-white/10 hover:bg-white/60 dark:hover:bg-white/20 border border-white/50 dark:border-white/10 shadow-sm backdrop-blur-xl transition-all duration-300">
+          <span>Cancel</span>
+        </button>
+        <button onclick="SDH.Chat.submitInviteMember()" class="sdh-liquid-btn btn-primary px-5 py-2.5 flex items-center gap-2">
+          <span>Send Invites</span>
+          <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
         </button>
       </div>
     </div>

@@ -195,18 +195,23 @@ def chat_view(request):
             continue
         u = contact['user']
         avatar_url = ''
-        try:
-            profile = u.profile
-            if profile.avatar and profile.avatar.name:
-                avatar_url = profile.avatar.url
-        except Exception:
-            pass
+        
+        is_blocked, _ = _is_chat_blocked(request.user, u)
+        
+        if not is_blocked:
+            try:
+                profile = u.profile
+                if profile.avatar and profile.avatar.name:
+                    avatar_url = profile.avatar.url
+            except Exception:
+                pass
+                
         serializable_users.append({
             'id': u.id,
             'username': u.username,
-            'avatar_url': avatar_url,
-            'is_online': contact.get('is_online', False),
-            'last_seen': contact.get('last_seen').isoformat() if contact.get('last_seen') else None,
+            'avatar_url': avatar_url if not is_blocked else '',
+            'is_online': False if is_blocked else contact.get('is_online', False),
+            'last_seen': None if is_blocked else (contact.get('last_seen').isoformat() if contact.get('last_seen') else None),
         })
 
     # Fetch groups the user is a member of
@@ -483,14 +488,14 @@ def spotify_search(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-# ---------------------------------------------------------------------------
-# Unread Count API
-# ---------------------------------------------------------------------------
 @login_required
 @require_GET
 def unread_counts(request):
-    """Returns unread message counts grouped by sender."""
+    """Returns unread message counts grouped by sender and group."""
     from django.db.models import Count
+    from .models import GroupMessage, GroupMembership
+
+    # Direct messages
     counts = (
         Message.objects
         .filter(receiver=request.user, is_read=False)
@@ -498,6 +503,20 @@ def unread_counts(request):
         .annotate(count=Count('id'))
     )
     data = {item['sender__username']: item['count'] for item in counts}
+
+    # Group messages
+    my_group_ids = GroupMembership.objects.filter(user=request.user).values_list('group_id', flat=True)
+    group_counts = (
+        GroupMessage.objects
+        .filter(group_id__in=my_group_ids)
+        .exclude(sender=request.user)
+        .exclude(read_receipts__user=request.user)
+        .values('group_id')
+        .annotate(count=Count('id'))
+    )
+    for item in group_counts:
+        data[f"group_{item['group_id']}"] = item['count']
+
     return JsonResponse({'unread': data})
 
 
@@ -920,8 +939,12 @@ def get_moments(request):
         .values_list('user_id', flat=True)
     ) if friend_profile_ids else set()
 
-    # Include self
-    visible_user_ids = friend_user_ids | {request.user.id}
+    visible_user_ids = {request.user.id}
+    if friend_user_ids:
+        for u in User.objects.filter(id__in=friend_user_ids):
+            blocked, _ = _is_chat_blocked(request.user, u)
+            if not blocked:
+                visible_user_ids.add(u.id)
 
     from .models import Moment
     now = timezone.now()
@@ -1037,13 +1060,15 @@ def upload_moment(request):
         friend_users = User.objects.filter(profile__id__in=friend_profile_ids)
         channel_layer = get_channel_layer()
         for friend in friend_users:
-            async_to_sync(channel_layer.group_send)(
-                f"user_chat_{friend.id}",
-                {
-                    'type': 'new_moment',
-                    'moment': moment_data
-                }
-            )
+            blocked, _ = _is_chat_blocked(request.user, friend)
+            if not blocked:
+                async_to_sync(channel_layer.group_send)(
+                    f"user_chat_{friend.id}",
+                    {
+                        'type': 'new_moment',
+                        'moment': moment_data
+                    }
+                )
         # also broadcast to self
         async_to_sync(channel_layer.group_send)(
             f"user_chat_{request.user.id}",
@@ -1211,8 +1236,8 @@ def chat_setting_api(request, username):
         import json
         try:
             data = json.loads(request.body)
-            new_days = int(data.get('retention_days', 7))
-            if new_days in [1, 7, 30, 180]:
+            new_days = int(data.get('retention_days', 2))
+            if new_days in [2, 7, 30, 180]:
                 setting.retention_days = new_days
                 setting.save()
                 return JsonResponse({'status': 'ok', 'retention_days': new_days})
@@ -1331,9 +1356,32 @@ def group_info(request, group_id):
     membership = GroupMembership.objects.filter(group=group, user=request.user).first()
     
     if request.method == 'DELETE':
-        if not membership or membership.role != GroupMembership.ROLE_OWNER:
-            return JsonResponse({'error': 'Only the group owner can disband the group.'}, status=403)
+        if not membership or membership.role not in [GroupMembership.ROLE_OWNER, GroupMembership.ROLE_ADMIN]:
+            return JsonResponse({'error': 'Only the group owner or admins can disband the group.'}, status=403)
+
+        # Collect all member IDs and group metadata BEFORE deletion
+        member_ids = list(
+            GroupMembership.objects.filter(group=group).values_list('user_id', flat=True)
+        )
+        group_name = group.name
+        deleted_group_id = group.id
+
+        # Delete the group (cascades memberships, messages, etc.)
         group.delete()
+
+        # Broadcast group_deleted to every member's personal channel
+        channel_layer = get_channel_layer()
+        for uid in member_ids:
+            async_to_sync(channel_layer.group_send)(
+                f'user_chat_{uid}',
+                {
+                    'type': 'group_deleted',
+                    'group_id': deleted_group_id,
+                    'group_name': group_name,
+                    'deleted_by': request.user.username,
+                }
+            )
+
         return JsonResponse({'status': 'ok', 'group_deleted': True})
 
     # GET method
@@ -1406,8 +1454,8 @@ def group_add_members(request, group_id):
     """Add members to a group. Admin or owner only."""
     group = get_object_or_404(Group, id=group_id)
     membership = GroupMembership.objects.filter(group=group, user=request.user).first()
-    if not membership or not membership.is_admin_or_owner:
-        return JsonResponse({'error': 'Only admins can add members.'}, status=403)
+    if not membership:
+        return JsonResponse({'error': 'Only members can add or invite new users.'}, status=403)
 
     try:
         data = json.loads(request.body)
@@ -1415,29 +1463,145 @@ def group_add_members(request, group_id):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
     member_ids = data.get('member_ids', [])
-    added = []
+    invited = []
+    
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+
     for uid in member_ids:
         try:
             user = User.objects.get(id=int(uid))
-            _, created = GroupMembership.objects.get_or_create(
-                group=group, user=user,
-                defaults={'role': GroupMembership.ROLE_MEMBER}
+            # Check if already a member
+            if GroupMembership.objects.filter(group=group, user=user).exists():
+                continue
+
+            from .models import GroupInvite
+            invite, created = GroupInvite.objects.get_or_create(
+                group=group,
+                invitee=user,
+                defaults={'inviter': request.user, 'status': GroupInvite.STATUS_PENDING}
             )
-            if created:
-                added.append(user.username)
-                GroupMessage.objects.create(
-                    group=group, sender=request.user,
-                    message=f'{user.username} was invited to the group by {request.user.username}.',
-                    message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
-                    is_system_message=True,
+
+            if not created and invite.status != GroupInvite.STATUS_PENDING:
+                # Re-invite if previously declined
+                invite.status = GroupInvite.STATUS_PENDING
+                invite.inviter = request.user
+                invite.save()
+                created = True
+                
+            if created or invite.status == GroupInvite.STATUS_PENDING:
+                invited.append(user.username)
+                
+                # Send WebSocket notification to the invitee
+                async_to_sync(channel_layer.group_send)(
+                    f'user_chat_{user.id}',
+                    {
+                        'type': 'group_invite',
+                        'invite_id': invite.id,
+                        'group_id': group.id,
+                        'group_name': group.name,
+                        'inviter': request.user.username,
+                    }
                 )
+                
+                # Notify the group that a member was invited
+                async_to_sync(channel_layer.group_send)(
+                    f'group_chat_{group.id}',
+                    {
+                        'type': 'group_member_update',
+                        'action': 'invited',
+                        'user_id': user.id,
+                        'username': user.username,
+                        'role': 'invited',
+                    }
+                )
+
         except (User.DoesNotExist, ValueError):
             continue
 
-    # Touch group to update sidebar ordering
-    group.save()
+    return JsonResponse({'status': 'ok', 'invited': invited})
 
-    return JsonResponse({'status': 'ok', 'added': added})
+@login_required
+@require_GET
+def pending_group_invites(request):
+    """Returns a list of pending group invites for the current user."""
+    from .models import GroupInvite
+    invites = GroupInvite.objects.filter(invitee=request.user, status=GroupInvite.STATUS_PENDING)
+    data = []
+    for invite in invites:
+        data.append({
+            'invite_id': invite.id,
+            'group_id': invite.group.id,
+            'group_name': invite.group.name,
+            'inviter': invite.inviter.username,
+        })
+    return JsonResponse({'invites': data})
+
+@login_required
+@require_POST
+def group_invite_respond(request, invite_id):
+    """Accept or decline a group invite."""
+    from .models import GroupInvite
+    invite = get_object_or_404(GroupInvite, id=invite_id, invitee=request.user)
+    
+    try:
+        data = json.loads(request.body)
+        action = data.get('action') # 'accept' or 'decline'
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    if action == 'accept':
+        invite.status = GroupInvite.STATUS_ACCEPTED
+        invite.save()
+        
+        _, created = GroupMembership.objects.get_or_create(
+            group=invite.group, user=request.user,
+            defaults={'role': GroupMembership.ROLE_MEMBER}
+        )
+        if created:
+            GroupMessage.objects.create(
+                group=invite.group, sender=request.user,
+                message=f'{request.user.username} joined the group.',
+                message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+                is_system_message=True,
+            )
+            # Touch group to update sidebar ordering
+            invite.group.save()
+            
+            # Broadcast the system message to group
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'group_chat_{invite.group.id}',
+                {
+                    'type': 'group_system_message',
+                    'message_id': None,
+                    'message': f'{request.user.username} joined the group.',
+                }
+            )
+            
+            # Notify the group about the membership update
+            async_to_sync(channel_layer.group_send)(
+                f'group_chat_{invite.group.id}',
+                {
+                    'type': 'group_member_update',
+                    'action': 'joined',
+                    'user_id': request.user.id,
+                    'username': request.user.username,
+                    'role': GroupMembership.ROLE_MEMBER,
+                }
+            )
+
+        return JsonResponse({'status': 'ok', 'message': 'Joined group successfully.'})
+
+    elif action == 'decline':
+        invite.status = GroupInvite.STATUS_DECLINED
+        invite.save()
+        return JsonResponse({'status': 'ok', 'message': 'Invite declined.'})
+
+    return JsonResponse({'error': 'Invalid action.'}, status=400)
 
 
 @login_required
@@ -1468,6 +1632,7 @@ def group_remove_member(request, group_id):
         return JsonResponse({'error': 'Only the owner can remove admins.'}, status=403)
 
     username = target_membership.user.username
+    target_id_for_ws = target_membership.user_id
     target_membership.delete()
 
     GroupMessage.objects.create(
@@ -1478,8 +1643,50 @@ def group_remove_member(request, group_id):
     )
     group.save()
 
+    # Send WebSocket notification to the removed member
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'user_chat_{target_id_for_ws}',
+        {
+            'type': 'group_deleted',
+            'group_id': group.id,
+            'group_name': group.name,
+            'deleted_by': f'an admin ({request.user.username})',
+        }
+    )
+
     return JsonResponse({'status': 'ok', 'removed': username})
 
+
+@login_required
+@require_POST
+def clear_group_chat(request, group_id):
+    """Clear chat history for a group (one-sided)."""
+    from django.utils import timezone
+    group = get_object_or_404(Group, id=group_id)
+    membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if not membership:
+        return JsonResponse({'error': 'Not a member.'}, status=403)
+        
+    membership.cleared_at = timezone.now()
+    membership.save()
+    
+    # Broadcast to clear frontend immediately
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f'user_chat_{request.user.id}',
+        {
+            'type': 'chat_cleared',
+            'cleared_by': request.user.username,
+            'group_id': group.id,
+        }
+    )
+    
+    return JsonResponse({'status': 'ok'})
 
 @login_required
 @require_POST
@@ -1573,17 +1780,37 @@ def group_change_role(request, group_id):
 def group_message_history(request, group_id):
     """Paginated message history for a group."""
     group = get_object_or_404(Group, id=group_id)
-    if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+    membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+    if not membership:
         return JsonResponse({'error': 'Not a member.'}, status=403)
 
     page = _positive_int(request.GET.get('page'), 1)
     per_page = _positive_int(request.GET.get('per_page'), 50, max_value=100)
 
-    messages_qs = GroupMessage.objects.filter(group=group).order_by('-timestamp')
+    messages_qs = GroupMessage.objects.filter(group=group)
+    if membership.cleared_at:
+        messages_qs = messages_qs.filter(timestamp__gt=membership.cleared_at)
+    
+    messages_qs = messages_qs.order_by('-timestamp')
     total = messages_qs.count()
     start = (page - 1) * per_page
     end = start + per_page
     messages_page = list(reversed(messages_qs[start:end]))
+
+    # Mark unread group messages as read for this user
+    from .models import GroupMessageRead
+    unread_msg_ids = (
+        GroupMessage.objects.filter(group=group)
+        .exclude(sender=request.user)
+        .exclude(read_receipts__user=request.user)
+        .values_list('id', flat=True)
+    )
+    if unread_msg_ids:
+        reads_to_create = [
+            GroupMessageRead(message_id=mid, user=request.user)
+            for mid in unread_msg_ids
+        ]
+        GroupMessageRead.objects.bulk_create(reads_to_create, ignore_conflicts=True)
 
     result = []
     for msg in messages_page:
@@ -1622,13 +1849,30 @@ def _serialize_group(group, user):
             'user_id': m.user.id,
             'username': m.user.username,
             'role': m.role,
+            'state': 'joined',
             'joined_at': m.joined_at.isoformat(),
             'avatar_url': m.user.profile.avatar.url if hasattr(m.user, 'profile') and m.user.profile.avatar else '',
             'is_online': m.user.profile.is_online if hasattr(m.user, 'profile') else False,
+            'last_seen': m.user.profile.last_seen.isoformat() if hasattr(m.user, 'profile') and m.user.profile.last_seen else None,
         }
         members.append(member_data)
         if m.user.id == user.id:
             my_membership = m
+
+    from .models import GroupInvite
+    pending_invites = group.invites.filter(status=GroupInvite.STATUS_PENDING).select_related('invitee', 'invitee__profile')
+    for inv in pending_invites:
+        invitee = inv.invitee
+        members.append({
+            'user_id': invitee.id,
+            'username': invitee.username,
+            'role': 'invited',
+            'state': 'invited',
+            'joined_at': inv.created_at.isoformat(),
+            'avatar_url': invitee.profile.avatar.url if hasattr(invitee, 'profile') and invitee.profile.avatar else '',
+            'is_online': invitee.profile.is_online if hasattr(invitee, 'profile') else False,
+            'last_seen': invitee.profile.last_seen.isoformat() if hasattr(invitee, 'profile') and invitee.profile.last_seen else None,
+        })
 
     return {
         'id': group.id,
@@ -1637,7 +1881,7 @@ def _serialize_group(group, user):
         'avatar_url': group.avatar.url if group.avatar else '',
         'created_by': group.created_by.username if group.created_by else None,
         'created_at': group.created_at.isoformat(),
-        'member_count': len(members),
+        'member_count': len(memberships),
         'my_role': my_membership.role if my_membership else None,
         'members': members,
     }
