@@ -224,9 +224,8 @@ TURN_SERVER_CREDENTIAL = config('TURN_SERVER_CREDENTIAL', default='')
 # Chatbot Configuration
 # ---------------------------------------------------------------------------
 CHATBOT_PROVIDER = config('CHATBOT_PROVIDER', default='local')
-CHATBOT_OPENAI_API_KEY = config('CHATBOT_OPENAI_API_KEY', default='')
-CHATBOT_OPENAI_BASE_URL = config('CHATBOT_OPENAI_BASE_URL', default='https://api.openai.com/v1')
-CHATBOT_MODEL = config('CHATBOT_MODEL', default='gpt-4o-mini')
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+CHATBOT_MODEL = config('CHATBOT_MODEL', default='gemini-1.5-flash')
 CHATBOT_TEMPERATURE = config('CHATBOT_TEMPERATURE', default=0.7, cast=float)
 CHATBOT_MAX_TOKENS = config('CHATBOT_MAX_TOKENS', default=500, cast=int)
 CHATBOT_SYSTEM_PROMPT = config('CHATBOT_SYSTEM_PROMPT', default='')
