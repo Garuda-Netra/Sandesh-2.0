@@ -1573,7 +1573,7 @@
         <div class="flex gap-2 mb-3">
           <button id="btnStUpload" onclick="SDH.Moments.setSoundtrackMode('upload', true)"
             class="flex-1 text-xs py-1.5 rounded-lg border border-divine-gold text-divine-gold bg-divine-gold/10 transition-all duration-200 active:scale-95 active:bg-divine-gold/20">Upload</button>
-          <button id="btnStSpotify" onclick="SDH.Moments.showSoundtrackUnavailable()"
+          <button id="btnStSpotify" onclick="SDH.Moments.setSoundtrackMode('spotify', true)"
             class="flex-1 text-xs py-1.5 rounded-lg border border-divine-border text-divine-muted bg-transparent transition-all duration-200 active:scale-95 active:bg-divine-gold/10">Spotify</button>
         </div>
 
@@ -1589,9 +1589,17 @@
           </div>
         </div>
 
+        <!-- Spotify Coming Soon Mode -->
+        <div id="stSpotifyGroup" class="hidden flex flex-col items-center justify-center p-4 mt-2 border border-dashed border-divine-gold/30 rounded-xl bg-divine-gold/5 transition-all duration-300">
+          <svg class="w-8 h-8 text-divine-gold/60 mb-2 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+          <h3 class="text-xs font-bold text-divine-gold uppercase tracking-widest mb-1">Coming Soon</h3>
+          <p class="text-[10px] text-divine-muted text-center max-w-[200px] leading-relaxed">Our Spotify integration is being finely tuned for a premium audio experience. Stay tuned for seamless music sharing.</p>
+        </div>
+
         <!-- Hidden elements to prevent JS errors -->
         <div style="display: none !important;">
-          <div id="stSpotifyGroup"></div>
           <input type="text" id="muSpotifySearch" />
           <div id="spotifyResults"></div>
           <div id="spotifySelected">
