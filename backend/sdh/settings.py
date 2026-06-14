@@ -110,20 +110,43 @@ WSGI_APPLICATION = 'sdh.wsgi.application'
 _REDIS_URL = config('REDIS_URL', default='')
 
 if _REDIS_URL:
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                'hosts': [_REDIS_URL],
+    if _REDIS_URL.startswith('rediss://'):
+        # Secure connections (like Upstash TLS) require disabling cert checks in some environments
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'CONFIG': {
+                    'hosts': [{
+                        'address': _REDIS_URL,
+                        'ssl_cert_reqs': 'none'
+                    }],
+                },
             },
-        },
-    }
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': _REDIS_URL,
         }
-    }
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+                'LOCATION': _REDIS_URL,
+                'OPTIONS': {
+                    'ssl_cert_reqs': 'none',
+                }
+            }
+        }
+    else:
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'CONFIG': {
+                    'hosts': [_REDIS_URL],
+                },
+            },
+        }
+        CACHES = {
+            'default': {
+                'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+                'LOCATION': _REDIS_URL,
+            }
+        }
 else:
     CHANNEL_LAYERS = {
         'default': {
