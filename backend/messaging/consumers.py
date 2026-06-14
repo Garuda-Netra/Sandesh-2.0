@@ -440,6 +440,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'group_id': event['group_id'],
             'group_name': event['group_name'],
             'deleted_by': event['deleted_by'],
+            'reason': event.get('reason'),
         }))
 
     async def new_moment(self, event):
