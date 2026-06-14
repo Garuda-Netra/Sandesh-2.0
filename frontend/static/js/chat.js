@@ -147,27 +147,20 @@ SDH.Chat = (() => {
 
     // 4. If the user is currently viewing this group chat, clean up completely
     if (activeUser === deletedGroupKey) {
-      // Disconnect WebSocket cleanly (suppresses reconnection)
-      SDH.WS?.disconnect();
-
-      // Clear active state
-      activeUser = null;
-      activeUserId = null;
-      sessionStorage.removeItem('ndm_last_chat');
-      sessionStorage.removeItem('ndm_last_chat_id');
-      sessionStorage.removeItem('ndm_last_chat_name');
-
-      // Reset the chat area to the empty/welcome state
-      const container = document.getElementById('messagesContainer');
-      if (container) container.innerHTML = _defaultEmptyStateInnerHtml();
-
-      // Reset header
-      const usernameEl = document.getElementById('chatUsername');
-      if (usernameEl) usernameEl.textContent = '';
-      _setHeaderStatus('', 'default');
-
-      // Hide the input bar since no chat is selected
-      document.getElementById('inputBar')?.classList.add('hidden');
+      _resetConversationPanel();
+      
+      // Additional header cleanup that _resetConversationPanel misses
+      const avatarEl = document.getElementById('chatAvatar');
+      if (avatarEl) {
+        avatarEl.innerHTML = '—';
+        avatarEl.style.backgroundImage = '';
+        avatarEl.className = 'sdh-chat-avatar w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold select-none flex-shrink-0';
+      }
+      
+      _setHeaderStatus('Choose someone to start messaging', 'default');
+      
+      const groupMenuBtn = document.getElementById('groupChatMenuBtn');
+      if (groupMenuBtn) groupMenuBtn.classList.add('hidden');
     }
 
     // 5. Show a toast notification
