@@ -157,10 +157,11 @@
     if (Clerk) {
       await Clerk.load();
 
-      // If a stale Clerk session exists when the user is on the login page,
-      // sign them out of Clerk so they can cleanly choose an account.
+      // If a Clerk session exists on page load (either they just returned from an OAuth 
+      // redirect, or they have a stale session), automatically sync it with Django.
       if (Clerk.session) {
-        await Clerk.session.end();
+        await syncWithDjango();
+        return;
       }
     }
 
