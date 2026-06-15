@@ -2370,6 +2370,7 @@ SDH.Chat = (() => {
 
   async function showUserProfile(username, userId) {
     if (!username) return;
+    if (username === window.SDH_DATA.currentUser) return;
 
     // Close context menus
     _closeAllUserMenus();

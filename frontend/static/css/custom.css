@@ -1892,6 +1892,15 @@ body {
 /* ════════════════════════════════════════════════════════════════
    FORM INPUTS  (auth pages)
 ════════════════════════════════════════════════════════════════ */
+/* Hide native browser password reveal eye button */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+input[type="password"]::-webkit-reveal {
+  display: none;
+}
+
 .sdh-input {
   display: block;
   width: 100%;
@@ -1903,6 +1912,11 @@ body {
   color: var(--c-text);
   outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.relative > input.sdh-input[type="password"],
+.relative > input.sdh-input[type="text"] {
+  padding-right: 2.5rem;
 }
 
 .sdh-input::placeholder {

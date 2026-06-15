@@ -55,9 +55,9 @@
     groupPendingInvitesUrl: "{% url 'messaging:pending_group_invites' %}",
     wsBase: "",
     // TURN server config (injected from server environment)
-    turnServerUrl: "{{ turn_server_url|default:'' }}",
-    turnServerUsername: "{{ turn_server_username|default:'' }}",
-    turnServerCredential: "{{ turn_server_credential|default:'' }}",
+    turnServerUrl: "{{ turn_server_url|escapejs }}",
+    turnServerUsername: "{{ turn_server_username|escapejs }}",
+    turnServerCredential: "{{ turn_server_credential|escapejs }}",
     users: JSON.parse(document.getElementById('sdh-users-data').textContent)
   };
 
@@ -261,11 +261,16 @@
           onclick="SDH.Chat.selectUser('{{ item.user.username }}', '{{ item.user.id }}')">
 
           <!-- Avatar -->
+          {% if item.is_self_chat %}
+          <div class="relative flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-full bg-divine-gold/10 text-divine-gold border border-divine-gold/30">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
+          </div>
+          {% else %}
           <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showUserProfile('{{ item.user.username|escapejs }}', '{{ item.user.id }}')">
             {% if item.user.profile.avatar and item.user.profile.avatar.name %}
             <img src="{{ item.user.profile.avatar.url }}" alt="{{ item.user.username }}"
               class="sdh-avatar w-11 h-11 rounded-full object-cover"
-              onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none', textContent: '{{ item.user.username }}'[0].toUpperCase()}))" />
+              onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none', textContent: '{{ item.user.username|escapejs }}'[0].toUpperCase()}))" />
             {% else %}
             <div class="sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full
                         flex items-center justify-center text-sm font-bold select-none">
@@ -278,6 +283,7 @@
                          {% if item.is_online %}sdh-online-dot--on{% else %}sdh-online-dot--off{% endif %}">
             </span>
           </div>
+          {% endif %}
 
           <!-- Name + status -->
           <div class="flex-1 min-w-0">
@@ -854,10 +860,10 @@
 <div id="emojiPicker" class="sdh-emoji-picker hidden fixed z-40 p-3 rounded-2xl flex flex-col gap-2"
   style="bottom:80px; right:24px; width:280px;">
   <!-- Emoji Picker Header -->
-  <div class="flex justify-between items-center pb-1 border-b border-white/10 select-none">
-    <span class="text-[10px] font-bold text-divine-gold uppercase tracking-wider">Select Emoji</span>
-    <button onclick="SDH.Chat.toggleEmojiPicker()" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 text-white/50 hover:text-white transition-colors duration-150" title="Close">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <div class="flex justify-between items-center pb-2 mb-2 border-b border-white/10 select-none">
+    <span class="text-xs font-bold text-divine-gold uppercase tracking-wider">Select Emoji</span>
+    <button onclick="SDH.Chat.toggleEmojiPicker()" class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-500/20 text-white/50 hover:text-red-500 transition-colors duration-150" title="Close Emoji Picker">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
