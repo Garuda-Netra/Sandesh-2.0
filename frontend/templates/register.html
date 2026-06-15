@@ -165,55 +165,113 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const btn = document.getElementById('google-signin-btn');
-    if (btn) {
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        if (!window.firebaseAuth) {
-          alert('Firebase SDK is not fully loaded or configured. Please ensure Firebase variables are set in your environment.');
-          return;
-        }
 
-        const { auth, signInWithPopup, GoogleAuthProvider } = window.firebaseAuth;
-        const provider = new GoogleAuthProvider();
+    // Check if Clerk is loaded and has a session immediately on page load
+    const checkExistingSession = setInterval(async () => {
+      if (window.Clerk) {
+        clearInterval(checkExistingSession);
+        await window.Clerk.load();
         
-        btn.disabled = true;
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
-
-        signInWithPopup(auth, provider)
-          .then(function(result) {
-            return result.user.getIdToken();
-          })
-          .then(function(idToken) {
-            return fetch('{% url "users:firebase_login" %}', {
+        if (window.Clerk.session) {
+          if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = 'Authenticating...';
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+          }
+          
+          try {
+            const idToken = await window.Clerk.session.getToken();
+            const response = await fetch('{% url "users:clerk_login" %}', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token }}'
               },
-              body: JSON.stringify({ id_token: idToken })
+              credentials: 'include',
+              body: JSON.stringify({ token: idToken })
             });
-          })
-          .then(function(response) {
-            return response.json();
-          })
-          .then(function(data) {
+            
+            const data = await response.json();
             if (data.status === 'success') {
-              window.location.href = data.redirect_url;
+              const timestamp = new Date().getTime();
+              const separator = data.redirect_url.includes('?') ? '&' : '?';
+              window.location.href = data.redirect_url + separator + 't=' + timestamp;
             } else {
-              alert('Authentication failed: ' + (data.error || 'Unknown error'));
+              console.error('Authentication failed:', data.error);
+              if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Sign in with Google';
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+              }
+            }
+          } catch (error) {
+            console.error('Django Auth error:', error);
+            if (btn) {
               btn.disabled = false;
+              btn.innerHTML = 'Sign in with Google';
               btn.classList.remove('opacity-50', 'cursor-not-allowed');
             }
-          })
-          .catch(function(error) {
-            console.error('Firebase Auth error:', error);
-            btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            if (error.code !== 'auth/popup-closed-by-user') {
-              alert('Authentication error: ' + error.message);
+          }
+        }
+      }
+    }, 200);
+
+    if (btn) {
+      btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        
+        if (!window.Clerk) {
+          alert('Clerk SDK is not fully loaded. Please ensure CLERK_PUBLISHABLE_KEY is set in your environment.');
+          return;
+        }
+
+        try {
+          btn.disabled = true;
+          btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+          await window.Clerk.load();
+          window.Clerk.openSignIn();
+
+          const checkSession = setInterval(async () => {
+            if (window.Clerk.session) {
+              clearInterval(checkSession);
+              
+              const idToken = await window.Clerk.session.getToken();
+              
+              fetch('{% url "users:clerk_login" %}', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': '{{ csrf_token }}'
+                },
+                credentials: 'include',
+                body: JSON.stringify({ token: idToken })
+              })
+              .then(response => response.json())
+              .then(data => {
+                if (data.status === 'success') {
+                  const timestamp = new Date().getTime();
+                  const separator = data.redirect_url.includes('?') ? '&' : '?';
+                  window.location.href = data.redirect_url + separator + 't=' + timestamp;
+                } else {
+                  alert('Authentication failed: ' + (data.error || 'Unknown error'));
+                  btn.disabled = false;
+                  btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+              })
+              .catch(error => {
+                console.error('Django Auth error:', error);
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+              });
             }
-          });
+          }, 1000);
+
+        } catch (error) {
+          console.error('Clerk Auth error:', error);
+          btn.disabled = false;
+          btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
       });
     }
   });
