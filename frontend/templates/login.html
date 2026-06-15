@@ -106,6 +106,7 @@
 
 {% block extra_js %}
 <script>
+  document.addEventListener('DOMContentLoaded', function() {
     const btn = document.getElementById('google-signin-btn');
     
     // Check if Clerk is loaded and has a session immediately on page load
@@ -176,7 +177,6 @@
           await window.Clerk.load();
           
           // Open the Clerk sign-in modal
-          // We do not use afterSignInUrl so it doesn't hard-redirect immediately
           window.Clerk.openSignIn();
 
           // Listen for when Clerk session becomes active
@@ -213,7 +213,7 @@
                 btn.classList.remove('opacity-50', 'cursor-not-allowed');
               });
             }
-          }, 1000); // Check every second for session
+          }, 1000);
 
         } catch (error) {
           console.error('Clerk Auth error:', error);
