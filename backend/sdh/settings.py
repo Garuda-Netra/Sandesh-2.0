@@ -129,7 +129,7 @@ if _REDIS_URL:
         # Secure connections (like Upstash TLS) require disabling cert checks in some environments
         CHANNEL_LAYERS = {
             'default': {
-                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'BACKEND': 'channels_redis.pubsub.RedisPubSubChannelLayer',
                 'CONFIG': {
                     'hosts': [{
                         'address': _REDIS_URL,
