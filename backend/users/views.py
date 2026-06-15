@@ -77,40 +77,82 @@ def login_view(request):
 
 
 # ---------------------------------------------------------------------------
-# Firebase Authentication API
+# ---------------------------------------------------------------------------
+# Clerk Authentication API
 # ---------------------------------------------------------------------------
 @csrf_protect
 @require_POST
-def firebase_login_view(request):
+def clerk_login_view(request):
     """
-    Endpoint for Firebase ID token verification and user login/registration.
-    Accepts: POST {"id_token": "<token>"}
+    Endpoint for Clerk token verification and user login/registration.
+    Accepts: POST {"token": "<token>"}
     Returns: JSON {"status": "success", "redirect_url": "/messaging/chat/"} or error message.
     """
     try:
         body = json.loads(request.body)
-        id_token = body.get('id_token')
+        token = body.get('token')
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'status': 'error', 'error': 'Invalid JSON request'}, status=400)
 
-    if not id_token:
-        return JsonResponse({'status': 'error', 'error': 'id_token is required'}, status=400)
+    if not token:
+        return JsonResponse({'status': 'error', 'error': 'token is required'}, status=400)
 
-    # Initialize Firebase if not already initialized
-    from sdh.firebase import initialize_firebase
-    initialize_firebase()
-
-    from firebase_admin import auth as firebase_auth
+    clerk_secret = getattr(settings, 'CLERK_SECRET_KEY', None)
+    if not clerk_secret:
+        return JsonResponse({'status': 'error', 'error': 'Server is missing Clerk Secret Key'}, status=500)
 
     try:
-        # Verify the ID token using the Firebase Admin SDK
-        decoded_token = firebase_auth.verify_id_token(id_token)
-        email = decoded_token.get('email')
+        import jwt
+        from jwt import PyJWKClient
+        import requests
 
+        # 1. Verify the token signature using the issuer's JWKS
+        unverified_claims = jwt.decode(token, options={"verify_signature": False})
+        issuer = unverified_claims.get("iss")
+        if not issuer:
+            return JsonResponse({'status': 'error', 'error': 'Token missing issuer'}, status=400)
+            
+        jwks_url = f"{issuer.rstrip('/')}/.well-known/jwks.json"
+        jwks_client = PyJWKClient(jwks_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        
+        decoded_token = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            options={"verify_aud": False}
+        )
+        
+        clerk_user_id = decoded_token.get("sub")
+        if not clerk_user_id:
+            return JsonResponse({'status': 'error', 'error': 'Token missing subject (sub)'}, status=400)
+
+        # 2. Fetch user details from Clerk API
+        headers = {
+            "Authorization": f"Bearer {clerk_secret}",
+            "Content-Type": "application/json"
+        }
+        resp = requests.get(f"https://api.clerk.com/v1/users/{clerk_user_id}", headers=headers)
+        if resp.status_code != 200:
+            return JsonResponse({'status': 'error', 'error': 'Failed to fetch user details from Clerk'}, status=400)
+            
+        user_data = resp.json()
+        
+        # Get primary email
+        email = None
+        primary_email_id = user_data.get('primary_email_address_id')
+        for e in user_data.get('email_addresses', []):
+            if e['id'] == primary_email_id:
+                email = e['email_address']
+                break
+                
+        if not email and user_data.get('email_addresses'):
+            email = user_data['email_addresses'][0]['email_address']
+            
         if not email:
-            return JsonResponse({'status': 'error', 'error': 'Firebase account does not have an email.'}, status=400)
+            return JsonResponse({'status': 'error', 'error': 'Clerk account does not have an email.'}, status=400)
 
-        # Find or create user
+        # 3. Find or create user
         user = User.objects.filter(email=email).first()
 
         if not user:
@@ -132,7 +174,7 @@ def firebase_login_view(request):
         if not profile.is_active_account:
             return JsonResponse({'status': 'error', 'error': 'Account deleted.'}, status=403)
 
-        # Log in the user
+        # 4. Log in the user
         login(request, user, backend='django.contrib.auth.backends.ModelBackend')
         return JsonResponse({
             'status': 'success',
@@ -140,6 +182,8 @@ def firebase_login_view(request):
         })
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'status': 'error', 'error': f'Authentication failed: {str(e)}'}, status=400)
 
 

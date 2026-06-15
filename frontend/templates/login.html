@@ -109,58 +109,66 @@
   document.addEventListener('DOMContentLoaded', function() {
     const btn = document.getElementById('google-signin-btn');
     if (btn) {
-      btn.addEventListener('click', function(e) {
+      btn.addEventListener('click', async function(e) {
         e.preventDefault();
         
-        if (!window.firebaseAuth) {
-          alert('Firebase SDK is not fully loaded or configured. Please ensure Firebase variables are set in your environment.');
+        if (!window.Clerk) {
+          alert('Clerk SDK is not fully loaded. Please ensure CLERK_PUBLISHABLE_KEY is set in your environment.');
           return;
         }
 
-        const { auth, signInWithPopup, GoogleAuthProvider } = window.firebaseAuth;
-        const provider = new GoogleAuthProvider();
-        
-        btn.disabled = true;
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        try {
+          btn.disabled = true;
+          btn.classList.add('opacity-50', 'cursor-not-allowed');
 
-        signInWithPopup(auth, provider)
-          .then(function(result) {
-            return result.user.getIdToken();
-          })
-          .then(function(idToken) {
-            return fetch('{% url "users:firebase_login" %}', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-              },
-              credentials: 'include',
-              body: JSON.stringify({ id_token: idToken })
-            });
-          })
-          .then(function(response) {
-            return response.json();
-          })
-          .then(function(data) {
-            if (data.status === 'success') {
-              // Add cache busting to prevent aggressive browser caching of previous 302 redirects
-              const timestamp = new Date().getTime();
-              const separator = data.redirect_url.includes('?') ? '&' : '?';
-              window.location.href = data.redirect_url + separator + 't=' + timestamp;
-            } else {
-              alert('Authentication failed: ' + (data.error || 'Unknown error'));
-              btn.disabled = false;
-              btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-          })
-          .catch(function(error) {
-            console.error('Firebase Auth error:', error);
-            btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            if (error.code !== 'auth/popup-closed-by-user') {
-              alert('Authentication error: ' + error.message);
-            }
+          await window.Clerk.load();
+          
+          // Open the Clerk sign-in modal
+          window.Clerk.openSignIn({
+            afterSignInUrl: window.location.href, // Redirect back to this page temporarily
           });
+
+          // We need to listen for when Clerk session becomes active
+          const checkSession = setInterval(async () => {
+            if (window.Clerk.session) {
+              clearInterval(checkSession);
+              
+              const idToken = await window.Clerk.session.getToken();
+              
+              fetch('{% url "users:clerk_login" %}', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': '{{ csrf_token }}'
+                },
+                credentials: 'include',
+                body: JSON.stringify({ token: idToken })
+              })
+              .then(response => response.json())
+              .then(data => {
+                if (data.status === 'success') {
+                  const timestamp = new Date().getTime();
+                  const separator = data.redirect_url.includes('?') ? '&' : '?';
+                  window.location.href = data.redirect_url + separator + 't=' + timestamp;
+                } else {
+                  alert('Authentication failed: ' + (data.error || 'Unknown error'));
+                  btn.disabled = false;
+                  btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+              })
+              .catch(error => {
+                console.error('Django Auth error:', error);
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+              });
+            }
+          }, 1000); // Check every second for session
+
+        } catch (error) {
+          console.error('Clerk Auth error:', error);
+          btn.disabled = false;
+          btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
       });
     }
   });

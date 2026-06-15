@@ -1,4 +1,4 @@
-﻿aiofiles==25.1.0
+aiofiles==25.1.0
 annotated-types==0.7.0
 anyio==4.13.0
 asgiref==3.11.1
@@ -13,6 +13,10 @@ cffi==2.0.0
 channels==4.3.2
 channels_redis==4.3.0
 charset-normalizer==3.4.7
+# Clerk backend verification
+PyJWT==2.8.0
+cryptography==42.0.5
+requests==2.31.0
 click==8.4.1
 cloudinary==1.44.2
 colorama==0.4.6

@@ -117,7 +117,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'users.context_processors.firebase_config',
+                'users.context_processors.clerk_config',
             ],
         },
     },
@@ -309,11 +309,10 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/messaging/chat/'
 LOGOUT_REDIRECT_URL = '/'
 
-FIREBASE_API_KEY = config('FIREBASE_API_KEY', default='')
-FIREBASE_AUTH_DOMAIN = config('FIREBASE_AUTH_DOMAIN', default='')
-FIREBASE_PROJECT_ID = config('FIREBASE_PROJECT_ID', default='')
-FIREBASE_APP_ID = config('FIREBASE_APP_ID', default='')
-FIREBASE_CREDENTIALS = config('FIREBASE_CREDENTIALS', default='firebase-key.json')
+# Clerk Authentication Configuration
+# ---------------------------------------------------------------------------
+CLERK_PUBLISHABLE_KEY = config('CLERK_PUBLISHABLE_KEY', default='')
+CLERK_SECRET_KEY = config('CLERK_SECRET_KEY', default='')
 
 AUTH_USER_MODEL = 'auth.User'
 

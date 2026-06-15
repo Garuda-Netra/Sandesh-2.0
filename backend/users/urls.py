@@ -15,7 +15,7 @@ urlpatterns = [
     path('register/', views.register_view, name='register'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
-    path('auth/firebase/login/', views.firebase_login_view, name='firebase_login'),
+    path('auth/clerk/login/', views.clerk_login_view, name='clerk_login'),
 
     # Profile
     path('profile/', views.profile_view, name='profile'),
