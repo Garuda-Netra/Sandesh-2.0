@@ -89,10 +89,13 @@ def clerk_login_view(request):
     Returns: JSON {"status": "success", "redirect_url": "/messaging/chat/"} or error message.
     """
     try:
-        body = json.loads(request.body)
-        token = body.get('token')
+        if request.content_type == 'application/json':
+            body = json.loads(request.body)
+            token = body.get('token')
+        else:
+            token = request.POST.get('token')
     except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'status': 'error', 'error': 'Invalid JSON request'}, status=400)
+        return JsonResponse({'status': 'error', 'error': 'Invalid request format'}, status=400)
 
     if not token:
         return JsonResponse({'status': 'error', 'error': 'token is required'}, status=400)
@@ -176,6 +179,13 @@ def clerk_login_view(request):
 
         # 4. Log in the user
         login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+        
+        # If the request came from our HTML form POST, redirect naturally.
+        # This guarantees the session Set-Cookie is processed by the browser.
+        if request.content_type != 'application/json':
+            from django.shortcuts import redirect
+            return redirect('messaging:chat')
+            
         return JsonResponse({
             'status': 'success',
             'redirect_url': reverse('messaging:chat')

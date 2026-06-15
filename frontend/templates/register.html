@@ -171,109 +171,108 @@
       if (window.Clerk) {
         clearInterval(checkExistingSession);
         await window.Clerk.load();
-        
-        if (window.Clerk.session) {
-          if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = 'Authenticating...';
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-          }
-          
-          try {
-            const idToken = await window.Clerk.session.getToken();
-            const response = await fetch('{% url "users:clerk_login" %}', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-              },
-              credentials: 'include',
-              body: JSON.stringify({ token: idToken })
-            });
-            
-            const data = await response.json();
-            if (data.status === 'success') {
-              const timestamp = new Date().getTime();
-              const separator = data.redirect_url.includes('?') ? '&' : '?';
-              window.location.href = data.redirect_url + separator + 't=' + timestamp;
-            } else {
-              console.error('Authentication failed:', data.error);
-              if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = 'Sign in with Google';
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
-              }
-            }
-          } catch (error) {
-            console.error('Django Auth error:', error);
-            if (btn) {
+    if (!btn) return;
+
+    // ── Helper: send clerk token to Django ──────────────────────
+    async function syncWithDjango() {
+      const idToken = await window.Clerk.session.getToken();
+      
+      // We use a native form POST rather than fetch. This guarantees 
+      // the browser will accept the Set-Cookie header for the Django session 
+      // and natively follow the redirect, avoiding any fetch/CORS cookie-drop bugs.
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "users:clerk_login" %}';
+      
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrfmiddlewaretoken';
+      csrfInput.value = '{{ csrf_token }}';
+      
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'token';
+      tokenInput.value = idToken;
+      
+      form.appendChild(csrfInput);
+      form.appendChild(tokenInput);
+      document.body.appendChild(form);
+      form.submit();
+      
+      // Return a dummy promise that just hangs so the UI stays in "Authenticating..." state
+      return new Promise(() => {});
+    }
+
+    // ── Wait for Clerk JS to be ready ───────────────────────────
+    function waitForClerk() {
+      return new Promise((resolve) => {
+        if (window.Clerk) { resolve(window.Clerk); return; }
+        const iv = setInterval(() => {
+          if (window.Clerk) { clearInterval(iv); resolve(window.Clerk); }
+        }, 100);
+      });
+    }
+
+    const Clerk = await waitForClerk();
+
+    if (Clerk) {
+      await Clerk.load();
+
+      // If a stale Clerk session exists when the user is on the login page,
+      // sign them out of Clerk so they can cleanly choose an account.
+      if (Clerk.session) {
+        await Clerk.session.end();
+      }
+    }
+
+    // ── Button click → open Clerk modal ────────────────────────
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      
+      if (!Clerk) {
+        alert('Clerk is not loaded. Check your CLERK_PUBLISHABLE_KEY environment variable.');
+        return;
+      }
+
+      // Visual feedback
+      btn.disabled = true;
+      btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+      try {
+        // Show Clerk sign-in UI
+        Clerk.openSignIn();
+
+        // Poll until Clerk session is active (user finished signing in)
+        const checkSession = setInterval(async () => {
+          await Clerk.load();
+          if (Clerk.session) {
+            clearInterval(checkSession);
+            try {
+              // syncWithDjango will native-submit a form and redirect the page.
+              await syncWithDjango();
+            } catch (err) {
+              console.error('Django sync error:', err);
               btn.disabled = false;
-              btn.innerHTML = 'Sign in with Google';
               btn.classList.remove('opacity-50', 'cursor-not-allowed');
             }
           }
-        }
+        }, 800);
+
+        // Safety timeout (e.g. user closes the Clerk modal without signing in)
+        setTimeout(() => {
+          if (!Clerk.session) {
+            clearInterval(checkSession);
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+          }
+        }, 60000);
+
+      } catch (err) {
+        console.error('Clerk error:', err);
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
       }
-    }, 200);
-
-    if (btn) {
-      btn.addEventListener('click', async function(e) {
-        e.preventDefault();
-        
-        if (!window.Clerk) {
-          alert('Clerk SDK is not fully loaded. Please ensure CLERK_PUBLISHABLE_KEY is set in your environment.');
-          return;
-        }
-
-        try {
-          btn.disabled = true;
-          btn.classList.add('opacity-50', 'cursor-not-allowed');
-
-          await window.Clerk.load();
-          window.Clerk.openSignIn();
-
-          const checkSession = setInterval(async () => {
-            if (window.Clerk.session) {
-              clearInterval(checkSession);
-              
-              const idToken = await window.Clerk.session.getToken();
-              
-              fetch('{% url "users:clerk_login" %}', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'X-CSRFToken': '{{ csrf_token }}'
-                },
-                credentials: 'include',
-                body: JSON.stringify({ token: idToken })
-              })
-              .then(response => response.json())
-              .then(data => {
-                if (data.status === 'success') {
-                  const timestamp = new Date().getTime();
-                  const separator = data.redirect_url.includes('?') ? '&' : '?';
-                  window.location.href = data.redirect_url + separator + 't=' + timestamp;
-                } else {
-                  alert('Authentication failed: ' + (data.error || 'Unknown error'));
-                  btn.disabled = false;
-                  btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-              })
-              .catch(error => {
-                console.error('Django Auth error:', error);
-                btn.disabled = false;
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
-              });
-            }
-          }, 1000);
-
-        } catch (error) {
-          console.error('Clerk Auth error:', error);
-          btn.disabled = false;
-          btn.classList.remove('opacity-50', 'cursor-not-allowed');
-        }
-      });
-    }
+    });
   });
 </script>
 

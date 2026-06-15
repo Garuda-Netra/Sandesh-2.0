@@ -113,16 +113,31 @@
     // ── Helper: send clerk token to Django ──────────────────────
     async function syncWithDjango() {
       const idToken = await window.Clerk.session.getToken();
-      const response = await fetch('{% url "users:clerk_login" %}', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': '{{ csrf_token }}'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ token: idToken })
-      });
-      return response.json();
+      
+      // We use a native form POST rather than fetch. This guarantees 
+      // the browser will accept the Set-Cookie header for the Django session 
+      // and natively follow the redirect, avoiding any fetch/CORS cookie-drop bugs.
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "users:clerk_login" %}';
+      
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrfmiddlewaretoken';
+      csrfInput.value = '{{ csrf_token }}';
+      
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'token';
+      tokenInput.value = idToken;
+      
+      form.appendChild(csrfInput);
+      form.appendChild(tokenInput);
+      document.body.appendChild(form);
+      form.submit();
+      
+      // Return a dummy promise that just hangs so the UI stays in "Authenticating..." state
+      return new Promise(() => {});
     }
 
     // ── Wait for Clerk JS to be ready ───────────────────────────
@@ -171,16 +186,8 @@
           if (Clerk.session) {
             clearInterval(checkSession);
             try {
-              const data = await syncWithDjango();
-              if (data.status === 'success') {
-                const t = Date.now();
-                const sep = data.redirect_url.includes('?') ? '&' : '?';
-                window.location.href = data.redirect_url + sep + 't=' + t;
-              } else {
-                alert('Sign-in failed: ' + (data.error || 'Unknown error'));
-                btn.disabled = false;
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
-              }
+              // syncWithDjango will native-submit a form and redirect the page.
+              await syncWithDjango();
             } catch (err) {
               console.error('Django sync error:', err);
               btn.disabled = false;

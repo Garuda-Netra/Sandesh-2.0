@@ -90,6 +90,11 @@ INSTALLED_APPS = [
     'messaging.apps.MessagingConfig',
 ]
 
+AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailPhoneUsernameBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',         # Static files in prod
