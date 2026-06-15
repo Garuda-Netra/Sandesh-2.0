@@ -123,6 +123,9 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
                     return response2.text.strip() or None
                 except Exception as e2:
                     print(f"Gemini API Error (Fallback Key): {e2}")
+                    err_lower2 = str(e2).lower()
+                    if "safety" in err_lower2 or "harm_category" in err_lower2 or "blocked" in err_lower2:
+                        return "I'm sorry, but I cannot fulfill this request as it violates safety and content policies."
                     return "⚠️ **API Limit Exceeded**: Both primary and fallback AI keys have reached their capacity limits. Please try again later."
             
             return "⚠️ **API Limit Exceeded**: The AI is currently busy and has reached its request limit. Please try again later."
@@ -133,5 +136,10 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
             return "⚠️ **Configuration Error**: The provided Gemini API Key is invalid."
         elif "API_KEY_INVALID" in error_str:
             return "⚠️ **Configuration Error**: Your Gemini API Key is missing or invalid."
+            
+        # Check for safety filter blocks
+        err_lower = error_str.lower()
+        if "safety" in err_lower or "harm_category" in err_lower or "blocked" in err_lower:
+            return "I'm sorry, but I cannot fulfill this request as it violates safety and content policies."
             
         return f"⚠️ **API Error**: I couldn't process that request right now. Error details: `{error_str}`"
