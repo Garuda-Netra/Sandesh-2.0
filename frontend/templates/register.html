@@ -218,11 +218,17 @@
     if (Clerk) {
       await Clerk.load();
 
-      // If a Clerk session exists on page load (either they just returned from an OAuth 
-      // redirect, or they have a stale session), automatically sync it with Django.
+      // If a Clerk session exists on page load:
       if (Clerk.session) {
-        await syncWithDjango();
-        return;
+        // Check if we just returned from a Google OAuth redirect (Clerk adds '__clerk' to URL)
+        if (window.location.search.includes('__clerk')) {
+          await syncWithDjango();
+          return;
+        } else {
+          // Otherwise, this is a stale session (e.g. user logged out of Django but not Clerk).
+          // Destroy the Clerk session so the user can manually click the button again.
+          await Clerk.session.end();
+        }
       }
     }
 

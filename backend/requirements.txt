@@ -13,10 +13,6 @@ cffi==2.0.0
 channels==4.3.2
 channels_redis==4.3.0
 charset-normalizer==3.4.7
-# Clerk backend verification
-PyJWT==2.8.0
-cryptography==42.0.5
-requests==2.31.0
 click==8.4.1
 cloudinary==1.44.2
 colorama==0.4.6
@@ -39,7 +35,7 @@ google-cloud-core==2.6.0
 google-cloud-firestore==2.27.0
 google-cloud-storage==3.10.1
 google-crc32c==1.8.0
-google-genai==0.8.6
+google-genai>=0.8.0
 google-resumable-media==2.9.0
 googleapis-common-protos==1.75.0
 grpcio==1.80.0

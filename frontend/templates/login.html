@@ -110,10 +110,27 @@
     const btn = document.getElementById('google-signin-btn');
     if (!btn) return;
 
+    // ── Capture URL params BEFORE Clerk.load() strips them ─────
+    // Clerk.load() processes OAuth callback params (__clerk_status, etc.)
+    // and removes them via history.replaceState(). We must snapshot first.
+    const rawSearch = window.location.search;
+    const rawHash   = window.location.hash;
+    const isOAuthCallback = rawSearch.includes('__clerk') || rawHash.includes('__clerk');
+
     // ── Helper: send clerk token to Django ──────────────────────
     async function syncWithDjango() {
+      console.log('[Sandesh] syncWithDjango: getting Clerk session token...');
       const idToken = await window.Clerk.session.getToken();
-      
+
+      if (!idToken) {
+        console.error('[Sandesh] syncWithDjango: Clerk returned a null token.');
+        return false;
+      }
+      console.log('[Sandesh] syncWithDjango: token obtained, submitting form to Django...');
+
+      // Mark that we are attempting a sync so we can detect redirect loops.
+      sessionStorage.setItem('clerk_sync_pending', '1');
+
       // We use a native form POST rather than fetch. This guarantees 
       // the browser will accept the Set-Cookie header for the Django session 
       // and natively follow the redirect, avoiding any fetch/CORS cookie-drop bugs.
@@ -157,11 +174,35 @@
     if (Clerk) {
       await Clerk.load();
 
-      // If a Clerk session exists on page load (either they just returned from an OAuth 
-      // redirect, or they have a stale session), automatically sync it with Django.
+      // If a Clerk session exists on page load:
       if (Clerk.session) {
-        await syncWithDjango();
-        return;
+        console.log('[Sandesh] Clerk session detected on page load. isOAuthCallback:', isOAuthCallback);
+
+        // Check if a previous sync attempt just failed (we're in a redirect loop).
+        const syncWasPending = sessionStorage.getItem('clerk_sync_pending');
+
+        if (syncWasPending) {
+          // A previous sync attempt brought us back here — the backend rejected it.
+          // Destroy the Clerk session so we don't loop forever.
+          console.warn('[Sandesh] Previous Clerk sync failed (redirect loop detected). Destroying Clerk session.');
+          sessionStorage.removeItem('clerk_sync_pending');
+          try { await Clerk.signOut(); } catch(e) { console.error('[Sandesh] signOut error:', e); }
+        } else if (isOAuthCallback) {
+          // We just returned from a Google OAuth redirect — sync with Django.
+          console.log('[Sandesh] OAuth callback detected, syncing with Django...');
+          await syncWithDjango();
+          return;
+        } else {
+          // A Clerk session exists but this isn't an OAuth callback and no
+          // sync was pending. This is likely a fresh page load where the user
+          // is already signed in to Clerk but not Django.  Try to sync once.
+          console.log('[Sandesh] Existing Clerk session found, attempting sync...');
+          await syncWithDjango();
+          return;
+        }
+      } else {
+        // No Clerk session — clear any stale flags.
+        sessionStorage.removeItem('clerk_sync_pending');
       }
     }
 
@@ -174,6 +215,9 @@
         return;
       }
 
+      // Clear any previous loop-detection flags for a fresh attempt.
+      sessionStorage.removeItem('clerk_sync_pending');
+
       btn.disabled = true;
       btn.classList.add('opacity-50', 'cursor-not-allowed');
 
@@ -183,14 +227,13 @@
 
         // Poll until Clerk session is active (user finished signing in)
         const checkSession = setInterval(async () => {
-          await Clerk.load();
           if (Clerk.session) {
             clearInterval(checkSession);
+            console.log('[Sandesh] Clerk session active after sign-in modal, syncing...');
             try {
-              // syncWithDjango will native-submit a form and redirect the page.
               await syncWithDjango();
             } catch (err) {
-              console.error('Django sync error:', err);
+              console.error('[Sandesh] Django sync error:', err);
               btn.disabled = false;
               btn.classList.remove('opacity-50', 'cursor-not-allowed');
             }
@@ -205,7 +248,7 @@
         }, 60000);
 
       } catch (err) {
-        console.error('Clerk error:', err);
+        console.error('[Sandesh] Clerk error:', err);
         btn.disabled = false;
         btn.classList.remove('opacity-50', 'cursor-not-allowed');
       }

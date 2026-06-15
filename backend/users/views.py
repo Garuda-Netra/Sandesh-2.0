@@ -87,81 +87,106 @@ def clerk_login_view(request):
     """
     Endpoint for Clerk token verification and user login/registration.
     Accepts: POST {"token": "<token>"}
-    Returns: JSON {"status": "success", "redirect_url": "/messaging/chat/"} or error message.
+    Returns: redirect to chat on success, redirect to login on error.
     """
     try:
+        # ── 0. Extract token from request ───────────────────────────
         if request.content_type == 'application/json':
             body = json.loads(request.body)
             token = body.get('token')
         else:
             token = request.POST.get('token')
-    except (json.JSONDecodeError, ValueError):
-        return JsonResponse({'status': 'error', 'error': 'Invalid request format'}, status=400)
 
-    if not token:
-        return JsonResponse({'status': 'error', 'error': 'token is required'}, status=400)
+        if not token:
+            raise ValueError('token is required')
 
-    clerk_secret = getattr(settings, 'CLERK_SECRET_KEY', None)
-    if not clerk_secret:
-        return JsonResponse({'status': 'error', 'error': 'Server is missing Clerk Secret Key'}, status=500)
+        print(f"[Clerk Auth] Token received (length={len(token)})")
 
-    try:
+        clerk_secret = getattr(settings, 'CLERK_SECRET_KEY', None)
+        if not clerk_secret:
+            raise ValueError('Server is missing Clerk Secret Key')
+
         import jwt
         from jwt import PyJWKClient
-        import requests
+        import requests as http_requests
 
-        # 1. Verify the token signature using the issuer's JWKS
-        unverified_claims = jwt.decode(token, options={"verify_signature": False})
+        # ── 1. Decode token WITHOUT verification to read claims ─────
+        unverified_claims = jwt.decode(
+            token,
+            options={
+                "verify_signature": False,
+                "verify_exp": False,
+                "verify_nbf": False,
+                "verify_iat": False,
+                "verify_aud": False,
+            }
+        )
         issuer = unverified_claims.get("iss")
         if not issuer:
-            return JsonResponse({'status': 'error', 'error': 'Token missing issuer'}, status=400)
-            
+            raise ValueError('Token missing issuer (iss)')
+
+        clerk_user_id = unverified_claims.get("sub")
+        print(f"[Clerk Auth] Issuer={issuer}, sub={clerk_user_id}")
+
+        # ── 2. Verify token signature with JWKS ────────────────────
         jwks_url = f"{issuer.rstrip('/')}/.well-known/jwks.json"
+        print(f"[Clerk Auth] Fetching JWKS from {jwks_url}")
         jwks_client = PyJWKClient(jwks_url)
         signing_key = jwks_client.get_signing_key_from_jwt(token)
-        
+
+        header = jwt.get_unverified_header(token)
+        alg = header.get('alg', 'RS256')
+        print(f"[Clerk Auth] Token algorithm: {alg}")
+
         decoded_token = jwt.decode(
             token,
             signing_key.key,
-            algorithms=["RS256"],
+            algorithms=[alg],
             options={"verify_aud": False},
-            leeway=60  # Allow 60 seconds for clock skew
+            leeway=120,  # Allow 120 seconds for clock skew
         )
-        
+        print(f"[Clerk Auth] Token verified successfully. sub={decoded_token.get('sub')}")
+
         clerk_user_id = decoded_token.get("sub")
         if not clerk_user_id:
-            return JsonResponse({'status': 'error', 'error': 'Token missing subject (sub)'}, status=400)
+            raise ValueError('Token missing subject (sub)')
 
-        # 2. Fetch user details from Clerk API
-        headers = {
+        # ── 3. Fetch user details from Clerk API ───────────────────
+        api_headers = {
             "Authorization": f"Bearer {clerk_secret}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        resp = requests.get(f"https://api.clerk.com/v1/users/{clerk_user_id}", headers=headers)
+        api_url = f"https://api.clerk.com/v1/users/{clerk_user_id}"
+        print(f"[Clerk Auth] Fetching user from Clerk API: {api_url}")
+        resp = http_requests.get(api_url, headers=api_headers, timeout=10)
+        print(f"[Clerk Auth] Clerk API response: {resp.status_code}")
+
         if resp.status_code != 200:
-            return JsonResponse({'status': 'error', 'error': 'Failed to fetch user details from Clerk'}, status=400)
-            
+            print(f"[Clerk Auth] Clerk API error body: {resp.text[:500]}")
+            raise ValueError(f'Failed to fetch user details from Clerk (HTTP {resp.status_code})')
+
         user_data = resp.json()
-        
-        # Get primary email
+
+        # ── 4. Extract primary email ───────────────────────────────
         email = None
         primary_email_id = user_data.get('primary_email_address_id')
         for e in user_data.get('email_addresses', []):
             if e['id'] == primary_email_id:
                 email = e['email_address']
                 break
-                
+
         if not email and user_data.get('email_addresses'):
             email = user_data['email_addresses'][0]['email_address']
-            
-        if not email:
-            return JsonResponse({'status': 'error', 'error': 'Clerk account does not have an email.'}, status=400)
 
-        # 3. Find or create user
+        if not email:
+            raise ValueError('Clerk account does not have an email.')
+
+        print(f"[Clerk Auth] Email resolved: {email}")
+
+        # ── 5. Find or create Django user ──────────────────────────
         user = User.objects.filter(email=email).first()
 
         if not user:
-            # Create new user
             base_username = email.split('@')[0]
             final_username = base_username
             counter = 1
@@ -172,35 +197,40 @@ def clerk_login_view(request):
             user = User.objects.create(username=final_username, email=email)
             user.set_unusable_password()
             user.save()
+            print(f"[Clerk Auth] Created new user: {final_username}")
+        else:
+            print(f"[Clerk Auth] Found existing user: {user.username}")
 
         # Update profile if needed
         profile, _ = UserProfile.objects.get_or_create(user=user)
 
         if not profile.is_active_account:
-            return JsonResponse({'status': 'error', 'error': 'Account deleted.'}, status=403)
+            raise ValueError('Account deleted.')
 
-        # 4. Log in the user
+        # ── 6. Log in the user ─────────────────────────────────────
         login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-        
+        print(f"[Clerk Auth] Login successful for {user.username}, redirecting to chat.")
+
         # If the request came from our HTML form POST, redirect naturally.
-        # This guarantees the session Set-Cookie is processed by the browser.
         if request.content_type != 'application/json':
-            from django.shortcuts import redirect
             return redirect('messaging:chat')
-            
+
         return JsonResponse({
             'status': 'success',
-            'redirect_url': reverse('messaging:chat')
+            'redirect_url': reverse('messaging:chat'),
         })
 
     except Exception as e:
-        print("Clerk verification error:", e)
+        import traceback
+        print(f"[Clerk Auth] ERROR: {e}")
+        traceback.print_exc()
+
         if request.content_type != 'application/json':
-            messages.error(request, f"Authentication failed: {str(e)}")
-            from django.shortcuts import redirect
+            messages.error(request, f"Google sign-in failed: {e}")
             return redirect('users:login')
-            
+
         return JsonResponse({'status': 'error', 'error': str(e)}, status=400)
+
 
 
 
