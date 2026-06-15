@@ -985,8 +985,13 @@ SDH.Chat = (() => {
       }
       blockedBanner.classList.remove('hidden');
       // Toggle buttons
-      blockBtn?.classList.add('hidden');
-      unblockBtn?.classList.remove('hidden');
+      if (!_isSelfChat(activeUser)) {
+        blockBtn?.classList.add('hidden');
+        unblockBtn?.classList.remove('hidden');
+      } else {
+        blockBtn?.classList.add('hidden');
+        unblockBtn?.classList.add('hidden');
+      }
     } else {
       // Restore input bar
       if (inputBar) {
@@ -994,8 +999,13 @@ SDH.Chat = (() => {
       }
       document.getElementById('blockedBanner')?.classList.add('hidden');
       // Toggle buttons
-      blockBtn?.classList.remove('hidden');
-      unblockBtn?.classList.add('hidden');
+      if (!_isSelfChat(activeUser)) {
+        blockBtn?.classList.remove('hidden');
+        unblockBtn?.classList.add('hidden');
+      } else {
+        blockBtn?.classList.add('hidden');
+        unblockBtn?.classList.add('hidden');
+      }
     }
   }
 
