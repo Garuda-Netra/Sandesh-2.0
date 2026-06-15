@@ -124,7 +124,8 @@ def clerk_login_view(request):
             token,
             signing_key.key,
             algorithms=["RS256"],
-            options={"verify_aud": False}
+            options={"verify_aud": False},
+            leeway=60  # Allow 60 seconds for clock skew
         )
         
         clerk_user_id = decoded_token.get("sub")
@@ -193,9 +194,13 @@ def clerk_login_view(request):
         })
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'status': 'error', 'error': f'Authentication failed: {str(e)}'}, status=400)
+        print("Clerk verification error:", e)
+        if request.content_type != 'application/json':
+            messages.error(request, f"Authentication failed: {str(e)}")
+            from django.shortcuts import redirect
+            return redirect('users:login')
+            
+        return JsonResponse({'status': 'error', 'error': str(e)}, status=400)
 
 
 
