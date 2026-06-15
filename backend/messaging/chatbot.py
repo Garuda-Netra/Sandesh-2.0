@@ -81,6 +81,14 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
     if not system_prompt:
         system_prompt = _DEFAULT_SYSTEM_PROMPT
 
+    # Default Safety Settings to block violent/sexual content
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_LOW_AND_ABOVE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_LOW_AND_ABOVE"},
+    ]
+
     try:
         client = genai.Client(api_key=api_key)
         
@@ -88,25 +96,41 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
             temperature=temperature,
             max_output_tokens=max_tokens,
             system_instruction=system_prompt,
+            safety_settings=safety_settings,
         )
         
-        # Start a chat session with the previous history
-        chat = client.chats.create(
-            model=model_name,
-            config=config,
-            history=history
-        )
-        
-        # Send the new message
+        chat = client.chats.create(model=model_name, config=config, history=history)
         response = chat.send_message(message)
-        
         return response.text.strip() or None
+        
     except Exception as e:
         error_str = str(e)
+        
+        # Check for Quota Exceeded / 429
+        if "429" in error_str or "quota" in error_str.lower() or "exhausted" in error_str.lower():
+            api_key_2 = getattr(settings, "GEMINI_API_KEY_2", "")
+            if api_key_2 and api_key_2 != "your_api_key_here":
+                try:
+                    client2 = genai.Client(api_key=api_key_2)
+                    config2 = genai.types.GenerateContentConfig(
+                        temperature=temperature,
+                        max_output_tokens=max_tokens,
+                        system_instruction=system_prompt,
+                        safety_settings=safety_settings,
+                    )
+                    chat2 = client2.chats.create(model=model_name, config=config2, history=history)
+                    response2 = chat2.send_message(message)
+                    return response2.text.strip() or None
+                except Exception as e2:
+                    print(f"Gemini API Error (Fallback Key): {e2}")
+                    return "⚠️ **API Limit Exceeded**: Both primary and fallback AI keys have reached their capacity limits. Please try again later."
+            
+            return "⚠️ **API Limit Exceeded**: The AI is currently busy and has reached its request limit. Please try again later."
+
         print(f"Gemini API Error: {error_str}")
         
         if "API key not valid" in error_str:
-            return "⚠️ **Configuration Error**: The provided Gemini API Key is invalid. Please verify your key in Google AI Studio and update your `.env` or system environment variables."
+            return "⚠️ **Configuration Error**: The provided Gemini API Key is invalid."
         elif "API_KEY_INVALID" in error_str:
             return "⚠️ **Configuration Error**: Your Gemini API Key is missing or invalid."
             
