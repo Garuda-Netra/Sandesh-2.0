@@ -401,9 +401,9 @@
   <div class="sdh-chat-panel flex flex-col flex-1 min-w-0">
 
     <!-- Chat header -->
-    <header id="chatHeader" class="sdh-chat-header flex flex-col flex-shrink-0">
+    <header id="chatHeader" class="sdh-chat-header flex flex-col flex-shrink-0 z-20 sticky top-0 bg-divine-card">
 
-      <div class="flex items-center h-16 px-5">
+      <div class="flex items-center h-16 px-3 sm:px-5 w-full">
 
         <!-- Mobile sidebar toggle -->
         <button onclick="SDH.Chat.openSidebar()" class="sm:hidden mr-3 sdh-icon-btn p-2 rounded-xl transition-all"
@@ -414,11 +414,10 @@
         </button>
 
         <!-- Contact info -->
-        <div
-          class="flex items-center gap-3.5 flex-1 min-w-0 cursor-pointer hover:opacity-85 transition-opacity duration-150"
+        <div class="flex items-center gap-2.5 sm:gap-3.5 flex-1 min-w-0 cursor-pointer hover:opacity-85 transition-opacity duration-150"
           onclick="SDH.Chat.showActiveUserProfile()" title="View profile details">
           <!-- Chat header avatar -->
-          <div id="chatAvatar" class="sdh-chat-avatar w-10 h-10 rounded-full
+          <div id="chatAvatar" class="sdh-chat-avatar w-9 h-9 sm:w-10 sm:h-10 rounded-full
                       flex items-center justify-center text-sm font-bold select-none flex-shrink-0">
             —
           </div>
@@ -435,11 +434,11 @@
         </div>
 
         <!-- Action buttons (visible when chat open) -->
-        <div id="callButtons" class="hidden flex items-center gap-2 flex-shrink-0">
+        <div id="callButtons" class="hidden flex items-center gap-1 sm:gap-2 flex-shrink-0">
           <!-- Voice Call -->
           <button id="voiceCallBtn" onclick="SDH.Chat.handleCallButtonClick('voice')" title="Voice Call"
-            class="sdh-liquid-btn btn-ancient !p-2 transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="sdh-liquid-btn btn-ancient !p-1.5 sm:!p-2 transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_12px_rgba(212,175,55,0.4)]">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13
                        a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1
                        C9.716 21 3 14.284 3 6V5z" />
@@ -447,8 +446,8 @@
           </button>
           <!-- Video Call -->
           <button id="videoCallBtn" onclick="SDH.Chat.handleCallButtonClick('video')" title="Video Call"
-            class="sdh-liquid-btn btn-ancient !p-2 transition-all">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="sdh-liquid-btn btn-ancient !p-1.5 sm:!p-2 transition-all hover:scale-105 active:scale-95 hover:shadow-[0_0_12px_rgba(212,175,55,0.4)]">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8
                        a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
@@ -457,7 +456,7 @@
           <!-- ⋮ Kebab Menu -->
           <div class="relative" id="kebabMenuWrapper">
             <button onclick="SDH.Chat.toggleKebabMenu()" title="More options"
-              class="sdh-liquid-btn btn-secondary !p-2 transition-all">
+              class="sdh-liquid-btn btn-secondary !p-1.5 sm:!p-2 transition-all hover:scale-105 active:scale-95">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="5" r="1.5"/>
                 <circle cx="12" cy="12" r="1.5"/>
