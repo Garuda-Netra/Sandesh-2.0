@@ -106,8 +106,60 @@
 
 {% block extra_js %}
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
     const btn = document.getElementById('google-signin-btn');
+    
+    // Check if Clerk is loaded and has a session immediately on page load
+    const checkExistingSession = setInterval(async () => {
+      if (window.Clerk) {
+        clearInterval(checkExistingSession);
+        await window.Clerk.load();
+        
+        // If a session exists, sync it with Django
+        if (window.Clerk.session) {
+          if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = 'Authenticating...';
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+          }
+          
+          try {
+            const idToken = await window.Clerk.session.getToken();
+            
+            const response = await fetch('{% url "users:clerk_login" %}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+              },
+              credentials: 'include',
+              body: JSON.stringify({ token: idToken })
+            });
+            
+            const data = await response.json();
+            if (data.status === 'success') {
+              const timestamp = new Date().getTime();
+              const separator = data.redirect_url.includes('?') ? '&' : '?';
+              window.location.href = data.redirect_url + separator + 't=' + timestamp;
+            } else {
+              console.error('Authentication failed: ' + (data.error || 'Unknown error'));
+              if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Sign in with Google';
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+              }
+            }
+          } catch (error) {
+            console.error('Django Auth error:', error);
+            if (btn) {
+              btn.disabled = false;
+              btn.innerHTML = 'Sign in with Google';
+              btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+          }
+        }
+      }
+    }, 200);
+
     if (btn) {
       btn.addEventListener('click', async function(e) {
         e.preventDefault();
@@ -124,11 +176,10 @@
           await window.Clerk.load();
           
           // Open the Clerk sign-in modal
-          window.Clerk.openSignIn({
-            afterSignInUrl: window.location.href, // Redirect back to this page temporarily
-          });
+          // We do not use afterSignInUrl so it doesn't hard-redirect immediately
+          window.Clerk.openSignIn();
 
-          // We need to listen for when Clerk session becomes active
+          // Listen for when Clerk session becomes active
           const checkSession = setInterval(async () => {
             if (window.Clerk.session) {
               clearInterval(checkSession);
