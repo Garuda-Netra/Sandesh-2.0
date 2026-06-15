@@ -1225,7 +1225,7 @@ SDH.Chat = (() => {
               </svg>
               Remove from My View
             </button>
-            ${isFromMe ? `
+            ${isFromMe && !_isSelfChat(activeUser) ? `
             <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
             <button onclick="SDH.Chat._confirmDeleteForAll(this)"
                     class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400/80 hover:text-red-300 hover:bg-red-950/40 transition-colors text-left">
@@ -1486,6 +1486,11 @@ SDH.Chat = (() => {
     }
   }
 
+  /** Registers a temp message ID so it can be deduplicated when the server echoes it back. */
+  function registerTempMessage(tempId) {
+    pendingAckMap.set(tempId, null);
+  }
+
   /** Replace a temp bubble's DOM id with the real server message_id. */
   function _upgradeTempBubble(realId) {
     for (const [tempId, val] of pendingAckMap) {
@@ -1512,6 +1517,7 @@ SDH.Chat = (() => {
                     </svg>
                     Remove from My View
                   </button>
+                  ${!_isSelfChat(activeUser) ? `
                   <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
                   <button onclick="SDH.Chat._confirmDeleteForAll(this)"
                           class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400/80 hover:text-red-300 hover:bg-red-950/40 transition-colors text-left">
@@ -1521,6 +1527,7 @@ SDH.Chat = (() => {
                     </svg>
                     Delete for All Participants
                   </button>
+                  ` : ''}
                 </div>`;
             // For sender (right-aligned) put menu on left side
             bubble.insertBefore(menuWrap, bubble.firstChild);
@@ -1759,9 +1766,21 @@ SDH.Chat = (() => {
     if (_isSelfChat(username)) {
       document.getElementById('voiceCallBtn')?.classList.add('hidden');
       document.getElementById('videoCallBtn')?.classList.add('hidden');
+      
+      // Hide non-applicable kebab menu options for Saved Messages
+      document.getElementById('removeContactBtn')?.classList.add('hidden');
+      document.getElementById('unfriendBtn')?.classList.add('hidden');
+      document.getElementById('kebabDividerBottom')?.classList.add('hidden');
+      document.getElementById('blockBtn')?.classList.add('hidden');
+      document.getElementById('unblockBtn')?.classList.add('hidden');
     } else {
       document.getElementById('voiceCallBtn')?.classList.remove('hidden');
       document.getElementById('videoCallBtn')?.classList.remove('hidden');
+      
+      // Show kebab options for normal users (blockBtn visibility is handled by _updateBlockUI)
+      document.getElementById('removeContactBtn')?.classList.remove('hidden');
+      document.getElementById('unfriendBtn')?.classList.remove('hidden');
+      document.getElementById('kebabDividerBottom')?.classList.remove('hidden');
     }
     document.getElementById('callButtons')?.classList.remove('hidden');
     const container = document.getElementById('messagesContainer');
@@ -3316,6 +3335,7 @@ SDH.Chat = (() => {
     closeSidebar,
     toggleEmojiPicker,
     insertEmoji,
+    registerTempMessage,
     loadUnreadCounts,
     showToast,
     appendMessage,

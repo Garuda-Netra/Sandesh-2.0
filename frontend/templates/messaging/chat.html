@@ -502,7 +502,7 @@
                 </button>
 
                 <!-- Remove Contact -->
-                <button onclick="SDH.Chat._confirmRemoveUser(); SDH.Chat.toggleKebabMenu();"
+                <button id="removeContactBtn" onclick="SDH.Chat._confirmRemoveUser(); SDH.Chat.toggleKebabMenu();"
                   class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
                   <svg class="w-4 h-4 text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"/>
@@ -511,7 +511,7 @@
                 </button>
 
                 <!-- Unfriend -->
-                <button onclick="SDH.Chat._confirmUnfriend(); SDH.Chat.toggleKebabMenu();"
+                <button id="unfriendBtn" onclick="SDH.Chat._confirmUnfriend(); SDH.Chat.toggleKebabMenu();"
                   class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
                   <svg class="w-4 h-4 text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14v6m-3-3h6M6.5 7.5a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM1.5 21a7.5 7.5 0 0115 0"/>
@@ -519,7 +519,7 @@
                   <span>Unfriend</span>
                 </button>
 
-                <div class="h-px bg-divine-border/50 mx-3"></div>
+                <div id="kebabDividerBottom" class="h-px bg-divine-border/50 mx-3"></div>
 
                 <!-- Block / Unblock -->
                 <button id="blockBtn" onclick="SDH.Chat._confirmBlockUser(); SDH.Chat.toggleKebabMenu();"

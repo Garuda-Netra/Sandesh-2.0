@@ -361,11 +361,13 @@ SDH.WebRTC = (() => {
 
     if (callPeer && window.SDH && SDH.WS && SDH.WS.isOpen()) {
       const msgText = currentCallType === 'video' ? 'Missed video call' : 'Missed voice call';
+      const tempId = `temp_${Date.now()}`;
       SDH.WS.sendMessage({
         type: 'chat_message',
         receiver: callPeer,
         message_type: 'call',
-        message: msgText
+        message: msgText,
+        temp_id: tempId
       });
       if (SDH.Chat && SDH.Chat.appendMessage) {
         SDH.Chat.appendMessage({
@@ -374,8 +376,11 @@ SDH.WebRTC = (() => {
           content: msgText,
           messageType: 'call',
           timestamp: new Date().toISOString(),
-          messageId: `temp_${Date.now()}`
+          messageId: tempId
         });
+        if (SDH.Chat.registerTempMessage) {
+          SDH.Chat.registerTempMessage(tempId);
+        }
       }
     }
 
@@ -389,11 +394,13 @@ SDH.WebRTC = (() => {
 
     if (callPeer && window.SDH && SDH.WS && SDH.WS.isOpen()) {
       const msgText = currentCallType === 'video' ? 'Missed video call' : 'Missed voice call';
+      const tempId = `temp_${Date.now()}`;
       SDH.WS.sendMessage({
         type: 'chat_message',
         receiver: callPeer,
         message_type: 'call',
-        message: msgText
+        message: msgText,
+        temp_id: tempId
       });
       if (SDH.Chat && SDH.Chat.appendMessage) {
         SDH.Chat.appendMessage({
@@ -402,8 +409,11 @@ SDH.WebRTC = (() => {
           content: msgText,
           messageType: 'call',
           timestamp: new Date().toISOString(),
-          messageId: `temp_${Date.now()}`
+          messageId: tempId
         });
+        if (SDH.Chat.registerTempMessage) {
+          SDH.Chat.registerTempMessage(tempId);
+        }
       }
     }
 
@@ -544,11 +554,13 @@ SDH.WebRTC = (() => {
   function endCall() {
     if (callPeer && peerConnection && peerConnection.connectionState !== 'connected' && window.SDH && SDH.WS && SDH.WS.isOpen()) {
       const msgText = currentCallType === 'video' ? 'Missed video call' : 'Missed voice call';
+      const tempId = `temp_${Date.now()}`;
       SDH.WS.sendMessage({
         type: 'chat_message',
         receiver: callPeer,
         message_type: 'call',
-        message: msgText
+        message: msgText,
+        temp_id: tempId
       });
       if (SDH.Chat && SDH.Chat.appendMessage) {
         SDH.Chat.appendMessage({
@@ -557,8 +569,11 @@ SDH.WebRTC = (() => {
           content: msgText,
           messageType: 'call',
           timestamp: new Date().toISOString(),
-          messageId: `temp_${Date.now()}`
+          messageId: tempId
         });
+        if (SDH.Chat.registerTempMessage) {
+          SDH.Chat.registerTempMessage(tempId);
+        }
       }
     }
 

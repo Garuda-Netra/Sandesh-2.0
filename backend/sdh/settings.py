@@ -133,8 +133,12 @@ if _REDIS_URL:
                 'CONFIG': {
                     'hosts': [{
                         'address': _REDIS_URL,
-                        'ssl_cert_reqs': 'none'
+                        'ssl_cert_reqs': 'none',
+                        'health_check_interval': 30,
                     }],
+                    'symmetric_encryption_keys': [SECRET_KEY],
+                    'capacity': 1500,
+                    'expiry': 10,
                 },
             },
         }
@@ -144,6 +148,7 @@ if _REDIS_URL:
                 'LOCATION': _REDIS_URL,
                 'OPTIONS': {
                     'ssl_cert_reqs': 'none',
+                    'health_check_interval': 30,
                 }
             }
         }
