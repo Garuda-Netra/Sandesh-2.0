@@ -17,6 +17,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils import timezone
 from django.db.models import Q
+from django.conf import settings
 from asgiref.sync import sync_to_async
 
 from .forms import SDHRegistrationForm, SDHLoginForm, ProfileUpdateForm
