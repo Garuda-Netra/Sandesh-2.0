@@ -53,6 +53,15 @@ else:
     if '.onrender.com' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('.onrender.com')
 
+# --- CSRF Trusted Origins for HTTPS deployments (Render) ---
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000', cast=Csv())
+if RENDER_EXTERNAL_HOSTNAME:
+    if f"https://{RENDER_EXTERNAL_HOSTNAME}" not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+else:
+    if "https://*.onrender.com" not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append("https://*.onrender.com")
+
 # Trust Render SSL proxy header and forwarded host
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
