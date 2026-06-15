@@ -1757,11 +1757,13 @@ SDH.Chat = (() => {
     const viewProf = document.getElementById('kebabViewProfileText');
     if (viewProf) viewProf.textContent = 'View Profile';
     if (_isSelfChat(username)) {
-      document.getElementById('callButtons')?.classList.add('hidden');
+      document.getElementById('voiceCallBtn')?.classList.add('hidden');
+      document.getElementById('videoCallBtn')?.classList.add('hidden');
     } else {
-      document.getElementById('callButtons')?.classList.remove('hidden');
+      document.getElementById('voiceCallBtn')?.classList.remove('hidden');
+      document.getElementById('videoCallBtn')?.classList.remove('hidden');
     }
-
+    document.getElementById('callButtons')?.classList.remove('hidden');
     const container = document.getElementById('messagesContainer');
     if (container) container.innerHTML = `
         <div class="flex items-center justify-center py-8">

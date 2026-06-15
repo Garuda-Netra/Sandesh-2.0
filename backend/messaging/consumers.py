@@ -766,6 +766,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception:
             return []
 
+    # ── Personal Group Handlers ────────────────────────────────────────────────
+
+    async def friend_request(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def friend_request_accepted(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def user_blocked(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def user_unblocked(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def group_invite(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def group_deleted(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def group_member_update(self, event):
+        await self.send(text_data=json.dumps(event))
+
 
 # ---------------------------------------------------------------------------
 # 2. SignalingConsumer (WebRTC)
