@@ -787,6 +787,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def user_unblocked(self, event):
         await self.send(text_data=json.dumps(event))
 
+    async def user_unfriended(self, event):
+        await self.send(text_data=json.dumps(event))
+
     async def group_invite(self, event):
         await self.send(text_data=json.dumps(event))
 

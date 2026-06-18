@@ -80,6 +80,7 @@ SDH.Chat = (() => {
       case 'friend_request': handleFriendRequest(data); break;
       case 'friend_request_accepted': handleFriendRequestAccepted(data); break;
       case 'friend_request_rejected': handleFriendRequestRejected(data); break;
+      case 'user_unfriended': handleUserUnfriended(data); break;
       case 'group_invite': handleGroupInvite(data); break;
       case 'group_deleted': handleGroupDeleted(data); break;
       case 'group_member_update': handleGroupMemberUpdate(data); break;
@@ -105,6 +106,13 @@ SDH.Chat = (() => {
 
   function handleFriendRequestAccepted(data) {
     showToast(`${data.new_friend} accepted your friend request!`, 'success');
+    
+    // Update internal state
+    const u = window.SDH_DATA?.users?.find(x => x.username === data.new_friend);
+    if (u) {
+        u.is_friend = true;
+    }
+    
     _refreshSidebar();
     const searchInput = document.getElementById('searchUsers');
     if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
@@ -115,6 +123,40 @@ SDH.Chat = (() => {
     _refreshSidebar();
     const searchInput = document.getElementById('searchUsers');
     if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
+  }
+
+  function handleUserUnfriended(data) {
+    const target = data.unfriender_username === window.SDH_DATA.currentUser ? data.unfriended_username : data.unfriender_username;
+    
+    // Update internal state
+    const u = window.SDH_DATA?.users?.find(x => x.username === target);
+    if (u) {
+        u.is_friend = false;
+    }
+    
+    // Hide dot
+    const dot = document.getElementById(`online-dot-${target}`);
+    if (dot) dot.remove();
+    
+    // Clear last seen if not blocked
+    const lsEl = document.getElementById(`last-seen-${target}`);
+    if (lsEl) {
+        lsEl.innerHTML = '&nbsp;';
+        lsEl.className = 'text-[11px] truncate mt-0.5 sdh-status-offline';
+    }
+    
+    // Update dataset
+    const userItem = document.getElementById(`user-item-${target}`);
+    if (userItem) {
+        userItem.dataset.friendship = 'none';
+    }
+    
+    // If active chat, update header
+    if (activeUser === target) {
+        _setDefaultHeaderStatus();
+    }
+    
+    _refreshSidebar();
   }
 
   // ── Real-time Sidebar Refresher ──────────────────────────────────────────

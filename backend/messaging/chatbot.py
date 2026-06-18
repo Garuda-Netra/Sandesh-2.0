@@ -142,4 +142,4 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
         if "safety" in err_lower or "harm_category" in err_lower or "blocked" in err_lower:
             return "I'm sorry, but I cannot fulfill this request as it violates safety and content policies."
             
-        return f"⚠️ **API Error**: I couldn't process that request right now. Error details: `{error_str}`"
+        return "⚠️ **Service Unavailable**: I am currently experiencing technical difficulties connecting to the API. Please try again in a few moments."

@@ -501,6 +501,17 @@ def unfriend_view(request):
     my_profile.hidden_users.add(target_profile)
     target_profile.hidden_users.add(my_profile)
 
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+    event_data = {
+        'type': 'user_unfriended',
+        'unfriender_username': request.user.username,
+        'unfriended_username': target_user.username,
+    }
+    async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', event_data)
+    async_to_sync(channel_layer.group_send)(f'user_chat_{target_user.id}', event_data)
+
     return JsonResponse({
         'status': 'unfriended',
         'target_user_id': target_user.id,
@@ -1034,10 +1045,9 @@ def user_profile_api(request, username):
     except UserProfile.DoesNotExist:
         return JsonResponse({'error': 'Profile not found'}, status=404)
 
-    # Check friendship status unless they are viewing themselves
+    is_friend = True
     if target_user != request.user:
-        if not Friendship.are_friends(my_profile, target_profile):
-            return JsonResponse({'error': 'You can only view profile details of accepted friends.'}, status=403)
+        is_friend = Friendship.are_friends(my_profile, target_profile)
 
     from messaging.views import _is_chat_blocked
     is_blocked, _ = _is_chat_blocked(request.user, target_user) if target_user != request.user else (False, '')
@@ -1057,15 +1067,16 @@ def user_profile_api(request, username):
 
     avatar_url = target_profile.avatar.url if target_profile.avatar else None
 
+    # For non-friends, hide sensitive info including online status
     return JsonResponse({
         'username': target_user.username,
         'display_name': target_profile.display_name,
-        'bio': target_profile.bio,
-        'phone_number': target_profile.phone_number,
-        'email': target_user.email,
+        'bio': target_profile.bio if is_friend else '',
+        'phone_number': target_profile.phone_number if is_friend else '',
+        'email': target_user.email if is_friend else '',
         'avatar_url': avatar_url,
-        'is_online': target_profile.is_online,
-        'last_seen': target_profile.last_seen.isoformat() if target_profile.last_seen else None,
+        'is_online': target_profile.is_online if is_friend else False,
+        'last_seen': target_profile.last_seen.isoformat() if (is_friend and target_profile.last_seen) else None,
         'date_joined': target_user.date_joined.strftime('%B %Y') if target_user.date_joined else None,
     })
 
