@@ -423,6 +423,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'new_friend': event['new_friend'],
         }))
 
+    async def friend_request_rejected(self, event):
+        """Relay friend request rejected event so sender updates sidebar."""
+        await self.send(text_data=json.dumps({
+            'type': 'friend_request_rejected',
+            'rejected_by': event.get('rejected_by'),
+        }))
+
     async def group_invite(self, event):
         """Relays a group invite notification to the user."""
         await self.send(text_data=json.dumps({

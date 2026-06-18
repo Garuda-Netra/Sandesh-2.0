@@ -142,7 +142,7 @@ SDH.UserSearch = (() => {
         <div class="flex-shrink-0 z-10 px-2.5 py-1 text-[10px] font-semibold rounded-lg
                     border border-divine-border bg-divine-surface text-divine-muted select-none"
              onclick="event.stopPropagation()">
-          Request Sent
+          Awaiting Confirmation
         </div>
       `;
     } else if (user.friendship_status === 'pending_received') {
@@ -163,7 +163,7 @@ SDH.UserSearch = (() => {
       actionHTML = `
         <button class="flex-shrink-0 z-10 px-3 py-1.5 text-[11px] font-semibold rounded-lg
                        bg-divine-gold/15 text-divine-gold hover:bg-divine-gold/25 transition-colors"
-                onclick="event.stopPropagation(); SDH.Chat.sendFriendRequest('${userId}')">
+                onclick="event.stopPropagation(); SDH.Chat.sendFriendRequest('${userId}', this)">
           Add Friend
         </button>
       `;

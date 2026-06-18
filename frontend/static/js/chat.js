@@ -79,6 +79,7 @@ SDH.Chat = (() => {
       case 'chat_setting_update': handleChatSettingUpdate(data); break;
       case 'friend_request': handleFriendRequest(data); break;
       case 'friend_request_accepted': handleFriendRequestAccepted(data); break;
+      case 'friend_request_rejected': handleFriendRequestRejected(data); break;
       case 'group_invite': handleGroupInvite(data); break;
       case 'group_deleted': handleGroupDeleted(data); break;
       case 'group_member_update': handleGroupMemberUpdate(data); break;
@@ -105,6 +106,15 @@ SDH.Chat = (() => {
   function handleFriendRequestAccepted(data) {
     showToast(`${data.new_friend} accepted your friend request!`, 'success');
     _refreshSidebar();
+    const searchInput = document.getElementById('searchUsers');
+    if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
+  }
+
+  function handleFriendRequestRejected(data) {
+    // Refresh to allow sending a new request
+    _refreshSidebar();
+    const searchInput = document.getElementById('searchUsers');
+    if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
   }
 
   // ── Real-time Sidebar Refresher ──────────────────────────────────────────
@@ -1306,18 +1316,20 @@ SDH.Chat = (() => {
       const icon = isVideo ? '📹' : '📞';
       const callTypeArgs = isVideo ? "'video', 'medium'" : "'voice', 'medium'";
       return `
-          <div class="flex flex-col items-center gap-1.5 text-center min-w-[180px] pt-1 pb-1">
-            <div class="w-12 h-12 rounded-full flex items-center justify-center text-2xl bg-red-500/15 text-red-500 mb-1.5">
+          <div class="flex flex-col items-center gap-1.5 text-center w-full min-w-[160px] max-w-full sm:min-w-[180px] pt-1 pb-1">
+            <div class="w-12 h-12 rounded-full flex flex-shrink-0 items-center justify-center text-2xl bg-red-500/15 text-red-500 mb-1.5">
               ${icon}
             </div>
-            <div>
-              <p class="text-[15px] font-semibold text-divine-text leading-tight">${escapeHtml(content || 'Missed Call')}</p>
+            <div class="w-full flex flex-col items-center px-1">
+              <p class="text-[15px] font-semibold leading-tight max-w-full whitespace-normal break-words" style="color:var(--c-text)">${escapeHtml(content || 'Missed Call')}</p>
               <p class="text-[11px] font-bold text-red-500 mt-1 uppercase tracking-wider">Missed</p>
             </div>
-            <button onclick="SDH.WebRTC.startCall(${callTypeArgs})" class="mt-3 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-divine-text text-divine-surface font-semibold text-sm hover:scale-95 transition-all shadow-sm">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-              <span>Call Back</span>
-            </button>
+            <div class="w-full mt-2 px-1 pb-1 box-border">
+              <button onclick="SDH.WebRTC.startCall(${callTypeArgs})" class="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-divine-text text-divine-surface font-semibold text-sm hover:scale-[0.98] transition-transform shadow-sm box-border">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                <span class="truncate">Call Back</span>
+              </button>
+            </div>
           </div>
         `;
     }
@@ -1345,7 +1357,7 @@ SDH.Chat = (() => {
                   class="max-w-xs max-h-52 rounded-xl object-cover cursor-pointer
                           border border-divine-border/40 hover:opacity-90 transition-opacity bg-divine-card/50"
                   loading="lazy" style="min-width:80px;min-height:60px;" />
-              <p class="text-[11px] text-divine-muted mt-1">${escapeHtml(originalFilename)}</p>
+              <p class="text-[11px] text-divine-muted mt-1 truncate block max-w-full">${escapeHtml(originalFilename)}</p>
             </div>`;
       }
       return `
@@ -1355,7 +1367,7 @@ SDH.Chat = (() => {
                 class="max-w-xs max-h-52 rounded-xl object-cover
                         border border-divine-border/40 bg-divine-card/50"
                 loading="lazy" />
-            <p class="text-[11px] text-divine-muted mt-1">${escapeHtml(originalFilename)}</p>
+            <p class="text-[11px] text-divine-muted mt-1 truncate block max-w-full">${escapeHtml(originalFilename)}</p>
           </div>`;
     }
 
@@ -1415,7 +1427,7 @@ SDH.Chat = (() => {
                       border border-divine-border/50">
             <span class="text-2xl select-none">${fileIcon}</span>
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium text-divine-text truncate">${escapeHtml(originalFilename)}</p>
+              <p class="text-sm font-medium text-divine-text truncate block max-w-full">${escapeHtml(originalFilename)}</p>
               <p class="text-xs text-divine-muted">File</p>
             </div>
             <svg class="w-4 h-4 flex-shrink-0 text-divine-muted/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2297,7 +2309,7 @@ SDH.Chat = (() => {
     }
   }
 
-  async function sendFriendRequest(userId) {
+  async function sendFriendRequest(userId, btnElement) {
     try {
       const res = await fetch(window.SDH_DATA.sendFriendRequestUrl || '/users/api/send-friend-request/', {
         method: 'POST',
@@ -2312,14 +2324,27 @@ SDH.Chat = (() => {
 
       if (data.status === 'accepted') {
         showToast(data.message || 'Friend request accepted!', 'success');
-        // Reload search results to show updated status
+        _refreshSidebar();
         const searchInput = document.getElementById('searchUsers');
         if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
       } else {
         showToast('Friend request sent!', 'success');
+        if (btnElement) {
+          btnElement.outerHTML = `
+            <div class="flex-shrink-0 z-10 px-2.5 py-1 text-[10px] font-semibold rounded-lg
+                        border border-divine-border bg-divine-surface text-divine-muted select-none"
+                 onclick="event.stopPropagation()">
+              Awaiting Confirmation
+            </div>
+          `;
+        }
       }
     } catch (err) {
-      showToast(err.message || 'Could not send friend request.', 'error');
+      if (err.message === 'Request already sent') {
+         showToast('Request already sent', 'info');
+      } else {
+         showToast(err.message || 'Could not send friend request.', 'error');
+      }
     }
   }
 
@@ -2335,6 +2360,13 @@ SDH.Chat = (() => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || res.statusText);
+
+      // If accepted, refresh the sidebar to show the new friend
+      if (action === 'accept') {
+        _refreshSidebar();
+        const searchInput = document.getElementById('searchUsers');
+        if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
+      }
 
       // Remove the request from the UI
       const frEl = document.querySelector(`[data-fr-id="${requestId}"]`);
