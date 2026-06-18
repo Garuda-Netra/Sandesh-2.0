@@ -92,6 +92,81 @@ SDH.WebRTC = (() => {
   function init(username) {
     currentUsername = username;
     _openSignalSocket(username);
+    _initDraggablePIP();
+  }
+
+  function _initDraggablePIP() {
+    const pip = document.getElementById('localVideo');
+    if (!pip) return;
+
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    const dragStart = (e) => {
+      if (e.target !== pip) return;
+      isDragging = true;
+      
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      
+      startX = clientX;
+      startY = clientY;
+      
+      const rect = pip.getBoundingClientRect();
+      const parentRect = pip.parentElement.getBoundingClientRect();
+      
+      if (!pip.style.left || !pip.style.top) {
+        pip.style.left = (rect.left - parentRect.left) + 'px';
+        pip.style.top = (rect.top - parentRect.top) + 'px';
+        pip.style.right = 'auto';
+        pip.style.bottom = 'auto';
+      }
+      
+      initialLeft = parseFloat(pip.style.left);
+      initialTop = parseFloat(pip.style.top);
+      
+      pip.style.transition = 'none';
+      if(e.cancelable) e.preventDefault();
+    };
+
+    const dragMove = (e) => {
+      if (!isDragging) return;
+      
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      
+      const dx = clientX - startX;
+      const dy = clientY - startY;
+      
+      let newLeft = initialLeft + dx;
+      let newTop = initialTop + dy;
+      
+      const parent = pip.parentElement;
+      const maxX = parent.clientWidth - pip.offsetWidth;
+      const maxY = parent.clientHeight - pip.offsetHeight;
+      
+      if (newLeft < 0) newLeft = 0;
+      if (newTop < 0) newTop = 0;
+      if (newLeft > maxX) newLeft = maxX;
+      if (newTop > maxY) newTop = maxY;
+      
+      pip.style.left = newLeft + 'px';
+      pip.style.top = newTop + 'px';
+    };
+
+    const dragEnd = (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      pip.style.transition = '';
+    };
+
+    pip.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', dragMove);
+    document.addEventListener('mouseup', dragEnd);
+    
+    pip.addEventListener('touchstart', dragStart, {passive: false});
+    document.addEventListener('touchmove', dragMove, {passive: false});
+    document.addEventListener('touchend', dragEnd);
   }
 
   /**
