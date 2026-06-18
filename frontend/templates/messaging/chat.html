@@ -784,15 +784,15 @@
 
     <!-- Video grid -->
     <div class="flex-1 relative bg-black flex items-center justify-center">
-      <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+      <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover transition-all duration-500 ease-in-out absolute inset-0 z-0" onclick="SDH.WebRTC.toggleVideoSwap(event)"></video>
 
       <!-- Local video (PIP) -->
       <video id="localVideo" autoplay playsinline muted
-        class="absolute bottom-4 right-4 w-36 h-28 object-cover rounded-2xl"
-        style="border:2px solid rgba(212,175,55,0.5);box-shadow:0 0 20px rgba(0,0,0,0.6)"></video>
+        class="absolute bottom-4 right-4 w-36 h-28 object-cover rounded-2xl transition-all duration-500 ease-in-out cursor-pointer z-10 hover:scale-105"
+        style="border:2px solid rgba(212,175,55,0.5);box-shadow:0 0 20px rgba(0,0,0,0.6)" onclick="SDH.WebRTC.toggleVideoSwap(event)"></video>
 
       <!-- Audio-only overlay -->
-      <div id="audioCallVisual" class="hidden absolute inset-0 flex flex-col items-center justify-center"
+      <div id="audioCallVisual" class="hidden absolute inset-0 flex flex-col items-center justify-center z-[1]"
         style="background:transparent; backdrop-filter:blur(30px) saturate(150%);">
         <div class="text-7xl mb-5 animate-float">🎵</div>
         <p id="activeCallUser" class="text-2xl font-bold" style="color:var(--c-text)"></p>

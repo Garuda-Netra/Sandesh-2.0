@@ -377,12 +377,12 @@
 
       <!-- Remote video (full background) -->
       <video id="remoteVideo" autoplay playsinline
-             class="w-full h-full object-cover"></video>
+             class="w-full h-full object-cover transition-all duration-500 ease-in-out absolute inset-0 z-0" onclick="SDH.WebRTC.toggleVideoSwap(event)"></video>
 
       <!-- Audio-only visual (shown when voice call or camera off) -->
       <div id="audioCallVisual"
            class="hidden absolute inset-0 flex flex-col items-center justify-center
-                  bg-gradient-to-b from-divine-deep to-divine-surface">
+                  bg-gradient-to-b from-divine-deep to-divine-surface z-[1]">
         <div class="mb-6">
           <div class="w-24 h-24 rounded-full bg-divine-gold/10 border-2 border-divine-gold/40
                       flex items-center justify-center text-5xl animate-float">
@@ -418,8 +418,8 @@
       <video id="localVideo" autoplay playsinline muted
              class="absolute bottom-24 right-4 w-36 h-28 object-cover rounded-xl
                     border-2 border-divine-gold/40 shadow-divine z-10
-                    hover:w-48 hover:h-36 transition-all duration-300 cursor-pointer"
-             title="Your camera"></video>
+                    hover:w-48 hover:h-36 transition-all duration-500 ease-in-out cursor-pointer"
+             title="Your camera" onclick="SDH.WebRTC.toggleVideoSwap(event)"></video>
 
       <!-- Duration badge -->
       <div id="callDurationBadge"

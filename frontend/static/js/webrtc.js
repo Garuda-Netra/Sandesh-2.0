@@ -35,6 +35,12 @@ SDH.WebRTC = (() => {
   let pendingOfferSdp      = null;   // buffered SDP offer — processed only AFTER user accepts
   let pendingIceCandidates = [];     // ICE candidates buffered before setRemoteDescription
   let ringtoneInterval     = null;   // handle for incoming-call ringtone loop
+  let videoSwapped         = false;
+  let stylesSaved          = false;
+  let originalRemoteClasses= '';
+  let originalLocalClasses = '';
+  let originalLocalStyle   = '';
+  let originalRemoteStyle  = '';
 
   // ── Media quality presets ─────────────────────────────────────
   const QUALITY = {
@@ -609,6 +615,20 @@ SDH.WebRTC = (() => {
     const remoteVideo = document.getElementById('remoteVideo');
     const localVideo  = document.getElementById('localVideo');
     const remoteAudio = document.getElementById('remoteAudio');
+    
+    if (stylesSaved) {
+      if (remoteVideo) {
+        remoteVideo.className = originalRemoteClasses;
+        remoteVideo.style.cssText = originalRemoteStyle;
+      }
+      if (localVideo) {
+        localVideo.className = originalLocalClasses;
+        localVideo.style.cssText = originalLocalStyle;
+      }
+    }
+    videoSwapped = false;
+    stylesSaved = false;
+
     if (remoteVideo) remoteVideo.srcObject = null;
     if (localVideo)  localVideo.srcObject  = null;
     if (remoteAudio) remoteAudio.srcObject = null;
