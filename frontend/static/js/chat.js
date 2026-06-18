@@ -264,8 +264,9 @@ SDH.Chat = (() => {
       const userObj = window.SDH_DATA?.users?.find(u => u.username === activeUser);
       const userItem = document.getElementById(`user-item-${activeUser}`);
       const isBlocked = userItem?.dataset?.blocked === '1' || userItem?.dataset?.chatBlocked === '1';
+      const isFriend = (userItem?.dataset?.friendship === 'friend') || (userObj ? userObj.is_friend : false);
 
-      if (isBlocked) {
+      if (isBlocked || !isFriend) {
         _setHeaderStatus('', 'default');
       } else if (userObj && userObj.is_online) {
         _setHeaderStatus('Active', 'connected');
@@ -1658,13 +1659,19 @@ SDH.Chat = (() => {
     // Keep self-chat label/status stable in the UI.
     if (_isSelfChat(data.username)) return;
 
+    const u = window.SDH_DATA?.users?.find(x => x.username === data.username);
+    if (u && !u.is_friend) return; // Ignore presence updates for non-friends
+
     const userItem = document.getElementById(`user-item-${data.username}`);
     const isBlocked = userItem?.dataset?.blocked === '1' || userItem?.dataset?.chatBlocked === '1';
-    const isActive = data.status === 'active' && !isBlocked;
+    const userObj = window.SDH_DATA?.users?.find(u => u.username === data.username);
+    const isFriend = userItem?.dataset?.friendship === 'friend' || (userObj && userObj.is_friend);
+    
+    const isActive = data.status === 'active' && !isBlocked && isFriend;
 
     // Update sidebar status dot using CSS module classes (sdh-online-dot--on/off)
     const dot = document.getElementById(`online-dot-${data.username}`);
-    if (dot) {
+    if (dot && isFriend) {
       dot.classList.remove('sdh-online-dot--on', 'sdh-online-dot--off');
       dot.classList.add(isActive ? 'sdh-online-dot--on' : 'sdh-online-dot--off');
     }
@@ -1672,7 +1679,7 @@ SDH.Chat = (() => {
     // Update last-seen sub-label in sidebar
     const lsEl = document.getElementById(`last-seen-${data.username}`);
     if (lsEl) {
-      if (isBlocked) {
+      if (isBlocked || !isFriend) {
         lsEl.innerHTML = '&nbsp;';
         lsEl.className = 'text-[11px] sdh-status-inactive truncate mt-0.5';
       } else if (isActive) {

@@ -658,6 +658,10 @@ def search_users(request):
         else:
             friendship_status = 'none'
 
+        if friendship_status != 'friend':
+            is_online = False
+            last_seen = None
+
         data.append({
             'id':                u.id,
             'username':          u.username,

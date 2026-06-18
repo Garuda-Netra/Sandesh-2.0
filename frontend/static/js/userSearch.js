@@ -49,10 +49,7 @@ SDH.UserSearch = (() => {
     const initial = esc(user.username.charAt(0).toUpperCase());
     const username = esc(user.username);
     const userId = Number(user.id);
-    const dotClass = user.is_online
-      ? 'sdh-online-dot--on'
-      : 'sdh-online-dot--off';
-
+    
     // Avatar: use remote URL when available, fallback to initial circle
     const avatarHTML = user.avatar_url
       ? `<img src="${esc(user.avatar_url)}" alt="${username}"
@@ -62,23 +59,33 @@ SDH.UserSearch = (() => {
            ${initial}
          </div>`;
 
-    // Status line
-    let statusHTML;
-    if (user.is_online) {
-      statusHTML = `<p id="last-seen-${username}"
-                      class="text-[11px] sdh-status-active truncate mt-0.5">
-                      &#9679; Active
-                    </p>`;
-    } else if (user.last_seen) {
-      statusHTML = `<p id="last-seen-${username}"
-                      class="text-[11px] sdh-status-inactive truncate mt-0.5">
-                      Last seen ${esc(user.last_seen)}
-                    </p>`;
-    } else {
-      statusHTML = `<p id="last-seen-${username}"
-                      class="text-[11px] sdh-status-inactive truncate mt-0.5">
-                      Ready to chat
-                    </p>`;
+    // Status line and Dot
+    let statusHTML = '';
+    let dotHTML = '';
+
+    if (user.friendship_status === 'friend') {
+      const dotClass = user.is_online ? 'sdh-online-dot--on' : 'sdh-online-dot--off';
+      dotHTML = `<span id="online-dot-${username}"
+                       class="sdh-online-dot absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full
+                              border-2 border-divine-surface ${dotClass}">
+                 </span>`;
+                 
+      if (user.is_online) {
+        statusHTML = `<p id="last-seen-${username}"
+                        class="text-[11px] sdh-status-active truncate mt-0.5">
+                        &#9679; Active
+                      </p>`;
+      } else if (user.last_seen) {
+        statusHTML = `<p id="last-seen-${username}"
+                        class="text-[11px] sdh-status-inactive truncate mt-0.5">
+                        Last seen ${esc(user.last_seen)}
+                      </p>`;
+      } else {
+        statusHTML = `<p id="last-seen-${username}"
+                        class="text-[11px] sdh-status-inactive truncate mt-0.5">
+                        Ready to chat
+                      </p>`;
+      }
     }
 
     // ── Friendship Status Actions ──
@@ -187,10 +194,7 @@ SDH.UserSearch = (() => {
           <!-- Avatar -->
           <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showUserProfile('${username}', '${userId}')">
             ${avatarHTML}
-            <span id="online-dot-${username}"
-                  class="sdh-online-dot absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full
-                         border-2 border-divine-surface ${dotClass}">
-            </span>
+            ${dotHTML}
           </div>
 
           <!-- Name + status -->

@@ -187,6 +187,7 @@ def chat_view(request):
             'is_self_chat': False,
             'is_blocked': u.id in blocked_user_ids,
             'is_chat_blocked': is_chat_blocked,
+            'is_friend': u.id in friend_user_ids,
         })
 
     # Put self first, then online users
@@ -216,6 +217,7 @@ def chat_view(request):
             'avatar_url': avatar_url if not is_blocked else '',
             'is_online': False if is_blocked else contact.get('is_online', False),
             'last_seen': None if is_blocked else (contact.get('last_seen').isoformat() if contact.get('last_seen') else None),
+            'is_friend': contact.get('is_friend', False),
         })
 
     # Fetch groups the user is a member of

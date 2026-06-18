@@ -254,7 +254,7 @@
       {% if users %}
       {% for item in users %}
       <div id="user-item-{{ item.user.username }}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5
-          group/usr" data-username="{{ item.user.username }}" data-userid="{{ item.user.id }}" {% if item.is_self_chat %}data-self="1"{% endif %} {% if item.is_blocked %}data-blocked="1"{% endif %} {% if item.is_chat_blocked %}data-chat-blocked="1"{% endif %}>
+          group/usr" data-username="{{ item.user.username }}" data-userid="{{ item.user.id }}" {% if item.is_self_chat %}data-self="1"{% endif %} {% if item.is_blocked %}data-blocked="1"{% endif %} {% if item.is_chat_blocked %}data-chat-blocked="1"{% endif %} {% if item.is_friend %}data-friendship="friend"{% endif %}>
 
         <!-- Clickable main area -->
         <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
@@ -277,11 +277,13 @@
               {{ item.user.username|slice:":1"|upper }}
             </div>
             {% endif %}
+            {% if item.is_friend or item.is_self_chat %}
             <!-- Online indicator -->
             <span id="online-dot-{{ item.user.username }}" class="sdh-online-dot absolute bottom-0 right-0 w-3 h-3 rounded-full
                          border-2 flex-shrink-0
                          {% if item.is_online %}sdh-online-dot--on{% else %}sdh-online-dot--off{% endif %}">
             </span>
+            {% endif %}
           </div>
           {% endif %}
 
@@ -299,6 +301,7 @@
                            px-1.5 py-0.5 rounded-full">
               </span>
             </div>
+            {% if item.is_friend or item.is_self_chat %}
             <p id="last-seen-{{ item.user.username }}" class="text-[11px] truncate mt-0.5
                       {% if item.is_online %}sdh-status-online{% else %}sdh-status-offline{% endif %}">
               {% if item.is_self_chat %}
@@ -313,6 +316,9 @@
               Ready to chat
               {% endif %}
             </p>
+            {% else %}
+            <p id="last-seen-{{ item.user.username }}" class="text-[11px] truncate mt-0.5 sdh-status-offline">&nbsp;</p>
+            {% endif %}
           </div>
 
         </div><!-- /clickable area -->
