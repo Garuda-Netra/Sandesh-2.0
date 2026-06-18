@@ -42,6 +42,7 @@ def generate_chatbot_reply(message: str, history: Iterable[dict] | None = None, 
 
 def _normalize_history(history: Iterable[dict]) -> list[dict]:
     sanitized = []
+    last_role = None
     for item in history:
         if not isinstance(item, dict):
             continue
@@ -56,14 +57,18 @@ def _normalize_history(history: Iterable[dict]) -> list[dict]:
         if role == "assistant":
             role = "model"
             
-        sanitized.append({"role": role, "parts": [{"text": content[:800]}]})
+        if role == last_role and sanitized:
+            # Combine consecutive messages from the same role
+            sanitized[-1]["parts"][0]["text"] += "\n" + content[:800]
+        else:
+            sanitized.append({"role": role, "parts": [{"text": content[:800]}]})
+            last_role = role
 
     # Ensure history starts with user, if not, drop the first item
-    history_slice = sanitized[-8:]
-    if history_slice and history_slice[0]["role"] == "model":
-        history_slice = history_slice[1:]
+    if sanitized and sanitized[0]["role"] == "model":
+        sanitized = sanitized[1:]
         
-    return history_slice
+    return sanitized[-8:]
 
 
 def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
@@ -81,14 +86,6 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
     if not system_prompt:
         system_prompt = _DEFAULT_SYSTEM_PROMPT
 
-    # Default Safety Settings to block violent/sexual content
-    safety_settings = [
-        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_LOW_AND_ABOVE"},
-        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_LOW_AND_ABOVE"},
-    ]
-
     try:
         client = genai.Client(api_key=api_key)
         
@@ -96,7 +93,6 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
             temperature=temperature,
             max_output_tokens=max_tokens,
             system_instruction=system_prompt,
-            safety_settings=safety_settings,
         )
         
         chat = client.chats.create(model=model_name, config=config, history=history)
@@ -118,7 +114,6 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
                         temperature=temperature,
                         max_output_tokens=max_tokens,
                         system_instruction=system_prompt,
-                        safety_settings=safety_settings,
                     )
                     chat2 = client2.chats.create(model=model_name, config=config2, history=history)
                     response2 = chat2.send_message(message)
