@@ -36,8 +36,8 @@
   <aside id="callSidebar"
          class="flex flex-col w-72 min-w-0 flex-shrink-0
                 bg-divine-surface border-r border-divine-border z-20
-                sm:relative sm:translate-x-0
-                fixed -translate-x-full h-full top-14 sm:top-0 transition-transform duration-300"
+                sm:relative sm:translate-x-0 sm:pointer-events-auto
+                fixed -translate-x-full h-full top-14 sm:top-0 transition-transform duration-300 pointer-events-none"
          aria-label="Contacts">
 
     <!-- Sidebar header -->
@@ -667,12 +667,20 @@ const SDHCall = (() => {
 
   // ── Sidebar mobile helpers ────────────────────────────────────
   function openSidebar() {
-    document.getElementById('callSidebar')?.classList.replace('-translate-x-full', 'translate-x-0');
+    const sidebar = document.getElementById('callSidebar');
+    if (sidebar) {
+      sidebar.classList.replace('-translate-x-full', 'translate-x-0');
+      sidebar.style.pointerEvents = 'auto';
+    }
     document.getElementById('callSidebarOverlay')?.classList.remove('hidden');
   }
 
   function closeSidebar() {
-    document.getElementById('callSidebar')?.classList.replace('translate-x-0', '-translate-x-full');
+    const sidebar = document.getElementById('callSidebar');
+    if (sidebar) {
+      sidebar.classList.replace('translate-x-0', '-translate-x-full');
+      sidebar.style.pointerEvents = 'none';
+    }
     document.getElementById('callSidebarOverlay')?.classList.add('hidden');
   }
 

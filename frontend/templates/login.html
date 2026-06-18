@@ -119,14 +119,12 @@
 
     // ── Helper: send clerk token to Django ──────────────────────
     async function syncWithDjango() {
-      console.log('[Sandesh] syncWithDjango: getting Clerk session token...');
       const idToken = await window.Clerk.session.getToken();
 
       if (!idToken) {
         console.error('[Sandesh] syncWithDjango: Clerk returned a null token.');
         return false;
       }
-      console.log('[Sandesh] syncWithDjango: token obtained, submitting form to Django...');
 
       // Mark that we are attempting a sync so we can detect redirect loops.
       sessionStorage.setItem('clerk_sync_pending', '1');
@@ -176,7 +174,6 @@
 
       // If a Clerk session exists on page load:
       if (Clerk.session) {
-        console.log('[Sandesh] Clerk session detected on page load. isOAuthCallback:', isOAuthCallback);
 
         // Check if a previous sync attempt just failed (we're in a redirect loop).
         const syncWasPending = sessionStorage.getItem('clerk_sync_pending');
@@ -189,14 +186,12 @@
           try { await Clerk.signOut(); } catch(e) { console.error('[Sandesh] signOut error:', e); }
         } else if (isOAuthCallback) {
           // We just returned from a Google OAuth redirect — sync with Django.
-          console.log('[Sandesh] OAuth callback detected, syncing with Django...');
           await syncWithDjango();
           return;
         } else {
           // A Clerk session exists but this isn't an OAuth callback and no
           // sync was pending. This is likely a fresh page load where the user
           // is already signed in to Clerk but not Django.  Try to sync once.
-          console.log('[Sandesh] Existing Clerk session found, attempting sync...');
           await syncWithDjango();
           return;
         }
@@ -229,7 +224,6 @@
         const checkSession = setInterval(async () => {
           if (Clerk.session) {
             clearInterval(checkSession);
-            console.log('[Sandesh] Clerk session active after sign-in modal, syncing...');
             try {
               await syncWithDjango();
             } catch (err) {

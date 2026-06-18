@@ -74,7 +74,7 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
     if api_key.strip() == "your_api_key_here" or api_key.strip() == "":
         return "⚠️ **Configuration Error**: Your Gemini API key is set to a default placeholder (`your_api_key_here`). Please replace it with your actual key from Google AI Studio."
 
-    model_name = getattr(settings, "CHATBOT_MODEL", "gemini-3.5-flash")
+    model_name = getattr(settings, "CHATBOT_MODEL", "gemini-2.5-flash")
     temperature = float(getattr(settings, "CHATBOT_TEMPERATURE", 0.7))
     max_tokens = int(getattr(settings, "CHATBOT_MAX_TOKENS", 500))
     system_prompt = (getattr(settings, "CHATBOT_SYSTEM_PROMPT", "") or "").strip()
@@ -105,11 +105,13 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
         
     except Exception as e:
         error_str = str(e)
-        
+        if getattr(settings, "DEBUG", False):
+            print(f"[Chatbot Error] {error_str}")
+            
         # Check for Quota Exceeded / 429
         if "429" in error_str or "quota" in error_str.lower() or "exhausted" in error_str.lower():
             api_key_2 = getattr(settings, "GEMINI_API_KEY_2", "")
-            if api_key_2 and api_key_2 != "your_api_key_here":
+            if api_key_2 and api_key_2 != "your_backup_api_key_here" and api_key_2 != "your_api_key_here":
                 try:
                     client2 = genai.Client(api_key=api_key_2)
                     config2 = genai.types.GenerateContentConfig(
@@ -122,7 +124,6 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
                     response2 = chat2.send_message(message)
                     return response2.text.strip() or None
                 except Exception as e2:
-                    print(f"Gemini API Error (Fallback Key): {e2}")
                     err_lower2 = str(e2).lower()
                     if "safety" in err_lower2 or "harm_category" in err_lower2 or "blocked" in err_lower2:
                         return "I'm sorry, but I cannot fulfill this request as it violates safety and content policies."
@@ -130,12 +131,11 @@ def _gemini_reply(message: str, history: list[dict], user=None) -> str | None:
             
             return "⚠️ **API Limit Exceeded**: The AI is currently busy and has reached its request limit. Please try again later."
 
-        print(f"Gemini API Error: {error_str}")
-        
-        if "API key not valid" in error_str:
+        if "503" in error_str or "high demand" in error_str.lower() or "unavailable" in error_str.lower():
+            return "⚠️ **High Demand**: The AI model is currently experiencing a spike in traffic and is temporarily unavailable. Please try again in a minute."
+
+        if "API key not valid" in error_str or "API_KEY_INVALID" in error_str:
             return "⚠️ **Configuration Error**: The provided Gemini API Key is invalid."
-        elif "API_KEY_INVALID" in error_str:
-            return "⚠️ **Configuration Error**: Your Gemini API Key is missing or invalid."
             
         # Check for safety filter blocks
         err_lower = error_str.lower()

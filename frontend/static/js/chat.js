@@ -2085,14 +2085,24 @@ SDH.Chat = (() => {
   }
 
   function openSidebar() {
-    document.getElementById('sidebar')?.classList.remove('-translate-x-full');
-    document.getElementById('sidebar')?.classList.add('translate-x-0');
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      sidebar.classList.remove('-translate-x-full');
+      sidebar.classList.add('translate-x-0');
+      sidebar.style.pointerEvents = 'auto';
+    }
     document.getElementById('sidebarOverlay')?.classList.remove('hidden');
   }
 
   function closeSidebar() {
-    document.getElementById('sidebar')?.classList.remove('translate-x-0');
-    document.getElementById('sidebar')?.classList.add('-translate-x-full');
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      sidebar.classList.remove('translate-x-0');
+      sidebar.classList.add('-translate-x-full');
+      // Disable pointer-events while off-screen so the hidden sidebar
+      // doesn't intercept taps on mobile (especially the hamburger button).
+      sidebar.style.pointerEvents = 'none';
+    }
     document.getElementById('sidebarOverlay')?.classList.add('hidden');
   }
 
