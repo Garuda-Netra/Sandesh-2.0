@@ -1737,7 +1737,6 @@ SDH.Chat = (() => {
     }
 
     // Update internal user cache so if we select them later, it's correct
-    const u = window.SDH_DATA?.users?.find(x => x.username === data.username);
     if (u) {
       u.is_online = isActive;
       if (data.last_seen) u.last_seen = data.last_seen;
@@ -2095,6 +2094,7 @@ SDH.Chat = (() => {
   }
 
   function closeSidebar() {
+    if (window.innerWidth >= 640) return; // Desktop sidebar is always visible
     const sidebar = document.getElementById('sidebar');
     if (sidebar) {
       sidebar.classList.remove('translate-x-0');
