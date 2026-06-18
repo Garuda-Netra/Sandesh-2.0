@@ -1617,7 +1617,13 @@ SDH.Chat = (() => {
   function handleTypingIndicator(data) {
     if (_isSelfChat(activeUser)) return;
     if (data.sender === window.SDH_DATA.currentUser) return;
-    if (!activeUser.startsWith('group_') && data.sender !== activeUser) return;
+    
+    // Prevent cross-display of typing indicators
+    if (data.group_id) {
+      if (activeUser !== `group_${data.group_id}`) return;
+    } else {
+      if (!activeUser || activeUser.startsWith('group_') || activeUser !== data.sender) return;
+    }
 
     const bubble = document.getElementById('typingBubble');
     const name = document.getElementById('typingName');
@@ -2184,26 +2190,26 @@ SDH.Chat = (() => {
     if (document.getElementById(`group-invite-modal-${invite.invite_id}`)) return;
 
     const modalHtml = `
-        <div id="group-invite-modal-${invite.invite_id}" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div class="bg-divine-deep border border-divine-gold/20 rounded-2xl p-6 w-full max-w-sm shadow-2xl transform transition-all relative overflow-hidden">
+        <div id="group-invite-modal-${invite.invite_id}" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div class="bg-divine-card border border-divine-border rounded-2xl p-6 w-full max-w-sm shadow-2xl transform transition-all relative overflow-hidden" style="box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);">
             <!-- Decorative accent -->
-            <div class="absolute -top-10 -right-10 w-32 h-32 bg-divine-gold/10 rounded-full blur-2xl"></div>
+            <div class="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl" style="background:rgba(139,92,246,0.1);"></div>
             
             <div class="flex items-center gap-4 mb-5">
-              <div class="w-12 h-12 rounded-full bg-divine-gold/20 flex items-center justify-center flex-shrink-0 text-divine-gold text-xl font-bold">
+              <div class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-xl font-bold" style="background:rgba(139,92,246,0.15); color:rgba(139,92,246,0.9);">
                 ${(invite.group_name && invite.group_name[0]) ? invite.group_name[0].toUpperCase() : 'G'}
               </div>
               <div>
-                <h3 class="text-lg font-bold text-white leading-tight">Group Invitation</h3>
-                <p class="text-sm text-divine-muted mt-1"><span class="text-divine-gold font-medium">${invite.inviter}</span> invited you to join <span class="text-white font-medium">${invite.group_name}</span></p>
+                <h3 class="text-lg font-bold text-divine-text leading-tight">Group Invitation</h3>
+                <p class="text-sm text-divine-muted mt-1"><span class="font-medium" style="color:rgba(139,92,246,0.9);">${invite.inviter}</span> invited you to join <span class="text-divine-text font-medium">${invite.group_name}</span></p>
               </div>
             </div>
             
             <div class="flex gap-3 mt-6">
-              <button onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'decline')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 hover:text-white font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-white/20">
+              <button onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'decline')" class="flex-1 py-2.5 rounded-xl border border-divine-border text-divine-muted hover:bg-divine-border/50 hover:text-divine-text font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-divine-border">
                 Decline Invite
               </button>
-              <button onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'accept')" class="flex-1 py-2.5 rounded-xl bg-divine-gold text-divine-deep hover:bg-yellow-400 font-bold text-sm transition-all shadow-[0_0_15px_rgba(212,175,55,0.4)] hover:shadow-[0_0_20px_rgba(212,175,55,0.6)] focus:outline-none focus:ring-2 focus:ring-divine-gold/50">
+              <button onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'accept')" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500/50">
                 Join Group
               </button>
             </div>

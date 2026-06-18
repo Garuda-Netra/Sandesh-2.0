@@ -1075,6 +1075,7 @@ class GroupChatConsumer(ChatConsumer):
                 'type': 'broadcast_typing',
                 'sender': self.me.username,
                 'is_typing': bool(data.get('is_typing', False)),
+                'group_id': self.group_id,
             }
         )
 
@@ -1105,11 +1106,14 @@ class GroupChatConsumer(ChatConsumer):
         await self.send(text_data=json.dumps(payload))
 
     async def broadcast_typing(self, event):
-        await self.send(text_data=json.dumps({
+        payload = {
             'type': 'typing',
             'sender': event['sender'],
             'is_typing': event['is_typing'],
-        }))
+        }
+        if 'group_id' in event:
+            payload['group_id'] = event['group_id']
+        await self.send(text_data=json.dumps(payload))
 
     async def broadcast_group_read(self, event):
         await self.send(text_data=json.dumps({
