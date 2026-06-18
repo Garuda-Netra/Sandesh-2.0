@@ -226,3 +226,9 @@ class UserSession(models.Model):
 
     def __str__(self):
         return f'{self.user.username} - {self.device_name} ({self.ip_address})'
+
+@receiver(post_delete, sender=UserProfile)
+def auto_delete_userprofile_avatar_on_delete(sender, instance, **kwargs):
+    """Deletes the avatar file from storage when the UserProfile is deleted."""
+    if instance.avatar:
+        instance.avatar.delete(save=False)

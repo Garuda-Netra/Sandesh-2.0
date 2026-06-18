@@ -808,6 +808,19 @@ def respond_friend_request_view(request):
     else:
         fr.status = FriendRequest.STATUS_REJECTED
         fr.save(update_fields=['status', 'updated_at'])
+
+        # Notify the sender so their UI updates
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"user_chat_{fr.from_user.user.id}",
+            {
+                "type": "friend_request_rejected",
+                "rejected_by": fr.to_user.user.username,
+            }
+        )
+
         return JsonResponse({'status': 'rejected'})
 
 
@@ -865,34 +878,59 @@ async def delete_account_view(request):
     """
     POST /account/delete/
 
-    Soft-deletes the authenticated user's account:
-      - Sets is_active_account = False and deleted_at = now
-      - Marks the user offline
-      - Logs the user out and invalidates their session
+    Hard-deletes the authenticated user's account and all associated data.
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
     user = request.user
-    await sync_to_async(_soft_delete_account)(user)
+    
+    # 1. Get all active sessions for this user to force logout via WebSockets
+    from asgiref.sync import sync_to_async
+    from channels.layers import get_channel_layer
+    from users.models import UserSession
+    
+    @sync_to_async
+    def get_user_session_keys(user):
+        return list(UserSession.objects.filter(user=user).values_list('session_key', flat=True))
+        
+    session_keys = await get_user_session_keys(user)
+    
+    # Notify active WebSocket connections to force logout
+    channel_layer = get_channel_layer()
+    for key in session_keys:
+        await channel_layer.group_send(
+            f"session_{key}",
+            {
+                "type": "force_logout"
+            }
+        )
 
-    # Invalidate session and log out
+    # 2. Perform the hard delete synchronously
+    await sync_to_async(_hard_delete_account)(user, session_keys)
+
+    # 3. Log out the current request (clears current session cookie)
+    from django.contrib.auth import alogout
     await alogout(request)
 
     return JsonResponse({'status': 'deleted'}, status=200)
 
+def _hard_delete_account(user, session_keys):
+    """Sync helper: perform the hard delete."""
+    from django.contrib.sessions.models import Session
+    from messaging.models import GroupMessage
 
-def _soft_delete_account(user):
-    """Sync helper: perform the soft-delete DB writes."""
-    try:
-        profile = user.profile
-    except UserProfile.DoesNotExist:
-        profile = UserProfile.objects.create(user=user)
-    profile.is_active_account = False
-    profile.deleted_at = timezone.now()
-    profile.is_online = False
-    profile.last_seen = timezone.now()
-    profile.save(update_fields=['is_active_account', 'deleted_at', 'is_online', 'last_seen'])
+    # 1. Delete all global sessions matching this user's UserSession records
+    if session_keys:
+        Session.objects.filter(session_key__in=session_keys).delete()
+
+    # 2. Delete all group messages sent by the user (since they default to SET_NULL)
+    GroupMessage.objects.filter(sender=user).delete()
+
+    # 3. Delete the User record
+    # This automatically cascades to UserProfile, Friendship, FriendRequest,
+    # Message, CallLog, Moment, UserSession, GroupMembership, etc.
+    user.delete()
 
 
 # ---------------------------------------------------------------------------

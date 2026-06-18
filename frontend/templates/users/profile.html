@@ -161,9 +161,9 @@
       Delete Account
     </h3>
     <p class="text-divine-muted text-sm text-center leading-relaxed mb-8">
-      Are you sure you want to permanently deactivate your account?
+      Are you sure you want to permanently delete your account?
       This action <span class="text-red-400 font-medium">cannot be undone</span>.
-      Your messages will remain but your account will be inaccessible.
+      Your account and all associated data will be permanently removed.
     </p>
 
     <div class="flex flex-col gap-3">
@@ -229,6 +229,8 @@
       });
 
       if (resp.ok) {
+        localStorage.clear();
+        sessionStorage.clear();
         statusMsg.textContent = 'Your account has been permanently deleted. Redirecting…';
         statusMsg.className   = 'text-center text-sm mt-4 text-green-400';
         statusMsg.classList.remove('hidden');
