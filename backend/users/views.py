@@ -176,7 +176,12 @@ def clerk_login_view(request):
         user = User.objects.filter(email=email).first()
 
         if not user:
-            base_username = email.split('@')[0]
+            clerk_username = user_data.get('username')
+            if clerk_username:
+                base_username = clerk_username
+            else:
+                base_username = email.split('@')[0]
+                
             final_username = base_username
             counter = 1
             while User.objects.filter(username=final_username).exists():
