@@ -761,7 +761,7 @@ SDH.Chat = (() => {
   function _resetConversationPanel() {
     activeUser = null;
     activeUserId = null;
-    SDH.WS?.disconnect?.();
+    SDH.WS?.connectWebSocket?.('global');
     sessionStorage.removeItem('ndm_last_chat');
     sessionStorage.removeItem('ndm_last_chat_id');
 

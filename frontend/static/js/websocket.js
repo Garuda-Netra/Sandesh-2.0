@@ -162,9 +162,14 @@ SDH.WS = (() => {
       (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
       window.location.host;
 
-    const url = isGroup 
-      ? `${wsBase}/ws/group/${userId}/`
-      : `${wsBase}/ws/chat/${userId}/`;
+    let url;
+    if (userId === 'global') {
+        url = `${wsBase}/ws/notifications/`;
+    } else {
+        url = isGroup 
+          ? `${wsBase}/ws/group/${userId}/`
+          : `${wsBase}/ws/chat/${userId}/`;
+    }
     socket            = new WebSocket(url);
     socket.onopen     = _onOpen;
     socket.onmessage  = receiveMessage;

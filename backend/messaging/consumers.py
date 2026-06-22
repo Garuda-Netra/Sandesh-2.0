@@ -781,6 +781,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def friend_request_accepted(self, event):
         await self.send(text_data=json.dumps(event))
 
+    async def friend_request_rejected(self, event):
+        await self.send(text_data=json.dumps(event))
+
     async def user_blocked(self, event):
         await self.send(text_data=json.dumps(event))
 
@@ -1195,3 +1198,73 @@ class GroupChatConsumer(ChatConsumer):
             GroupMessageRead.objects.get_or_create(message=msg, user=self.me)
         except Exception as exc:
             logger.error(f'[WS-Group] mark_read error: {exc}')
+
+
+# ---------------------------------------------------------------------------
+# 4. NotificationConsumer
+# ---------------------------------------------------------------------------
+class NotificationConsumer(ChatConsumer):
+    """
+    Global consumer for users not currently in an active chat.
+    Maintains online presence and receives personal notifications.
+    """
+    async def connect(self):
+        if not self.scope['user'].is_authenticated:
+            await self.close(code=4001)
+            return
+
+        self.me = self.scope['user']
+        self._presence_debounce_seconds = 30.0
+
+        # No specific room or other_user. Only personal and presence groups.
+        self.personal_group = f"user_chat_{self.me.id}"
+        await self.channel_layer.group_add(self.personal_group, self.channel_name)
+        await self.channel_layer.group_add('presence_all', self.channel_name)
+
+        # Session group
+        self.session_key = self.scope.get('session', {}).session_key if hasattr(self.scope, 'get') else getattr(self.scope.get('session', object()), 'session_key', None)
+        if self.session_key:
+            self.session_group = f"session_{self.session_key}"
+            await self.channel_layer.group_add(self.session_group, self.channel_name)
+
+        # Presence
+        became_online = await self._incr_active_connections()
+        await self.set_online(True)
+
+        await self.accept()
+        logger.info(f'[WS-Notify] {self.me.username} connected to global notifications')
+
+        if became_online:
+            await self.channel_layer.group_send(
+                'presence_all',
+                {
+                    'type': 'broadcast_presence',
+                    'user_id': self.me.id,
+                    'username': self.me.username,
+                    'is_online': True,
+                    'last_seen': None
+                }
+            )
+
+    async def disconnect(self, code):
+        await self.channel_layer.group_discard('presence_all', self.channel_name)
+
+        if hasattr(self, 'personal_group'):
+            await self.channel_layer.group_discard(self.personal_group, self.channel_name)
+
+        if hasattr(self, 'session_group'):
+            await self.channel_layer.group_discard(self.session_group, self.channel_name)
+
+        if hasattr(self, 'me'):
+            became_offline = await self._decr_active_connections()
+            if became_offline:
+                asyncio.create_task(self._debounced_offline())
+
+    async def receive(self, text_data=None, bytes_data=None):
+        try:
+            data = json.loads(text_data)
+            if data.get('type') == 'ping':
+                await self._verify_and_restore_online_status()
+                await self.send(text_data=json.dumps({'type': 'pong'}))
+        except Exception:
+            pass

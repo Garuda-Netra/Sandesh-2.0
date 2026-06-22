@@ -1947,6 +1947,8 @@
       } else {
         SDH.Chat.selectUser(lastUser, parseInt(lastId, 10));
       }
+    } else {
+      SDH.WS?.connectWebSocket?.('global');
     }
   });
 </script>

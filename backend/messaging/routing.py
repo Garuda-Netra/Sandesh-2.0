@@ -13,6 +13,9 @@ websocket_urlpatterns = [
     # Backward-compatible route — username (must contain at least one non-digit)
     re_path(r'^ws/chat/(?P<username>[^\d/][^/]*)/$', consumers.ChatConsumer.as_asgi()),
 
+    # Global notifications
+    re_path(r'^ws/notifications/$', consumers.NotificationConsumer.as_asgi()),
+
     # WebRTC signaling
     re_path(r'^ws/signal/(?P<username>[\w.@+-]+)/$', consumers.SignalingConsumer.as_asgi()),
 
