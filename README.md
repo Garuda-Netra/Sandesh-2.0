@@ -67,7 +67,7 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-You're all set! Open **http://127.0.0.1:8000** in your browser.
+You're all set! Open *http://127.0.0.1:8000* in your browser.
 
 *(Tip: To access the admin panel, create a superuser by running `python manage.py createsuperuser` and logging in.)*
 
