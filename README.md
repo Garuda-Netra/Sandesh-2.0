@@ -1,26 +1,29 @@
-# Sandesh 2.0
+# 🕊️ Sandesh 2.0
 
 **Engineered & Crafted ❤️ by Raj**
 
-Welcome to **Sandesh 2.0**, a fast, secure, and user-friendly real-time messaging application designed to make online communication feel natural and seamless.
+Welcome to **Sandesh 2.0**! 🌟 A lightning-fast, ultra-secure, and beautifully designed real-time messaging app built to make chatting feel as natural and seamless as breathing.
 
-I have created Sandesh with a clear vision: to provide a clean, intuitive, and deeply personal chat experience. My goal was simple—to build a messaging application that is incredibly fast, highly responsive, beautifully designed, and completely free of unnecessary clutter or invasive tracking. Whether you prefer the elegance of a sleek dark mode or the crispness of a light theme, Sandesh effortlessly adapts to your style while ensuring that your conversations remain entirely secure and private.
+I created Sandesh with a single, uncompromising vision: to give you a pristine, deeply personal space to connect. No ads, no trackers, no algorithmic clutter—just you and the people who matter most. Whether you love the sleek elegance of Dark Mode 🌙 or the crisp, vibrant feel of Light Theme ☀️, Sandesh effortlessly adapts to your vibe. Most importantly, it's a **privacy-first** platform where your conversations are strictly yours.
 
-No ads, no tracking—just a reliable space to connect with the people who matter.
+Your data. Your rules. Total peace of mind. 🛡️
 
 ---
 
 ## ✨ Features
 
-- **Responsive Design:** A modern, glassmorphism-inspired UI that looks great and works seamlessly across desktops, tablets, and mobile devices.
-- **Real-Time Messaging:** Powered by highly optimized WebSockets, your messages are delivered instantly without the need to refresh.
-- **Privacy Control:** Take control of your data with disappearing messages. You can set messages to automatically delete after 2 days, 1 week, 1 month, or 6 months.
-- **Moments:** Share what you're up to with 24-hour status updates, complete with read receipts and reactions.
-- **Voice & Video Calls:** Start high-quality, peer-to-peer calls directly from your browser using WebRTC.
-- **Missed Call Alerts:** If someone tries to reach you while you're offline, you'll receive a clear "Missed Call" notification in your chat.
-- **Flexible Login:** Sign in securely using your username, email, or phone number.
-- **Real-Time Indicators:** See who is online and when they are typing to you. 
-- **Saved Messages:** A dedicated private space to keep notes, files, or ideas just for yourself.
+- **🎨 Gorgeous & Responsive Design:** A modern, glassmorphism-inspired interface that looks stunning and works flawlessly on your phone, tablet, or desktop.
+- **⚡ Real-Time Messaging:** Powered by highly optimized WebSockets, your messages fly across the screen instantly—no refreshing required!
+- **🔒 Privacy-First Controls:** Take back control with disappearing messages. Set your chats to self-destruct after 2 days, 1 week, 1 month, or 6 months.
+- **📸 Moments:** Share slices of your life via 24-hour status updates, complete with read receipts and emoji reactions.
+- **📞 Crystal-Clear Calls:** Start high-quality voice and video calls directly from your browser, safely peer-to-peer using WebRTC.
+- **🛡️ Seamless & Secure Authentication:** 
+  - Log in effortlessly using Google, your email, username, or phone number. 
+  - *New!* Enjoy a buttery-smooth **visual loading overlay** while authenticating with Google, replacing jarring page jumps. 
+  - *New!* **Bulletproof Logout:** Our refined session logic ensures strict security. If you log out, your session is completely wiped, forcing a fresh, secure re-authentication on your next visit. No accidental auto-logins!
+- **🔔 Missed Call Alerts:** Never miss a beat! Offline call attempts leave a clear "Missed Call" note right in your chat.
+- **🟢 Live Indicators:** See exactly who's online and watch those satisfying typing indicators in real-time.
+- **📝 Saved Messages:** Your own private digital notebook to securely stash links, files, and ideas.
 
 ---
 
