@@ -13,7 +13,7 @@ Your data. Your rules. Total peace of mind. 🛡️
 ## ✨ Features
 
 - **🎨 Gorgeous & Responsive Design:** A modern, glassmorphism-inspired interface that looks stunning and works flawlessly on your phone, tablet, or desktop.
-- **⚡ Real-Time Messaging:** Powered by highly optimized WebSockets, your messages fly across the screen instantly—no refreshing required!
+- **⚡ Real-Time Messaging:** Powered by highly optimized WebSockets, your messages fly across the screen instantly-no refreshing required!
 - **🔒 Privacy-First Controls:** Take back control with disappearing messages. Set your chats to self-destruct after 2 days, 1 week, 1 month, or 6 months.
 - **📸 Moments:** Share slices of your life via 24-hour status updates, complete with read receipts and emoji reactions.
 - **📞 Crystal-Clear Calls:** Start high-quality voice and video calls directly from your browser, safely peer-to-peer using WebRTC.
