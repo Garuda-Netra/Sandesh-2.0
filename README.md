@@ -4,7 +4,7 @@
 
 Welcome to **Sandesh 2.0**! 🌟 A lightning-fast, ultra-secure, and beautifully designed real-time messaging app built to make chatting feel as natural and seamless as breathing.
 
-I created Sandesh with a single, uncompromising vision: to give you a pristine, deeply personal space to connect. No ads, no trackers, no algorithmic clutter—just you and the people who matter most. Whether you love the sleek elegance of Dark Mode 🌙 or the crisp, vibrant feel of Light Theme ☀️, Sandesh effortlessly adapts to your vibe. Most importantly, it's a **privacy-first** platform where your conversations are strictly yours.
+I created Sandesh with a single, uncompromising vision: to give you a pristine, deeply personal space to connect. No ads, no trackers, no algorithmic clutter-just you and the people who matter most. Whether you love the sleek elegance of Dark Mode 🌙 or the crisp, vibrant feel of Light Theme ☀️, Sandesh effortlessly adapts to your vibe. Most importantly, it's a **privacy-first** platform where your conversations are strictly yours.
 
 Your data. Your rules. Total peace of mind. 🛡️
 
