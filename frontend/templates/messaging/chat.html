@@ -406,7 +406,7 @@
               {% endif %}
             </p>
             {% else %}
-            <p id="last-seen-{{ item.user.username }}" class="text-[11px] truncate mt-0.5 sdh-status-offline">&nbsp;</p>
+            <p id="last-seen-{{ item.user.username }}" class="text-[11px] truncate mt-0.5 sdh-status-offline">Chat</p>
             {% endif %}
           </div>
 
@@ -435,7 +435,7 @@
               View Profile
             </button>
             <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
-            {% if not item.is_blocked %}
+            {% if not item.is_blocked and item.is_friend %}
             <!-- Unfriend (only shown for confirmed friends who are not blocked) -->
             <button onclick="SDH.Chat._confirmUnfriend('{{ item.user.id }}', '{{ item.user.username|escapejs }}')"
               class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm

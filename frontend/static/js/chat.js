@@ -105,24 +105,25 @@ SDH.Chat = (() => {
   }
 
   function handleFriendRequestAccepted(data) {
-    showToast(`${data.new_friend} accepted your friend request!`, 'success');
-    
-    // Update internal state
-    const u = window.SDH_DATA?.users?.find(x => x.username === data.new_friend);
-    if (u) {
-        u.is_friend = true;
+    if (data.new_friend) {
+      showToast(`${data.new_friend} is now your friend!`, 'success');
     }
     
-    _refreshSidebar();
+    // Clear search input so user sees the newly added friend in Direct Messages
     const searchInput = document.getElementById('searchUsers');
-    if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
+    if (searchInput) {
+      searchInput.value = '';
+    }
+
+    // Refresh friend requests panel in case a request was pending
+    loadFriendRequests();
+    
+    _refreshSidebar();
   }
 
   function handleFriendRequestRejected(data) {
-    // Refresh to allow sending a new request
+    loadFriendRequests();
     _refreshSidebar();
-    const searchInput = document.getElementById('searchUsers');
-    if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
   }
 
   function handleUserUnfriended(data) {
@@ -162,15 +163,43 @@ SDH.Chat = (() => {
   // ── Real-time Sidebar Refresher ──────────────────────────────────────────
   async function _refreshSidebar() {
     try {
-      const res = await fetch(location.href);
+      const sep = location.href.includes('?') ? '&' : '?';
+      const res = await fetch(`${location.href}${sep}_nocache=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!res.ok) return;
       const html = await res.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      const newUserListHTML = doc.getElementById('userList').innerHTML;
-      const currentList = document.getElementById('userList');
-      if (currentList) {
-        currentList.innerHTML = newUserListHTML;
+
+      const newUserList = doc.getElementById('userList');
+      if (newUserList) {
+        const newUserListHTML = newUserList.innerHTML;
+        const currentList = document.getElementById('userList');
+        if (currentList) {
+          currentList.innerHTML = newUserListHTML;
+        }
+
+        // Keep SDH.UserSearch originalHTML in sync so future searches or clears don't revert to stale HTML
+        if (window.SDH?.UserSearch?.updateOriginal) {
+          window.SDH.UserSearch.updateOriginal(newUserListHTML);
+        }
       }
+
+      // Update embedded SDH_DATA.users if available
+      const usersDataScript = doc.getElementById('sdh-users-data');
+      if (usersDataScript && window.SDH_DATA) {
+        try {
+          window.SDH_DATA.users = JSON.parse(usersDataScript.textContent);
+        } catch (e) {}
+      }
+
+      // Re-apply any existing unread badges
+      if (unreadCounts) {
+        Object.keys(unreadCounts).forEach(u => updateUnreadBadge(u));
+      }
+      _updateOnlineCount();
     } catch (err) {
       console.error('[Chat] Failed to refresh sidebar:', err);
     }
@@ -365,6 +394,14 @@ SDH.Chat = (() => {
 
     const isGroupMsg = data.type === 'group_message' || !!data.group_id;
     const chatTarget = isGroupMsg ? `group_${data.group_id}` : (isFromMe ? data.receiver : data.sender);
+
+    // If direct message partner is not in sidebar, refresh sidebar to show them
+    if (!isGroupMsg && chatTarget && chatTarget !== window.SDH_DATA.currentUser) {
+      const existingItem = document.getElementById(`user-item-${chatTarget}`);
+      if (!existingItem) {
+        _refreshSidebar();
+      }
+    }
 
     if (activeUser !== chatTarget) {
       if (!isFromMe) {
@@ -1603,6 +1640,13 @@ SDH.Chat = (() => {
 
       SDH.WS.sendMessage(payload);
 
+      if (!activeUser.startsWith('group_') && !_isSelfChat(activeUser)) {
+        const existingItem = document.getElementById(`user-item-${activeUser}`);
+        if (!existingItem) {
+          _refreshSidebar();
+        }
+      }
+
     } catch (err) {
       console.error('[Chat] Send error:', err);
       showToast('Failed to send message: ' + err.message, 'error');
@@ -2488,9 +2532,9 @@ SDH.Chat = (() => {
 
       if (data.status === 'accepted') {
         showToast(data.message || 'Friend request accepted!', 'success');
-        _refreshSidebar();
         const searchInput = document.getElementById('searchUsers');
-        if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
+        if (searchInput) searchInput.value = '';
+        _refreshSidebar();
       } else {
         showToast('Friend request sent!', 'success');
         if (btnElement) {
@@ -2525,13 +2569,6 @@ SDH.Chat = (() => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || res.statusText);
 
-      // If accepted, refresh the sidebar to show the new friend
-      if (action === 'accept') {
-        _refreshSidebar();
-        const searchInput = document.getElementById('searchUsers');
-        if (searchInput?.value) SDH.Chat.filterUsers(searchInput.value);
-      }
-
       // Remove the request from the UI
       const frEl = document.querySelector(`[data-fr-id="${requestId}"]`);
       if (frEl) frEl.remove();
@@ -2547,7 +2584,8 @@ SDH.Chat = (() => {
 
       if (action === 'accept') {
         showToast('Friend request accepted! They now appear in your chat list.', 'success');
-        // Soft refresh sidebar instead of full reload
+        const searchInput = document.getElementById('searchUsers');
+        if (searchInput) searchInput.value = '';
         _refreshSidebar();
       } else {
         showToast('Friend request rejected.', 'info');

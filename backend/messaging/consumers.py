@@ -417,10 +417,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     async def friend_request_accepted(self, event):
-        """Relay friend request accepted event so sender updates sidebar."""
+        """Relay friend request accepted event so sender and receiver update sidebar."""
         await self.send(text_data=json.dumps({
             'type': 'friend_request_accepted',
-            'new_friend': event['new_friend'],
+            'new_friend': event.get('new_friend'),
+            'user_id': event.get('user_id'),
         }))
 
     async def friend_request_rejected(self, event):

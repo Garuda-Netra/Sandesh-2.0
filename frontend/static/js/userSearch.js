@@ -250,6 +250,19 @@ SDH.UserSearch = (() => {
     list.innerHTML = originalHTML;
   }
 
+  /** Update the cached server-rendered user list so future restores use updated DOM. */
+  function updateOriginal(newHTML) {
+    if (newHTML === null || newHTML === undefined) return;
+    originalHTML = newHTML;
+    const input = document.getElementById('searchUsers');
+    if (!input || !input.value.trim()) {
+      const list = document.getElementById('userList');
+      if (list) {
+        list.innerHTML = newHTML;
+      }
+    }
+  }
+
   function findUserNode(root, username) {
     if (!root || !username) return null;
     const targetId = `user-item-${username}`;
@@ -397,6 +410,6 @@ SDH.UserSearch = (() => {
     init();
   }
 
-  return { init, forgetUser };
+  return { init, forgetUser, updateOriginal };
 
 })();

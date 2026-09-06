@@ -117,8 +117,11 @@ def _positive_int(value, default, max_value=None):
 
 # ---------------------------------------------------------------------------
 # Chat Page
+from django.views.decorators.cache import never_cache
+
 # ---------------------------------------------------------------------------
 @login_required
+@never_cache
 def chat_view(request):
     """
     Main chat interface.
@@ -146,7 +149,12 @@ def chat_view(request):
         .values_list('user_id', flat=True)
     ) if blocked_profile_ids else set()
 
-    visible_ids = (friend_user_ids | blocked_user_ids) - set(hidden_ids)
+    # Also include users who have exchanged messages with current user (active conversations)
+    convo_sent = Message.objects.filter(sender=request.user).values_list('receiver_id', flat=True)
+    convo_recv = Message.objects.filter(receiver=request.user).values_list('sender_id', flat=True)
+    convo_user_ids = set(convo_sent) | set(convo_recv)
+
+    visible_ids = (friend_user_ids | blocked_user_ids | convo_user_ids) - set(hidden_ids)
     visible_ids.discard(request.user.id)
 
     users = (

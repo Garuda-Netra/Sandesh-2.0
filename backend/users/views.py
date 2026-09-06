@@ -509,19 +509,27 @@ def unfriend_view(request):
     })
 
 
+from django.views.decorators.cache import never_cache
+
 # ---------------------------------------------------------------------------
-# User List API (for sidebar) — friends + blocked contacts only
+# User List API (for sidebar) — friends + active conversations + blocked contacts
 # ---------------------------------------------------------------------------
 @login_required
 @require_GET
+@never_cache
 def user_list(request):
-    """Returns list of friends + blocked contacts for the sidebar."""
+    """Returns list of friends + conversation contacts + blocked contacts for the sidebar."""
     hidden_ids = _get_hidden_user_ids(request.user)
     friend_ids = _get_friend_user_ids(request.user)
     blocked_ids = _get_blocked_user_ids(request.user)
 
-    # Show friends + people I blocked (they remain visible per WhatsApp style)
-    visible_ids = set(friend_ids) | set(blocked_ids)
+    from messaging.models import Message
+    convo_sent = Message.objects.filter(sender=request.user).values_list('receiver_id', flat=True)
+    convo_recv = Message.objects.filter(receiver=request.user).values_list('sender_id', flat=True)
+    convo_ids = set(convo_sent) | set(convo_recv)
+
+    # Show friends + conversation contacts + people I blocked (they remain visible per WhatsApp style)
+    visible_ids = set(friend_ids) | set(convo_ids) | set(blocked_ids)
     # Remove hidden users
     visible_ids -= set(hidden_ids)
     # Remove self
@@ -556,6 +564,7 @@ def user_list(request):
 # ---------------------------------------------------------------------------
 @login_required
 @require_GET
+@never_cache
 def search_users(request):
     """
     Live user search endpoint consumed by userSearch.js.
@@ -589,10 +598,16 @@ def search_users(request):
             .order_by('username')[:30]
         )
     else:
-        # No query: return friends + blocked only (sidebar behaviour)
+        # No query: return friends + conversation contacts + blocked only (sidebar behaviour)
         friend_ids = _get_friend_user_ids(request.user)
         blocked_ids = _get_blocked_user_ids(request.user)
-        visible_ids = set(friend_ids) | set(blocked_ids)
+
+        from messaging.models import Message
+        convo_sent = Message.objects.filter(sender=request.user).values_list('receiver_id', flat=True)
+        convo_recv = Message.objects.filter(receiver=request.user).values_list('sender_id', flat=True)
+        convo_ids = set(convo_sent) | set(convo_recv)
+
+        visible_ids = set(friend_ids) | set(convo_ids) | set(blocked_ids)
         visible_ids -= set(hidden_ids)
         visible_ids.discard(request.user.id)
         qs = (
@@ -732,6 +747,28 @@ def send_friend_request_view(request):
             Friendship.add_friendship(my_profile, target_profile)
             my_profile.hidden_users.remove(target_profile)
             target_profile.hidden_users.remove(my_profile)
+
+            # Notify both users so their sidebars update in real-time
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_chat_{target_profile.user.id}",
+                {
+                    "type": "friend_request_accepted",
+                    "new_friend": my_profile.user.username,
+                    "user_id": my_profile.user.id,
+                }
+            )
+            async_to_sync(channel_layer.group_send)(
+                f"user_chat_{my_profile.user.id}",
+                {
+                    "type": "friend_request_accepted",
+                    "new_friend": target_profile.user.username,
+                    "user_id": target_profile.user.id,
+                }
+            )
+
             return JsonResponse({'status': 'accepted',
                                  'message': 'They already sent you a request — now friends!'})
 
@@ -798,7 +835,7 @@ def respond_friend_request_view(request):
         fr.from_user.hidden_users.remove(fr.to_user)
         fr.to_user.hidden_users.remove(fr.from_user)
 
-        # Notify the sender so their sidebar updates in real-time
+        # Notify BOTH the sender and the receiver so their sidebars update in real-time
         from asgiref.sync import async_to_sync
         from channels.layers import get_channel_layer
         channel_layer = get_channel_layer()
@@ -807,6 +844,15 @@ def respond_friend_request_view(request):
             {
                 "type": "friend_request_accepted",
                 "new_friend": fr.to_user.user.username,
+                "user_id": fr.to_user.user.id,
+            }
+        )
+        async_to_sync(channel_layer.group_send)(
+            f"user_chat_{fr.to_user.user.id}",
+            {
+                "type": "friend_request_accepted",
+                "new_friend": fr.from_user.user.username,
+                "user_id": fr.from_user.user.id,
             }
         )
 
