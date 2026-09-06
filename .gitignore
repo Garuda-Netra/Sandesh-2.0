@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pycache
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Django Runtime Data
+db.sqlite3
+backend/db.sqlite3
+backend/media/
+backend/staticfiles/
+
+# IDE / Editor Data
+.gemini/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Uploaded Files
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ppt
+*.pptx
+*.odp
+*.zip
+*.rar
+*.7z
+
+# Packaging & Build
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+build/
+dist/
+
+# Testing & Coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# OS System Files
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+
+# Temporary Files
+backend/db_dump.txt
+frontend/static/js/recover*
+
+firebase-credentials.json
