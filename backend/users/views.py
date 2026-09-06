@@ -18,6 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.db.models import Q
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from asgiref.sync import sync_to_async
 
 from .forms import SDHRegistrationForm, SDHLoginForm, ProfileUpdateForm
@@ -1094,11 +1095,15 @@ def report_bug_view(request):
     )
 
     for img in images:
-        if img.size > 5 * 1024 * 1024:
-            return JsonResponse({'error': f'Image "{img.name}" exceeds the 5 MB limit.'}, status=400)
-        if not img.name.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
-            return JsonResponse({'error': 'Only JPG, PNG or WebP images are allowed'}, status=400)
-        email.attach(img.name, img.read(), img.content_type)
+        try:
+            from messaging.file_security import validate_uploaded_file
+            file_info = validate_uploaded_file(img, allowed_categories=('image',), max_size=5 * 1024 * 1024)
+        except ValidationError as exc:
+            msg_text = exc.message if hasattr(exc, 'message') else str(exc)
+            return JsonResponse({'error': msg_text}, status=400)
+        except Exception as exc:
+            return JsonResponse({'error': f'Image validation failed: {exc}'}, status=400)
+        email.attach(file_info['safe_filename'], img.read(), file_info['mime_type'])
 
     try:
         email.send(fail_silently=False)

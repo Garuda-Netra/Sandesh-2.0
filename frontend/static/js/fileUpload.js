@@ -31,8 +31,8 @@ SDH.FileUpload = (() => {
   const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
 
   const ALLOWED_TYPES = new Set([
-    // Images
-    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+    // Images (raster only for safety)
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     // Video
     'video/mp4', 'video/webm', 'video/ogg',
     // Audio

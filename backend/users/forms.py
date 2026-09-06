@@ -152,3 +152,15 @@ class ProfileUpdateForm(forms.ModelForm):
                 'class': 'block w-full text-sm text-divine-muted file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-divine-surface file:text-divine-gold hover:file:bg-divine-border transition-colors border border-divine-border rounded-xl p-2 bg-divine-card',
             }),
         }
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get('avatar')
+        if avatar and hasattr(avatar, 'read') and hasattr(avatar, 'size') and avatar.size > 0:
+            from messaging.file_security import validate_uploaded_file
+            try:
+                validate_uploaded_file(avatar, allowed_categories=('image',), max_size=5 * 1024 * 1024)
+            except forms.ValidationError:
+                raise
+            except Exception as exc:
+                raise forms.ValidationError(str(exc))
+        return avatar

@@ -18,12 +18,14 @@ from django.views.decorators.csrf import csrf_protect
 from django.db.models import Q
 from django.conf import settings
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead
 from .chatbot import generate_chatbot_reply
+from .file_security import validate_uploaded_file
 from users.models import UserProfile, Friendship
 
 # Maximum file size accepted (5 MB)
@@ -746,22 +748,21 @@ def upload_file(request):
 
     # ── Required metadata ───────────────────────────────────────
     receiver_username = request.POST.get('receiver', '').strip()
-    raw_file_name     = request.POST.get('file_name', uploaded.name) or 'file'
-    file_name         = os.path.basename(raw_file_name).replace('\r', '').replace('\n', '').strip()[:255] or 'file'
-    mime_type         = request.POST.get('mime_type', 'application/octet-stream').strip()
-    message_type      = request.POST.get('message_type', Message.MESSAGE_TYPE_FILE).strip()
-
     if not receiver_username:
         return JsonResponse({'error': 'Missing required fields.'}, status=400)
 
-    if (
-        mime_type not in _ALLOWED_MIME_TYPES and
-        not any(mime_type.startswith(prefix) for prefix in _ALLOWED_MIME_PREFIXES)
-    ):
-        return JsonResponse({'error': f'File type "{mime_type}" is not supported.'}, status=400)
+    # ── Security & Content Validation ───────────────────────────
+    try:
+        file_info = validate_uploaded_file(uploaded, max_size=_MAX_FILE_BYTES)
+    except ValidationError as exc:
+        msg_text = exc.message if hasattr(exc, 'message') else str(exc)
+        return JsonResponse({'error': msg_text}, status=400)
+    except Exception:
+        return JsonResponse({'error': 'File validation failed.'}, status=400)
 
-    if message_type not in ('file', 'image', 'video'):
-        message_type = Message.MESSAGE_TYPE_FILE
+    file_name    = file_info['safe_filename']
+    mime_type    = file_info['mime_type']
+    message_type = file_info['message_type']
 
     is_group = receiver_username.startswith('group_')
     
@@ -933,6 +934,8 @@ def download_file(request, file_id):
     response['Content-Disposition'] = (
         f'attachment; filename="{safe_filename}"'
     )
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Content-Security-Policy'] = "default-src 'none'; sandbox"
     response['X-SDH-Original-Mime'] = content_type
     response['X-SDH-File-Name']     = safe_display_name
     response['Access-Control-Expose-Headers'] = (
@@ -1269,18 +1272,26 @@ def upload_moment(request):
 
     # Security & size guards
     if uploaded_file:
-        if uploaded_file.size > 15 * 1024 * 1024:
-            return JsonResponse({'error': 'Media file exceeds the 15 MB limit.'}, status=413)
-        mime = getattr(uploaded_file, 'content_type', '') or ''
-        if not (mime.startswith('image/') or mime.startswith('video/')):
-            return JsonResponse({'error': 'Only image and video files are permitted for moments.'}, status=400)
+        try:
+            validate_uploaded_file(
+                uploaded_file,
+                allowed_categories=('image', 'video'),
+                max_size=15 * 1024 * 1024
+            )
+        except ValidationError as exc:
+            msg_text = exc.message if hasattr(exc, 'message') else str(exc)
+            return JsonResponse({'error': msg_text}, status=400)
 
     if song_file:
-        if song_file.size > 5 * 1024 * 1024:
-            return JsonResponse({'error': 'Audio file exceeds the 5 MB limit.'}, status=413)
-        mime = getattr(song_file, 'content_type', '') or ''
-        if not mime.startswith('audio/'):
-            return JsonResponse({'error': 'Only audio files are permitted for moment songs.'}, status=400)
+        try:
+            validate_uploaded_file(
+                song_file,
+                allowed_categories=('audio',),
+                max_size=5 * 1024 * 1024
+            )
+        except ValidationError as exc:
+            msg_text = exc.message if hasattr(exc, 'message') else str(exc)
+            return JsonResponse({'error': msg_text}, status=400)
 
     if moment_type in (Moment.MOMENT_TYPE_IMAGE, Moment.MOMENT_TYPE_VIDEO) and not uploaded_file:
         return JsonResponse({'error': 'Media file is required for image/video moments.'}, status=400)

@@ -44,6 +44,15 @@ Sandesh uniquely harmonizes **Vedic philosophical depth** with **futuristic glas
 - **📱 Active Devices & Session Manager:** Inspect every device logged into your account (hardware type, OS, browser, IP, and geolocated city/country) and terminate remote sessions with one click.
 - **🤝 Privacy-First Social Graph:** No public directory leaks! Discover users through exact username/phone search, connect via mutual two-way friend requests, or block unwanted contacts.
 - **📎 Rich Media & File Sharing:** Securely share photos, videos, audio clips, PDFs, docs, and archives up to 5 MB with automatic disk and cloud cleanup upon deletion.
+- **🛡️ Enterprise File & Image Upload Security:**
+  - *Magic Byte Inspection:* Deep binary signature verification validates genuine file headers independently of client claims.
+  - *Executable & Payload Blocker:* Instantly rejects Windows PE (`MZ`), Linux ELF, script shebangs (`#!`), Mach-O, Java bytecode, and shortcut files.
+  - *Double Extension Defense:* Multi-segment scanning blocks disguised extensions (e.g., `exploit.php.png`, `invoice.pdf.exe`).
+  - *Stored XSS Prevention:* Prohibits scriptable SVG formats and inspects text/CSV uploads for embedded `<script>` or HTML vectors.
+  - *Decompression Bomb Defense:* Pillow integrity checks and `MAX_IMAGE_PIXELS` constraints block pixel flood memory DoS.
+  - *Path Traversal & Bidi Neutralization:* Sanitizes directory traversal (`../`), null bytes, and Unicode RTL overrides (`\u202E`).
+  - *Secure Streaming Headers:* Serves downloads with `X-Content-Type-Options: nosniff` and CSP sandboxing to prevent browser MIME confusion.
+- **🖼️ Interactive Media Lightbox Popup:** Full-screen responsive lightbox modal for photos, videos, and PDFs with smooth zoom, pan, playback controls, and keyboard navigation.
 - **📝 Saved Messages:** Your own private digital notebook to securely stash links, files, and ideas.
 
 ---
