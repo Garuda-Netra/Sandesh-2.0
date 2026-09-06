@@ -1858,6 +1858,19 @@ body {
   max-width: 100%;
 }
 
+.media-msg .group\/img img {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+.media-msg .group\/img:hover img {
+  transform: scale(1.015);
+}
+
+#mediaPreviewModal #mpImage {
+  will-change: transform;
+  transform-origin: center center;
+}
+
 /* ─── Call accept / reject buttons ────────────────────────────── */
 .sdh-call-accept {
   background: linear-gradient(135deg, #22c55e, #16a34a);

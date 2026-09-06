@@ -195,13 +195,21 @@ SDH.FileUpload = (() => {
     }
 
     try {
-      const response = await fetch(_downloadUrl(messageId), { credentials: 'same-origin' });
-      if (!response.ok) throw new Error(`Download failed (HTTP ${response.status}).`);
+      let blob;
+      const cached = window.SDH?.MediaViewer?.getCachedBlob?.(messageId);
+      if (cached?.blob) {
+        blob = cached.blob;
+      } else {
+        const response = await fetch(_downloadUrl(messageId), { credentials: 'same-origin' });
+        if (!response.ok) throw new Error(`Download failed (HTTP ${response.status}).`);
+        const rawBlob = await response.blob();
+        blob = new Blob([await rawBlob.arrayBuffer()], { type: mimeType || 'application/octet-stream' });
+        if (window.SDH?.MediaViewer?.cacheBlob) {
+          window.SDH.MediaViewer.cacheBlob(messageId, blob, mimeType, fileName);
+        }
+      }
 
-      const blob = await response.blob();
-      const url  = URL.createObjectURL(
-        new Blob([await blob.arrayBuffer()], { type: mimeType || 'application/octet-stream' }),
-      );
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href     = url;
       a.download = fileName || 'sdh_file';
@@ -238,13 +246,23 @@ SDH.FileUpload = (() => {
     imgEl.dataset.sdhLoaded = '1';
 
     try {
+      const cached = window.SDH?.MediaViewer?.getCachedBlob?.(messageId);
+      if (cached?.blobUrl) {
+        imgEl.src = cached.blobUrl;
+        return;
+      }
+
       const response = await fetch(_downloadUrl(messageId), { credentials: 'same-origin' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const blob = await response.blob();
-      imgEl.src  = URL.createObjectURL(
-        new Blob([await blob.arrayBuffer()], { type: mimeType || 'image/jpeg' }),
-      );
+      const rawBlob = await response.blob();
+      const finalBlob = new Blob([await rawBlob.arrayBuffer()], { type: mimeType || 'image/jpeg' });
+      const blobUrl = URL.createObjectURL(finalBlob);
+      imgEl.src = blobUrl;
+
+      if (window.SDH?.MediaViewer?.cacheBlob) {
+        window.SDH.MediaViewer.cacheBlob(messageId, finalBlob, mimeType || 'image/jpeg', imgEl.alt || 'image');
+      }
     } catch (err) {
       console.error('[FileUpload] Image download error:', err);
       imgEl.dataset.sdhLoaded = ''; // allow retry
