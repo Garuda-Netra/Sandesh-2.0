@@ -78,6 +78,47 @@ def login_view(request):
 
 
 # ---------------------------------------------------------------------------
+def _is_valid_clerk_issuer(issuer: str) -> bool:
+    """Validate that the token issuer domain is an authorized Clerk instance to prevent SSRF and forgery."""
+    if not issuer or not isinstance(issuer, str):
+        return False
+    from urllib.parse import urlparse
+    import base64
+    parsed = urlparse(issuer)
+    if parsed.scheme != 'https' or not parsed.hostname:
+        return False
+    host = parsed.hostname.lower()
+
+    # 1. Official Clerk domains
+    if host.endswith('.clerk.accounts.dev') or host.endswith('.clerk.com') or host == 'clerk.accounts.dev':
+        return True
+
+    # 2. Configured custom issuer
+    clerk_issuer = getattr(settings, 'CLERK_ISSUER', '')
+    if clerk_issuer:
+        expected = urlparse(clerk_issuer).hostname or clerk_issuer
+        if host == expected.lower():
+            return True
+
+    # 3. Derive instance host from CLERK_PUBLISHABLE_KEY
+    clerk_pk = getattr(settings, 'CLERK_PUBLISHABLE_KEY', '')
+    if clerk_pk and ('_' in clerk_pk):
+        parts = clerk_pk.split('_')
+        if len(parts) >= 3:
+            raw_b64 = parts[2]
+            pad = len(raw_b64) % 4
+            if pad:
+                raw_b64 += '=' * (4 - pad)
+            try:
+                decoded_host = base64.b64decode(raw_b64).decode('utf-8').rstrip('$').lower()
+                if host == decoded_host:
+                    return True
+            except Exception:
+                pass
+
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Clerk Authentication API
 # ---------------------------------------------------------------------------
@@ -122,6 +163,10 @@ def clerk_login_view(request):
         issuer = unverified_claims.get("iss")
         if not issuer:
             raise ValueError('Token missing issuer (iss)')
+
+        # SSRF & forgery guard: verify issuer is an authorized Clerk instance
+        if not _is_valid_clerk_issuer(issuer):
+            raise ValueError('Untrusted or invalid token issuer')
 
         clerk_user_id = unverified_claims.get("sub")
 
@@ -1040,16 +1085,19 @@ def report_bug_view(request):
     if len(images) > 5:
         return JsonResponse({'error': 'Maximum 5 images allowed'}, status=400)
 
+    recipient = getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'rajkuma4rr2005@gmail.com'
     email = EmailMessage(
         subject=f'Bug Report from {request.user.username}',
         body=description,
         from_email=None,
-        to=['rajkuma4rr2005@gmail.com'],
+        to=[recipient],
     )
 
     for img in images:
-        if not img.name.lower().endswith(('.jpg', '.jpeg')):
-            return JsonResponse({'error': 'Only JPEG images are allowed'}, status=400)
+        if img.size > 5 * 1024 * 1024:
+            return JsonResponse({'error': f'Image "{img.name}" exceeds the 5 MB limit.'}, status=400)
+        if not img.name.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+            return JsonResponse({'error': 'Only JPG, PNG or WebP images are allowed'}, status=400)
         email.attach(img.name, img.read(), img.content_type)
 
     try:

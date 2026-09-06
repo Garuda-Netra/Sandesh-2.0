@@ -481,11 +481,15 @@ def spotify_search(request):
         access_token = token_res.json().get('access_token')
 
         # 2. Search
-        search_url = f"https://api.spotify.com/v1/search?q={query}&type=track&limit=10"
         search_headers = {
             "Authorization": f"Bearer {access_token}"
         }
-        search_res = requests.get(search_url, headers=search_headers, timeout=5)
+        search_res = requests.get(
+            "https://api.spotify.com/v1/search",
+            params={'q': query, 'type': 'track', 'limit': 10},
+            headers=search_headers,
+            timeout=5
+        )
         search_res.raise_for_status()
         search_data = search_res.json()
 
@@ -502,8 +506,8 @@ def spotify_search(request):
 
         return JsonResponse({'tracks': tracks})
 
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+    except Exception:
+        return JsonResponse({'error': 'Failed to complete track search. Please try again.'}, status=500)
 @login_required
 @require_GET
 def unread_counts(request):
@@ -742,7 +746,8 @@ def upload_file(request):
 
     # ── Required metadata ───────────────────────────────────────
     receiver_username = request.POST.get('receiver', '').strip()
-    file_name         = request.POST.get('file_name', uploaded.name).strip()
+    raw_file_name     = request.POST.get('file_name', uploaded.name) or 'file'
+    file_name         = os.path.basename(raw_file_name).replace('\r', '').replace('\n', '').strip()[:255] or 'file'
     mime_type         = request.POST.get('mime_type', 'application/octet-stream').strip()
     message_type      = request.POST.get('message_type', Message.MESSAGE_TYPE_FILE).strip()
 
@@ -782,13 +787,14 @@ def upload_file(request):
         )
         
         try:
-            room_group = f'chat_group_{group.id}'
+            room_group = f'group_chat_{group.id}'
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
             payload = {
                 'type': 'broadcast_group_message',
                 'message_id': msg.id,
                 'sender': request.user.username,
+                'sender_id': request.user.id,
                 'group_id': group.id,
                 'message': '',
                 'message_type': msg.message_type,
@@ -797,7 +803,15 @@ def upload_file(request):
                 'timestamp': msg.timestamp.isoformat(),
                 'file_id': msg.id,
             }
-            async_to_sync(get_channel_layer().group_send)(room_group, payload)
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(room_group, payload)
+            # Also notify each member via their personal user_chat group
+            for member_id in group.memberships.values_list('user_id', flat=True):
+                if member_id != request.user.id:
+                    async_to_sync(channel_layer.group_send)(
+                        f'user_chat_{member_id}',
+                        payload
+                    )
         except Exception:
             pass
             
@@ -860,22 +874,29 @@ def download_file(request, file_id):
     """
     Stream a file back to an authorised participant.
 
-    Only the sender and receiver of the message may download.
+    Handles both direct messages and group messages without ID collisions.
+    Only the sender, receiver, or authorized group members may download.
     """
-    msg = Message.objects.filter(
-        pk=file_id,
-        message_type__in=(
-            Message.MESSAGE_TYPE_FILE,
-            Message.MESSAGE_TYPE_IMAGE,
-            Message.MESSAGE_TYPE_VIDEO,
-        )
-    ).first()
-    
+    is_group_requested = request.GET.get('type') == 'group'
+    msg = None
     is_group = False
-    
+
+    if not is_group_requested:
+        direct_msg = Message.objects.filter(
+            pk=file_id,
+            message_type__in=(
+                Message.MESSAGE_TYPE_FILE,
+                Message.MESSAGE_TYPE_IMAGE,
+                Message.MESSAGE_TYPE_VIDEO,
+            )
+        ).first()
+        if direct_msg and request.user in (direct_msg.sender, direct_msg.receiver):
+            msg = direct_msg
+            is_group = False
+
     if not msg:
         from .models import GroupMessage, GroupMembership
-        msg = GroupMessage.objects.filter(
+        group_msg = GroupMessage.objects.filter(
             pk=file_id,
             message_type__in=(
                 GroupMessage.MESSAGE_TYPE_FILE,
@@ -883,18 +904,12 @@ def download_file(request, file_id):
                 GroupMessage.MESSAGE_TYPE_VIDEO,
             )
         ).first()
-        is_group = True
+        if group_msg and GroupMembership.objects.filter(group=group_msg.group, user=request.user).exists():
+            msg = group_msg
+            is_group = True
 
     if not msg:
         raise Http404('File not found.')
-
-    # ── Authorisation: only sender or receiver ──────────────────
-    if is_group:
-        if not GroupMembership.objects.filter(group=msg.group, user=request.user).exists():
-            raise Http404('File not found.')
-    else:
-        if request.user not in (msg.sender, msg.receiver):
-            raise Http404('File not found.')
 
     if not msg.file:
         return JsonResponse({'error': 'No file stored for this message.'}, status=404)
@@ -913,11 +928,13 @@ def download_file(request, file_id):
         content_type=content_type,
         as_attachment=False,
     )
+    safe_filename = os.path.basename(msg.file.name).replace('"', '').replace('\r', '').replace('\n', '')
+    safe_display_name = (msg.file_name or msg.original_filename or 'sdh_file').replace('\r', '').replace('\n', '').replace('"', '')
     response['Content-Disposition'] = (
-        f'attachment; filename="{os.path.basename(msg.file.name)}"'
+        f'attachment; filename="{safe_filename}"'
     )
     response['X-SDH-Original-Mime'] = content_type
-    response['X-SDH-File-Name']     = msg.file_name or msg.original_filename or 'sdh_file'
+    response['X-SDH-File-Name']     = safe_display_name
     response['Access-Control-Expose-Headers'] = (
         'X-SDH-Original-Mime, X-SDH-File-Name'
     )
@@ -1249,6 +1266,21 @@ def upload_moment(request):
 
     uploaded_file = request.FILES.get('media')
     song_file = request.FILES.get('song_file')
+
+    # Security & size guards
+    if uploaded_file:
+        if uploaded_file.size > 15 * 1024 * 1024:
+            return JsonResponse({'error': 'Media file exceeds the 15 MB limit.'}, status=413)
+        mime = getattr(uploaded_file, 'content_type', '') or ''
+        if not (mime.startswith('image/') or mime.startswith('video/')):
+            return JsonResponse({'error': 'Only image and video files are permitted for moments.'}, status=400)
+
+    if song_file:
+        if song_file.size > 5 * 1024 * 1024:
+            return JsonResponse({'error': 'Audio file exceeds the 5 MB limit.'}, status=413)
+        mime = getattr(song_file, 'content_type', '') or ''
+        if not mime.startswith('audio/'):
+            return JsonResponse({'error': 'Only audio files are permitted for moment songs.'}, status=400)
 
     if moment_type in (Moment.MOMENT_TYPE_IMAGE, Moment.MOMENT_TYPE_VIDEO) and not uploaded_file:
         return JsonResponse({'error': 'Media file is required for image/video moments.'}, status=400)

@@ -53,11 +53,13 @@ else:
     if '.onrender.com' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('.onrender.com')
 
-# --- CSRF Trusted Origins for HTTPS deployments (Render) ---
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000', cast=Csv())
+# --- CSRF Trusted Origins for HTTPS deployments (Render / Railway / Local) ---
+_csrf_origins = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:8000,http://127.0.0.1:8000', cast=Csv())
+CSRF_TRUSTED_ORIGINS = list(_csrf_origins)
 if RENDER_EXTERNAL_HOSTNAME:
-    if f"https://{RENDER_EXTERNAL_HOSTNAME}" not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+    _origin = f"https://{RENDER_EXTERNAL_HOSTNAME}"
+    if _origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_origin)
 else:
     if "https://*.onrender.com" not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append("https://*.onrender.com")
@@ -335,14 +337,6 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 CSRF_COOKIE_HTTPONLY = False       # JS needs CSRF token
 CSRF_COOKIE_SAMESITE = 'Lax'
 
-# ---------------------------------------------------------------------------
-# CSRF Trusted Origins (required for Railway/Render behind proxy)
-# ---------------------------------------------------------------------------
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:8000,http://127.0.0.1:8000',
-    cast=Csv()
-)
 
 # ---------------------------------------------------------------------------
 # Security Headers (tighten for production)

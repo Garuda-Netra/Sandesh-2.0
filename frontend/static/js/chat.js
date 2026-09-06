@@ -1353,7 +1353,14 @@ SDH.Chat = (() => {
 
   /** Map: date-label string → separator DOM element (one per date). */
   const dateSeparators = new Map();
-  const _esc = s => (s || '').replace(/'/g, '&#039;').replace(/"/g, '&quot;');
+  const _esc = s => String(s || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\r/g, '')
+    .replace(/\n/g, ' ');
 
   function appendMessage(opts) {
     const container = document.getElementById('messagesContainer');
