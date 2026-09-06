@@ -233,6 +233,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         payload = {
             'message_id': message['id'],
             'sender': self.me.username,
+            'sender_id': self.me.id,
             'receiver': self.other_username,
             'receiver_id': self.other_user_id,
             'message': data.get('message', ''),
@@ -245,11 +246,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if message.get('replied_moment'):
             payload['replied_moment'] = message['replied_moment']
 
-        # Broadcast to the shared room group (both participants)
-        await self.channel_layer.group_send(
-            self.room_group,
-            {'type': 'broadcast_message', **payload}
-        )
+        # Broadcast to both participants' personal user_chat groups
+        target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
+        for grp in target_groups:
+            await self.channel_layer.group_send(
+                grp,
+                {'type': 'broadcast_message', **payload}
+            )
 
     async def handle_file_notification(self, data: dict):
         """
@@ -274,6 +277,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'message_id': data['message_id'],
             'file_id': data['file_id'],
             'sender': self.me.username,
+            'sender_id': self.me.id,
             'receiver': self.other_username,
             'message_type': data['message_type'],
             'original_filename': data['original_filename'],
@@ -282,10 +286,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'has_file': True,
         }
 
-        await self.channel_layer.group_send(
-            self.room_group,
-            {'type': 'broadcast_file_notification', **payload},
-        )
+        target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
+        for grp in target_groups:
+            await self.channel_layer.group_send(
+                grp,
+                {'type': 'broadcast_file_notification', **payload},
+            )
 
     async def handle_typing(self, data: dict):
         """Broadcasts typing indicator to the other party."""
@@ -313,26 +319,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not message_id:
             return
         await self.mark_message_delivered(int(message_id))
-        await self.channel_layer.group_send(
-            self.room_group,
-            {
-                'type': 'broadcast_message_status',
-                'message_id': int(message_id),
-                'status': 'delivered',
-            }
-        )
+        target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
+        for grp in target_groups:
+            await self.channel_layer.group_send(
+                grp,
+                {
+                    'type': 'broadcast_message_status',
+                    'message_id': int(message_id),
+                    'status': 'delivered',
+                }
+            )
 
     async def handle_read_receipt(self, data: dict):
         read_ids = await self.mark_messages_read_get_ids()
+        target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
         for msg_id in read_ids:
-            await self.channel_layer.group_send(
-                self.room_group,
-                {
-                    'type': 'broadcast_message_status',
-                    'message_id': msg_id,
-                    'status': 'read',
-                }
-            )
+            for grp in target_groups:
+                await self.channel_layer.group_send(
+                    grp,
+                    {
+                        'type': 'broadcast_message_status',
+                        'message_id': msg_id,
+                        'status': 'read',
+                    }
+                )
 
     async def handle_retention_update(self, data: dict):
         """Broadcasts retention setting changes to the room."""
@@ -1113,6 +1123,18 @@ class GroupChatConsumer(ChatConsumer):
 
 
     # ---- Broadcast relays ----
+
+    async def broadcast_message(self, event):
+        """Relay direct message to client even if user currently has group chat open."""
+        payload = {k: v for k, v in event.items() if k != 'type'}
+        payload['type'] = 'chat_message'
+        await self.send(text_data=json.dumps(payload))
+
+    async def broadcast_file_notification(self, event):
+        """Relay direct file notification to client even if user currently has group chat open."""
+        payload = {k: v for k, v in event.items() if k != 'type'}
+        payload['type'] = 'file_notification'
+        await self.send(text_data=json.dumps(payload))
 
     async def broadcast_group_message(self, event):
         payload = {k: v for k, v in event.items() if k != 'type'}

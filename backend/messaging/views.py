@@ -407,13 +407,13 @@ def save_message(request):
         try:
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
-            lo, hi = sorted([request.user.id, receiver.id])
-            room_group = f'chat_{lo}__{hi}'
+            channel_layer = get_channel_layer()
             
             payload = {
                 'type': 'broadcast_message',
                 'message_id': msg.id,
                 'sender': request.user.username,
+                'sender_id': request.user.id,
                 'receiver': receiver.username,
                 'receiver_id': receiver.id,
                 'message': msg.message,
@@ -430,7 +430,9 @@ def save_message(request):
                     'text_content': replied_moment.text_content
                 }
                 
-            async_to_sync(get_channel_layer().group_send)(room_group, payload)
+            target_groups = {f"user_chat_{request.user.id}", f"user_chat_{receiver.id}"}
+            for grp in target_groups:
+                async_to_sync(channel_layer.group_send)(grp, payload)
         except Exception:
             pass # Ignore channel layer errors in REST fallback
 

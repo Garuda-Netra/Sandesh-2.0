@@ -43,18 +43,64 @@ SDH.Chat = (() => {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  Browser Notification
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ── Audio & Title Notifications ─────────────────────────────
+  function playNotificationSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      // Harmonic pleasant two-tone notification chime (D5 -> A5)
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.35);
+    } catch { /* AudioContext suppressed by browser policy — fail silently */ }
+  }
+
+  const _baseDocumentTitle = document.title || 'Sandesh';
+  function updateDocumentTitle() {
+    let totalUnread = 0;
+    if (unreadCounts && typeof unreadCounts === 'object') {
+      for (const count of Object.values(unreadCounts)) {
+        if (typeof count === 'number' && count > 0) totalUnread += count;
+      }
+    }
+    const cleanTitle = _baseDocumentTitle.replace(/^\(\d+\)\s*/, '');
+    if (totalUnread > 0) {
+      document.title = `(${totalUnread}) ${cleanTitle}`;
+    } else {
+      document.title = cleanTitle;
+    }
+  }
+
   const Notif = {
     requestPermission() {
       if (!('Notification' in window)) return;
       if (Notification.permission === 'default') Notification.requestPermission();
     },
-    show(title, body, tag) {
+    show(title, body, tag, onClick = null) {
       if (!('Notification' in window)) return;
       if (Notification.permission !== 'granted') return;
-      if (document.visibilityState === 'visible') return;
+      if (document.visibilityState === 'visible' && document.hasFocus()) return;
       try {
         const n = new Notification(title, { body, tag, silent: false });
-        n.onclick = () => { window.focus(); n.close(); };
+        n.onclick = () => {
+          window.focus();
+          if (typeof onClick === 'function') {
+            try { onClick(); } catch (e) { console.error(e); }
+          }
+          n.close();
+        };
         setTimeout(() => n.close(), 6000);
       } catch { /* Firefox private mode */ }
     },
@@ -407,15 +453,45 @@ SDH.Chat = (() => {
       if (!isFromMe) {
         unreadCounts[chatTarget] = (unreadCounts[chatTarget] || 0) + 1;
         updateUnreadBadge(chatTarget);
+        updateDocumentTitle();
 
         let notifTitle = isGroupMsg ? `New message in Group` : `New message from ${data.sender}`;
         if (isGroupMsg && data.sender) notifTitle = `New message from ${data.sender} in Group`;
+        const previewText = data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`;
+
+        const clickHandler = () => {
+          if (isGroupMsg) {
+            if (typeof selectGroup === 'function') selectGroup(data.group_id);
+          } else {
+            selectUser(data.sender, data.sender_id || null);
+          }
+        };
 
         Notif.show(
           notifTitle,
-          data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`,
+          previewText,
           `sdh-${chatTarget}`,
+          clickHandler
         );
+
+        showToast(`${notifTitle}: ${previewText}`, 'info', clickHandler);
+        playNotificationSound();
+
+        // Move contact to top under Saved Messages
+        const targetItem = document.getElementById(`user-item-${chatTarget}`);
+        if (targetItem) {
+          const userList = document.getElementById('userList');
+          if (userList) {
+            const savedMsgItem = userList.querySelector('[data-self="1"]');
+            if (savedMsgItem && savedMsgItem.nextSibling) {
+              userList.insertBefore(targetItem, savedMsgItem.nextSibling);
+            } else {
+              userList.prepend(targetItem);
+            }
+          }
+        } else {
+          _refreshSidebar();
+        }
       }
       return;
     }
@@ -431,6 +507,13 @@ SDH.Chat = (() => {
       repliedMoment: data.replied_moment,
     });
     scrollToBottom();
+
+    if (!isFromMe && (document.visibilityState !== 'visible' || !document.hasFocus())) {
+      const notifTitle = isGroupMsg ? `New message in Group` : `New message from ${data.sender}`;
+      const previewText = data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`;
+      Notif.show(notifTitle, previewText, `sdh-${chatTarget}`);
+      playNotificationSound();
+    }
 
     if (SDH.WS.isOpen()) {
       if (!activeUser.startsWith('group_')) {
@@ -488,11 +571,30 @@ SDH.Chat = (() => {
     if (data.sender !== activeUser) {
       unreadCounts[data.sender] = (unreadCounts[data.sender] || 0) + 1;
       updateUnreadBadge(data.sender);
-      Notif.show(
-        `New file from ${data.sender}`,
-        `📎 ${data.original_filename || 'File'}`,
-        `sdh-${data.sender}`,
-      );
+      updateDocumentTitle();
+
+      const notifTitle = `New file from ${data.sender}`;
+      const previewText = `📎 ${data.original_filename || 'File'}`;
+      const clickHandler = () => selectUser(data.sender, data.sender_id || null);
+
+      Notif.show(notifTitle, previewText, `sdh-${data.sender}`, clickHandler);
+      showToast(`${notifTitle}: ${previewText}`, 'info', clickHandler);
+      playNotificationSound();
+
+      const targetItem = document.getElementById(`user-item-${data.sender}`);
+      if (targetItem) {
+        const userList = document.getElementById('userList');
+        if (userList) {
+          const savedMsgItem = userList.querySelector('[data-self="1"]');
+          if (savedMsgItem && savedMsgItem.nextSibling) {
+            userList.insertBefore(targetItem, savedMsgItem.nextSibling);
+          } else {
+            userList.prepend(targetItem);
+          }
+        }
+      } else {
+        _refreshSidebar();
+      }
       return;
     }
 
@@ -507,6 +609,11 @@ SDH.Chat = (() => {
       hasServerFile: true, fileId: data.file_id,
     });
     scrollToBottom();
+
+    if (document.visibilityState !== 'visible' || !document.hasFocus()) {
+      Notif.show(`New file from ${data.sender}`, `📎 ${data.original_filename || 'File'}`, `sdh-${data.sender}`);
+      playNotificationSound();
+    }
 
     if (SDH.WS.isOpen()) {
       if (!activeUser.startsWith('group_')) {
@@ -1928,12 +2035,20 @@ SDH.Chat = (() => {
   // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
   async function selectUser(username, userId) {
     if (window.innerWidth < 640) closeSidebar();
+    if (!userId) {
+      const uObj = window.SDH_DATA?.users?.find(u => u.username === username);
+      if (uObj?.id) userId = uObj.id;
+      else {
+        const itemEl = document.getElementById(`user-item-${username}`);
+        if (itemEl?.dataset?.userId) userId = itemEl.dataset.userId;
+      }
+    }
     if (activeUser === username) return;
     activeUser = username; activeUserId = userId;
     sessionStorage.setItem('ndm_last_chat', username);
     if (userId) sessionStorage.setItem('ndm_last_chat_id', String(userId));
 
-    if (SDH.WS) {
+    if (SDH.WS && userId) {
       SDH.WS.connectWebSocket(userId, false);
     }
 
@@ -1984,6 +2099,7 @@ SDH.Chat = (() => {
 
     unreadCounts[username] = 0;
     updateUnreadBadge(username);
+    updateDocumentTitle();
 
     // Check if this contact is blocked by us
     const userItem = document.getElementById(`user-item-${username}`);
@@ -2111,6 +2227,7 @@ SDH.Chat = (() => {
       const data = await res.json();
       unreadCounts = data.unread || {};
       Object.entries(unreadCounts).forEach(([u, c]) => { if (c > 0) updateUnreadBadge(u); });
+      updateDocumentTitle();
     } catch { /* non-critical */ }
   }
 
@@ -2290,7 +2407,7 @@ SDH.Chat = (() => {
     };
   }
 
-  function showToast(message, type = 'info') {
+  function showToast(message, type = 'info', onClick = null) {
     // Avoid duplicate consecutive toasts in the queue
     const lastInQueue = toastQueue[toastQueue.length - 1];
     if (lastInQueue && lastInQueue.message === message) return;
@@ -2299,7 +2416,7 @@ SDH.Chat = (() => {
     const currentlyShowingEl = document.getElementById('chatToastContainer')?.firstElementChild;
     if (currentlyShowingEl && currentlyShowingEl.textContent === message) return;
 
-    toastQueue.push({ message, type });
+    toastQueue.push({ message, type, onClick });
     processToastQueue();
   }
 
@@ -2307,7 +2424,7 @@ SDH.Chat = (() => {
     if (isShowingToast || toastQueue.length === 0) return;
     isShowingToast = true;
 
-    const { message, type } = toastQueue.shift();
+    const { message, type, onClick } = toastQueue.shift();
 
     const colors = {
       info: 'bg-divine-card border-divine-border text-divine-text',
@@ -2325,9 +2442,20 @@ SDH.Chat = (() => {
     }
 
     const toast = document.createElement('div');
-    toast.className = `pointer-events-auto px-5 py-3 rounded-xl border text-sm shadow-2xl animate-slide-in
+    toast.className = `sdh-toast sdh-toast-${type} pointer-events-auto px-5 py-3 rounded-xl border text-sm shadow-2xl animate-slide-in
                         ${colors[type] || colors.info}`;
     toast.textContent = message;
+
+    if (typeof onClick === 'function') {
+      toast.style.cursor = 'pointer';
+      toast.title = 'Click to view';
+      toast.onclick = () => {
+        try { onClick(); } catch (e) { console.error(e); }
+        toast.remove();
+        isShowingToast = false;
+        processToastQueue();
+      };
+    }
 
     container.appendChild(toast);
 
@@ -2339,7 +2467,7 @@ SDH.Chat = (() => {
         isShowingToast = false;
         processToastQueue();
       }, 400);
-    }, 2200);
+    }, 2800);
   }
 
   let removeMyViewCount = 0;
