@@ -188,12 +188,24 @@
         });
     },
 
+    cleanStars(text) {
+      if (!text) return '';
+      // Convert line-start asterisk bullets "* item" to "- item"
+      let cleaned = text.replace(/^([ \t]*)\*[ \t]+/gm, '$1- ');
+      // Strip markdown bold/italic asterisks: **word** -> word, *word* -> word
+      cleaned = cleaned.replace(/\*{1,3}([^*]+?)\*{1,3}/g, '$1');
+      // Strip any leftover asterisks
+      cleaned = cleaned.replace(/\*+/g, '');
+      return cleaned.trim();
+    },
+
     appendMessage(role, content) {
+      const sanitized = role === 'user' ? content : this.cleanStars(content);
       const msg = document.createElement('div');
       msg.className = role === 'user' ? 'sdh-bot-msg sdh-bot-msg--user' : 'sdh-bot-msg sdh-bot-msg--bot';
-      msg.textContent = content;
+      msg.textContent = sanitized;
       this.messagesEl.appendChild(msg);
-      this.saveHistory(role, content);
+      this.saveHistory(role, sanitized);
       this.scrollToBottom();
     },
 
@@ -234,9 +246,10 @@
       history.forEach((item) => {
         if (!item || !item.role || !item.content) return;
         const role = item.role === 'user' ? 'user' : 'assistant';
+        const sanitized = role === 'user' ? item.content : this.cleanStars(item.content);
         const msg = document.createElement('div');
         msg.className = role === 'user' ? 'sdh-bot-msg sdh-bot-msg--user' : 'sdh-bot-msg sdh-bot-msg--bot';
-        msg.textContent = item.content;
+        msg.textContent = sanitized;
         this.messagesEl.appendChild(msg);
       });
     },
@@ -244,7 +257,10 @@
     buildApiHistory() {
       const history = this.loadHistory();
       return history
-        .map((item) => ({ role: item.role, content: item.content }))
+        .map((item) => ({
+          role: item.role,
+          content: item.role === 'assistant' ? this.cleanStars(item.content) : item.content,
+        }))
         .slice(-8);
     },
 
