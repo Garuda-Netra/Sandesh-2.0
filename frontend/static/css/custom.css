@@ -1774,6 +1774,90 @@ body {
   transform: translateY(-2px) scale(1.08);
 }
 
+/* ════════════════════════════════════════════════════════════════
+   MESSAGE BUBBLE STYLES (for JS-rendered bubbles)
+════════════════════════════════════════════════════════════════ */
+
+/* Base message bubble styling */
+.msg-bubble {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.msg-bubble,
+[class*="bg-gradient-to-br"][class*="from-divine-gold"] {
+  position: relative;
+}
+
+/* Sender & Receiver bubbles */
+.msg-bubble-sender {
+  background: linear-gradient(135deg, #ea580c 0%, #f97316 50%, #f59e0b 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 12px rgba(234, 88, 12, 0.22);
+}
+
+[data-theme="dark"] .msg-bubble-sender {
+  background: linear-gradient(135deg, #9333ea 0%, #7c3aed 60%, #6366f1 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 16px rgba(168, 85, 247, 0.28);
+}
+
+.msg-bubble-receiver {
+  background: var(--c-card);
+  color: var(--c-text);
+  border: 1px solid var(--c-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .msg-bubble-receiver {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Glow effect for sent messages (gradient gold bubbles) */
+[class*="bg-gradient-to-br"][class*="from-divine-gold"] {
+  box-shadow: 0 2px 12px rgba(168, 85, 247, 0.2),
+    0 0 20px rgba(168, 85, 247, 0.08);
+}
+
+/* Received message bubbles - glass effect */
+[class*="bg-divine-card"][class*="border-divine-border"] {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Call message card inside bubble */
+.call-msg-card {
+  width: 195px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.call-msg-card button {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .call-msg-card {
+    width: 215px;
+  }
+}
+
+/* Media and file message containment */
+.media-msg,
+.file-msg {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
 /* ─── Call accept / reject buttons ────────────────────────────── */
 .sdh-call-accept {
   background: linear-gradient(135deg, #22c55e, #16a34a);
@@ -1938,6 +2022,12 @@ input[type="password"]::-webkit-reveal {
 ════════════════════════════════════════════════════════════════ */
 
 /* Sent message bubbles - applied by chat.js class names */
+.msg-bubble {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .msg-bubble,
 [class*="bg-gradient-to-br"][class*="from-divine-gold"] {
   position: relative;
@@ -2205,7 +2295,7 @@ input[type="password"]::-webkit-reveal {
 ════════════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
   .msg-bubble {
-    max-width: 88%;
+    max-width: 100%;
   }
 
   #callOverlay #activeCallPanel {

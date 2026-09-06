@@ -1209,6 +1209,7 @@ SDH.Chat = (() => {
 
   /** Map: date-label string → separator DOM element (one per date). */
   const dateSeparators = new Map();
+  const _esc = s => (s || '').replace(/'/g, '&#039;').replace(/"/g, '&quot;');
 
   function appendMessage(opts) {
     const container = document.getElementById('messagesContainer');
@@ -1222,7 +1223,7 @@ SDH.Chat = (() => {
       isDelivered = false, isRead = false, repliedMoment = null
     } = opts;
 
-    // â”€â”€ Date separator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Date separator ───────────────────────────────────────────────────
     if (timestamp) {
       const label = _dateLabel(timestamp);
       if (!dateSeparators.has(label)) {
@@ -1274,12 +1275,23 @@ SDH.Chat = (() => {
       else initTickStatus = 'sent';
     }
 
+    const dlBtnHtml = (hasServerFile && fileId) ? `
+            <button onclick="SDH.FileUpload.downloadFile({messageId:${Number(fileId)},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType)}',buttonEl:this})"
+                    class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-gold hover:text-divine-text hover:bg-divine-surface transition-colors text-left font-medium">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              Download ${messageType === 'image' ? 'Image' : messageType === 'video' ? 'Video' : 'File'}
+            </button>
+            <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>` : '';
+
     const menuHtml = isTemp ? '' : `
         <div class="msg-menu-wrap flex-shrink-0 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 relative self-center">
           <button onclick="SDH.Chat._toggleMsgMenu(this)"
                   class="w-7 h-7 flex items-center justify-center rounded-full text-divine-muted/50 hover:text-divine-gold hover:bg-divine-card/80 border border-transparent hover:border-divine-border/60 transition-all leading-none select-none"
                   title="Message options">⋯</button>
           <div class="msg-dropdown hidden absolute ${isFromMe ? 'right-0' : 'left-0'} top-full mt-1 z-[35] w-56 bg-divine-card border border-divine-border/80 rounded-xl shadow-2xl overflow-hidden py-1">
+            ${dlBtnHtml}
             <button onclick="SDH.Chat._removeFromMyView(this)"
                     class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1333,7 +1345,7 @@ SDH.Chat = (() => {
     bubble.className = `flex ${isFromMe ? 'justify-end' : 'justify-start'} items-center gap-1.5 px-1 mb-1.5 animate-msg-appear group/msg`;
     bubble.innerHTML = `
         ${isFromMe ? menuHtml : ''}
-        <div class="max-w-[72%] space-y-0.5">
+        <div class="max-w-[85%] sm:max-w-[72%] space-y-0.5">
           ${!isFromMe
         ? `<p class="text-[11px] font-semibold text-divine-muted/70 pl-1 mb-0.5">${escapeHtml(sender)}</p>`
         : ''}
@@ -1359,16 +1371,16 @@ SDH.Chat = (() => {
       const icon = isVideo ? '📹' : '📞';
       const callTypeArgs = isVideo ? "'video', 'medium'" : "'voice', 'medium'";
       return `
-          <div class="flex flex-col items-center gap-1.5 text-center w-full min-w-[160px] max-w-full sm:min-w-[180px] pt-1 pb-1">
-            <div class="w-12 h-12 rounded-full flex flex-shrink-0 items-center justify-center text-2xl bg-red-500/15 text-red-500 mb-1.5">
+          <div class="call-msg-card flex flex-col items-center gap-1.5 text-center w-[195px] max-w-full sm:w-[215px] pt-1 pb-0.5 box-border overflow-hidden">
+            <div class="w-12 h-12 rounded-full flex flex-shrink-0 items-center justify-center text-2xl bg-red-500/15 text-red-500 mb-1">
               ${icon}
             </div>
             <div class="w-full flex flex-col items-center px-1">
-              <p class="text-[15px] font-semibold leading-tight max-w-full whitespace-normal break-words" style="color:var(--c-text)">${escapeHtml(content || 'Missed Call')}</p>
-              <p class="text-[11px] font-bold text-red-500 mt-1 uppercase tracking-wider">Missed</p>
+              <p class="text-[14px] sm:text-[15px] font-semibold leading-tight max-w-full whitespace-normal break-words" style="color:var(--c-text)">${escapeHtml(content || 'Missed Call')}</p>
+              <p class="text-[10px] sm:text-[11px] font-bold text-red-500 mt-1 uppercase tracking-wider">Missed</p>
             </div>
-            <div class="w-full mt-2 px-1 pb-1 box-border">
-              <button onclick="SDH.WebRTC.startCall(${callTypeArgs})" class="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-divine-text text-divine-surface font-semibold text-sm hover:scale-[0.98] transition-transform shadow-sm box-border">
+            <div class="w-full mt-2 box-border">
+              <button onclick="SDH.WebRTC.startCall(${callTypeArgs})" class="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl bg-divine-text text-divine-surface font-semibold text-sm hover:scale-[0.98] active:scale-[0.96] transition-all shadow-sm box-border">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
                 <span class="truncate">Call Back</span>
               </button>
@@ -1381,8 +1393,6 @@ SDH.Chat = (() => {
       return `<p class="text-sm leading-relaxed break-words whitespace-pre-wrap">${escapeHtml(content || '')}</p>`;
     }
 
-    const _esc = s => (s || '').replace(/'/g, '&#039;').replace(/"/g, '&quot;');
-
     if (messageType === 'image') {
       if (hasServerFile && fileId) {
         const fid = Number(fileId);
@@ -1392,24 +1402,46 @@ SDH.Chat = (() => {
             .catch(e => console.error('[Chat] img load:', e));
         }, 120);
         return `
-            <div class="file-msg">
-              <img src="" data-file-id="${fid}"
-                  data-mime="${_esc(mimeType || 'image/jpeg')}" data-sdh-loaded=""
-                  alt="${escapeHtml(originalFilename)}"
-                  onclick="SDH.FileUpload.downloadImage({messageId:${fid},mimeType:this.dataset.mime,imgEl:this})"
-                  class="max-w-xs max-h-52 rounded-xl object-cover cursor-pointer
-                          border border-divine-border/40 hover:opacity-90 transition-opacity bg-divine-card/50"
-                  loading="lazy" style="min-width:80px;min-height:60px;" />
-              <p class="text-[11px] text-divine-muted mt-1 truncate block max-w-full">${escapeHtml(originalFilename)}</p>
+            <div class="file-msg media-msg">
+              <div class="relative group/img overflow-hidden rounded-xl bg-divine-card/50 border border-divine-border/40 inline-block">
+                <img src="" data-file-id="${fid}"
+                    data-mime="${_esc(mimeType || 'image/jpeg')}" data-sdh-loaded=""
+                    alt="${escapeHtml(originalFilename)}"
+                    onclick="SDH.FileUpload.downloadImage({messageId:${fid},mimeType:this.dataset.mime,imgEl:this})"
+                    class="max-w-xs max-h-56 rounded-xl object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                    loading="lazy" style="min-width:120px;min-height:80px;" />
+                <button type="button"
+                        onclick="event.stopPropagation(); SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'image/jpeg')}',buttonEl:this})"
+                        class="absolute top-2 right-2 px-2 py-1 rounded-lg bg-black/60 hover:bg-black/85 text-white/95 backdrop-blur-md border border-white/20 shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 text-xs z-10 select-none cursor-pointer"
+                        title="Download image">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  </svg>
+                  <span class="text-[10px] font-semibold tracking-wide">Save</span>
+                </button>
+              </div>
+              <div class="flex items-center justify-between gap-2 mt-1.5 px-0.5 max-w-xs">
+                <p class="text-[11px] text-divine-muted truncate flex-1 min-w-0" title="${escapeHtml(originalFilename)}">${escapeHtml(originalFilename)}</p>
+                <button type="button"
+                        onclick="SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'image/jpeg')}',buttonEl:this})"
+                        class="flex items-center gap-1 text-[11px] font-semibold text-divine-gold hover:text-divine-amber hover:underline transition-colors flex-shrink-0 select-none cursor-pointer"
+                        title="Download ${escapeHtml(originalFilename)}">
+                  <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  </svg>
+                  <span>Download</span>
+                </button>
+              </div>
             </div>`;
       }
       return `
-          <div class="file-msg">
-            <img src="#" data-mime="${_esc(mimeType)}"
-                alt="${escapeHtml(originalFilename)}"
-                class="max-w-xs max-h-52 rounded-xl object-cover
-                        border border-divine-border/40 bg-divine-card/50"
-                loading="lazy" />
+          <div class="file-msg media-msg">
+            <div class="relative overflow-hidden rounded-xl bg-divine-card/50 border border-divine-border/40 inline-block">
+              <img src="#" data-mime="${_esc(mimeType)}"
+                  alt="${escapeHtml(originalFilename)}"
+                  class="max-w-xs max-h-56 rounded-xl object-cover"
+                  loading="lazy" />
+            </div>
             <p class="text-[11px] text-divine-muted mt-1 truncate block max-w-full">${escapeHtml(originalFilename)}</p>
           </div>`;
     }
@@ -1418,22 +1450,32 @@ SDH.Chat = (() => {
       if (hasServerFile && fileId) {
         const fid = Number(fileId);
         return `
-            <div class="file-msg">
-              <div class="flex items-center gap-2.5 p-3 rounded-xl bg-divine-deep/60
-                          border border-divine-border/50 cursor-pointer hover:border-divine-gold/40 transition-all"
-                  onclick="SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'video/mp4')}',buttonEl:this})">
-                <span class="text-2xl select-none">🎬</span>
-                <div class="min-w-0">
-                  <p class="text-sm font-medium text-divine-text truncate">${escapeHtml(originalFilename)}</p>
+            <div class="file-msg media-msg">
+              <div class="flex items-center gap-3 p-3 rounded-xl bg-divine-deep/60
+                          border border-divine-border/50 hover:border-divine-gold/40 transition-all max-w-xs">
+                <div class="w-10 h-10 rounded-lg bg-divine-gold/15 flex items-center justify-center text-xl flex-shrink-0 select-none">
+                  🎬
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-medium text-divine-text truncate" title="${escapeHtml(originalFilename)}">${escapeHtml(originalFilename)}</p>
                   <p class="text-xs text-divine-muted">Video · tap to download</p>
                 </div>
+                <button type="button"
+                        onclick="SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'video/mp4')}',buttonEl:this})"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-divine-gold/20 hover:bg-divine-gold/30 text-divine-gold text-xs font-semibold hover:scale-[1.02] active:scale-[0.98] transition-all flex-shrink-0 cursor-pointer"
+                        title="Download video">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  </svg>
+                  <span>Download</span>
+                </button>
               </div>
             </div>`;
       }
       return `
-          <div class="file-msg">
+          <div class="file-msg media-msg">
             <div class="flex items-center gap-2.5 p-3 rounded-xl bg-divine-deep/60
-                        border border-divine-border/50">
+                        border border-divine-border/50 max-w-xs">
               <span class="text-2xl select-none">🎬</span>
               <div class="min-w-0">
                 <p class="text-sm font-medium text-divine-text truncate">${escapeHtml(originalFilename)}</p>
@@ -1569,6 +1611,20 @@ SDH.Chat = (() => {
           // Inject the 3-dot menu now that we have a real ID
           const existingMenu = bubble.querySelector('.msg-menu-wrap');
           if (!existingMenu) {
+            const fileImg = bubble.querySelector('[data-file-id]');
+            const fileId = fileImg?.dataset?.fileId;
+            const mimeType = fileImg?.dataset?.mime || 'application/octet-stream';
+            const fileName = fileImg?.alt || 'media';
+            const dlHtml = fileId ? `
+                  <button onclick="SDH.FileUpload.downloadFile({messageId:${fileId},fileName:'${_esc(fileName)}',mimeType:'${_esc(mimeType)}',buttonEl:this})"
+                          class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-gold hover:text-divine-text hover:bg-divine-surface transition-colors text-left font-medium">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Download File
+                  </button>
+                  <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>` : '';
+
             const menuWrap = document.createElement('div');
             menuWrap.className = 'msg-menu-wrap flex-shrink-0 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 relative self-center';
             menuWrap.innerHTML = `
@@ -1576,6 +1632,7 @@ SDH.Chat = (() => {
                         class="w-7 h-7 flex items-center justify-center rounded-full text-divine-muted/50 hover:text-divine-gold hover:bg-divine-card/80 border border-transparent hover:border-divine-border/60 transition-all leading-none select-none"
                         title="Message options">⋯</button>
                 <div class="msg-dropdown hidden absolute right-0 top-full mt-1 z-[35] w-56 bg-divine-card border border-divine-border/80 rounded-xl shadow-2xl overflow-hidden py-1">
+                  ${dlHtml}
                   <button onclick="SDH.Chat._removeFromMyView(this)"
                           class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
                     <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
