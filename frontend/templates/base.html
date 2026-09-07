@@ -133,6 +133,29 @@
       const saved = localStorage.getItem(SDH.THEME_KEY) || 'dark';
       SDH.applyTheme(saved);
     })();
+
+    // Professional & simple "Coming Soon" notification handler
+    SDH.showComingSoon = function(featureName) {
+      const text = featureName 
+        ? `${featureName} is coming soon.` 
+        : 'This feature is coming soon.';
+      if (window.SDH?.Chat?.showToast) {
+        window.SDH.Chat.showToast(text, 'info');
+      } else {
+        const existing = document.getElementById('sdhComingSoonToast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.id = 'sdhComingSoonToast';
+        toast.className = 'fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] px-5 py-2.5 rounded-2xl bg-divine-card border border-divine-gold/40 text-divine-text text-xs font-semibold shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl animate-fade-in flex items-center gap-2.5 pointer-events-none select-none';
+        toast.innerHTML = `<span class="text-divine-gold text-sm">✦</span> <span>${text}</span>`;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 0.25s ease';
+          setTimeout(() => toast.remove(), 260);
+        }, 2500);
+      }
+    };
   </script>
 </head>
 

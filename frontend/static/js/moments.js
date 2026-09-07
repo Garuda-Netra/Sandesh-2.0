@@ -286,6 +286,9 @@ SDH.Moments = (function() {
             btnSp.className = "flex-1 text-xs py-1.5 rounded-lg border border-divine-gold text-divine-gold bg-divine-gold/10 transition-all duration-200 active:scale-95 active:bg-divine-gold/20";
             btnUp.className = "flex-1 text-xs py-1.5 rounded-lg border border-divine-border text-divine-muted bg-transparent transition-all duration-200 active:scale-95 active:bg-divine-gold/10";
             document.getElementById('muSongFile').value = '';
+            if (fromUserClick && window.SDH?.showComingSoon) {
+                window.SDH.showComingSoon('Spotify integration');
+            }
         }
     }
 
@@ -836,12 +839,16 @@ SDH.Moments = (function() {
     }
 
     function showSoundtrackUnavailable() {
-        const msg = "Soundtrack integrations are currently undergoing enhancements. We appreciate your patience as we prepare to bring you a superior audio experience soon.";
-        const floater = document.createElement('div');
-        floater.innerText = msg;
-        floater.className = 'fixed bottom-12 left-1/2 -translate-x-1/2 bg-divine-card border border-divine-gold/30 text-divine-gold px-6 py-3 rounded-xl shadow-2xl animate-toast z-[100] text-sm font-medium text-center max-w-sm';
-        document.body.appendChild(floater);
-        setTimeout(() => floater.remove(), 3000);
+        if (window.SDH?.showComingSoon) {
+            window.SDH.showComingSoon('Soundtrack integration');
+        } else {
+            const msg = "This feature is coming soon.";
+            const floater = document.createElement('div');
+            floater.innerText = msg;
+            floater.className = 'fixed bottom-12 left-1/2 -translate-x-1/2 bg-divine-card border border-divine-gold/30 text-divine-gold px-6 py-3 rounded-xl shadow-2xl animate-toast z-[100] text-sm font-medium text-center max-w-sm';
+            document.body.appendChild(floater);
+            setTimeout(() => floater.remove(), 3000);
+        }
     }
 
     return {

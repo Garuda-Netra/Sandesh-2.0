@@ -3,6 +3,40 @@
 {% block title %}Register — Sandesh{% endblock %}
 
 {% block content %}
+<!-- ══════════════════════════════════════════════════════════════
+     INSTANT AUTHENTICATING OVERLAY (Google SSO / Clerk)
+     Renders immediately at 0ms if returning from OAuth callback or active sync
+══════════════════════════════════════════════════════════════ -->
+<div id="authLoadingOverlay" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md transition-opacity duration-300" style="display: none;">
+  <div class="flex flex-col items-center p-8 rounded-3xl bg-divine-card/95 border border-divine-gold/30 shadow-[0_0_50px_rgba(168,85,247,0.3)] max-w-sm w-[90%] text-center animate-fade-in">
+    <div class="relative w-16 h-16 mb-5">
+      <div class="absolute inset-0 rounded-full border-4 border-divine-gold/20 animate-ping"></div>
+      <div class="w-16 h-16 rounded-full border-4 border-divine-gold/30 border-t-divine-gold animate-spin"></div>
+    </div>
+    <h3 id="authOverlayTitle" class="text-xl font-bold text-divine-text mb-2">Authenticating with Google</h3>
+    <p id="authOverlaySubtitle" class="text-xs text-divine-muted leading-relaxed">Securing your session and creating your Sandesh account...</p>
+    <div class="mt-5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-[11px] text-zinc-300">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span id="authOverlayStatus">Verifying credentials...</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Synchronous Instant Check (0ms execution before DOMContentLoaded) ──
+  (function() {
+    try {
+      var s = window.location.search || '';
+      var h = window.location.hash || '';
+      var isOAuth = s.indexOf('__clerk') !== -1 || h.indexOf('__clerk') !== -1 || sessionStorage.getItem('clerk_signing_in') === '1';
+      if (isOAuth) {
+        var ov = document.getElementById('authLoadingOverlay');
+        if (ov) ov.style.display = 'flex';
+      }
+    } catch(e) {}
+  })();
+</script>
+
 <div class="min-h-screen flex items-center justify-center px-4 py-16 relative">
   <!-- Theme Toggle for Auth Pages -->
   <div class="absolute top-6 right-6">
@@ -163,6 +197,23 @@
 
 {% block extra_js %}
 <script>
+  // ── Instant Auth Overlay Controls ────────────────────────────
+  function showAuthOverlay(title, subtitle, status) {
+    const ov = document.getElementById('authLoadingOverlay');
+    if (ov) {
+      if (title) document.getElementById('authOverlayTitle').textContent = title;
+      if (subtitle) document.getElementById('authOverlaySubtitle').textContent = subtitle;
+      if (status) document.getElementById('authOverlayStatus').textContent = status;
+      ov.style.display = 'flex';
+    }
+  }
+
+  function hideAuthOverlay() {
+    const ov = document.getElementById('authLoadingOverlay');
+    if (ov) ov.style.display = 'none';
+    sessionStorage.removeItem('clerk_signing_in');
+  }
+
   document.addEventListener('DOMContentLoaded', async function() {
     // Clear any stale chat states from previous accounts in this browser tab
     sessionStorage.removeItem('ndm_last_chat');
@@ -186,18 +237,23 @@
     if (!btn) return;
 
     // ── Capture URL params BEFORE Clerk.load() strips them ─────
-    // Clerk.load() processes OAuth callback params (__clerk_status, etc.)
-    // and removes them via history.replaceState(). We must snapshot first.
-    const rawSearch = window.location.search;
-    const rawHash   = window.location.hash;
+    const rawSearch = window.location.search || '';
+    const rawHash   = window.location.hash || '';
     const isOAuthCallback = rawSearch.includes('__clerk') || rawHash.includes('__clerk');
+
+    if (isOAuthCallback) {
+      showAuthOverlay('Authenticating with Google', 'Verifying your credentials with Google...', 'Connecting to Sandesh...');
+    }
 
     // ── Helper: send clerk token to Django ──────────────────────
     async function syncWithDjango() {
+      showAuthOverlay('Authenticating with Google', 'Securing your session and creating your Sandesh account...', 'Synchronizing account...');
+
       const idToken = await window.Clerk.session.getToken();
 
       if (!idToken) {
         console.error('[Sandesh] syncWithDjango: Clerk returned a null token.');
+        hideAuthOverlay();
         return false;
       }
 
@@ -211,21 +267,9 @@
       // Mark that we are attempting a sync so we can detect redirect loops.
       sessionStorage.setItem('clerk_sync_pending', '1');
 
-      // Add a visual loading overlay
-      const overlay = document.createElement('div');
-      overlay.className = 'fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300';
-      overlay.innerHTML = `
-        <svg class="w-12 h-12 text-divine-gold animate-spin mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="text-white font-medium text-lg tracking-wide shadow-sm">Authenticating...</span>
-      `;
-      document.body.appendChild(overlay);
+      showAuthOverlay('Authenticating with Google', 'Redirecting to your messages...', 'Finishing up...');
 
-      // We use a native form POST rather than fetch. This guarantees 
-      // the browser will accept the Set-Cookie header for the Django session 
-      // and natively follow the redirect, avoiding any fetch/CORS cookie-drop bugs.
+      // Native form POST guarantees browser Set-Cookie header and follows redirect
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = '{% url "users:clerk_login" %}';
@@ -245,7 +289,7 @@
       document.body.appendChild(form);
       form.submit();
       
-      // Return a dummy promise that just hangs so the UI stays in "Authenticating..." state
+      // Return a hanging promise so UI stays in authenticating state during navigation
       return new Promise(() => {});
     }
 
@@ -268,78 +312,99 @@
 
       // If a Clerk session exists on page load:
       if (Clerk.session) {
-
-        // Check if a previous sync attempt just failed (we're in a redirect loop).
+        // Check if a previous sync attempt just failed (redirect loop detected)
         const syncWasPending = sessionStorage.getItem('clerk_sync_pending');
 
         if (syncWasPending) {
-          // A previous sync attempt brought us back here — the backend rejected it.
-          // Destroy the Clerk session so we don't loop forever.
           console.warn('[Sandesh] Previous Clerk sync failed (redirect loop detected). Destroying Clerk session.');
           sessionStorage.removeItem('clerk_sync_pending');
+          hideAuthOverlay();
           try { await Clerk.signOut(); } catch(e) { console.error('[Sandesh] signOut error:', e); }
         } else if (isOAuthCallback) {
-          // We just returned from a Google OAuth redirect — sync with Django.
+          // Returning from Google OAuth redirect — sync immediately with Django
           await syncWithDjango();
           return;
         } else {
-          // A Clerk session exists but this isn't an OAuth callback and no
-          // sync was pending. This is likely a fresh page load where the user
-          // is logged out of Django but still has an active Clerk session.
-          // Destroy the Clerk session to force explicit re-authentication.
+          // A Clerk session exists without callback & no sync pending: clean up
+          hideAuthOverlay();
           try { await Clerk.signOut(); } catch(e) { console.error('[Sandesh] signOut error:', e); }
           return;
         }
       } else {
-        // No Clerk session — clear any stale flags.
+        // No Clerk session — clear any stale flags
         sessionStorage.removeItem('clerk_sync_pending');
+        if (!isOAuthCallback) {
+          hideAuthOverlay();
+        } else {
+          // Safety fallback if callback was aborted
+          setTimeout(() => { hideAuthOverlay(); }, 3000);
+        }
       }
+    } else {
+      hideAuthOverlay();
     }
 
-    // ── Button click → open Clerk modal ────────────────────────
+    // ── Button click → immediate feedback & open Clerk modal ───
     btn.addEventListener('click', async function(e) {
       e.preventDefault();
 
       if (!Clerk) {
-        alert('Clerk is not loaded. Check your CLERK_PUBLISHABLE_KEY environment variable.');
+        alert('Authentication service is initializing. Please try again in a moment.');
         return;
       }
 
-      // Clear any previous loop-detection flags for a fresh attempt.
       sessionStorage.removeItem('clerk_sync_pending');
+      sessionStorage.setItem('clerk_signing_in', '1');
 
       btn.disabled = true;
-      btn.classList.add('opacity-50', 'cursor-not-allowed');
+      btn.classList.add('opacity-75', 'cursor-wait');
+      const originalBtnHTML = btn.innerHTML;
+      btn.innerHTML = `
+        <svg class="w-5 h-5 text-gray-700 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>Connecting to Google...</span>
+      `;
 
       try {
         // Show Clerk sign-in UI
         Clerk.openSignIn();
 
-        // Poll until Clerk session is active (user finished signing in)
+        // Responsive polling (150ms) for snappy feedback when session is authenticated
         const checkSession = setInterval(async () => {
           if (Clerk.session) {
             clearInterval(checkSession);
+            showAuthOverlay('Authenticating with Google', 'Securing your session and creating your Sandesh account...', 'Verifying credentials...');
             try {
               await syncWithDjango();
             } catch (err) {
               console.error('[Sandesh] Django sync error:', err);
+              hideAuthOverlay();
               btn.disabled = false;
-              btn.classList.remove('opacity-50', 'cursor-not-allowed');
+              btn.classList.remove('opacity-75', 'cursor-wait');
+              btn.innerHTML = originalBtnHTML;
             }
           }
-        }, 800);
+        }, 150);
 
-        // Safety: re-enable button after 60s in case modal is closed
+        // Safety: reset button after 60s in case modal is closed without sign-in
         setTimeout(() => {
           clearInterval(checkSession);
-          btn.disabled = false;
-          btn.classList.remove('opacity-50', 'cursor-not-allowed');
+          if (!Clerk.session) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-75', 'cursor-wait');
+            btn.innerHTML = originalBtnHTML;
+            sessionStorage.removeItem('clerk_signing_in');
+          }
         }, 60000);
 
       } catch (err) {
         console.error('[Sandesh] Clerk error:', err);
+        hideAuthOverlay();
         btn.disabled = false;
-        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        btn.classList.remove('opacity-75', 'cursor-wait');
+        btn.innerHTML = originalBtnHTML;
       }
     });
   });
