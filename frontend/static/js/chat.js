@@ -26,7 +26,7 @@ SDH.Chat = (() => {
   let activeUserId = null;
   let typingTimer = null;
   let isTyping = false;
-  let pendingFile = null;
+  let pendingFiles = [];
   let unreadCounts = {};
   const toastQueue = [];
   let isShowingToast = false;
@@ -1777,35 +1777,77 @@ SDH.Chat = (() => {
 
     const input = document.getElementById('messageInput');
     const rawText = input.value.trim();
-    if (!rawText && !pendingFile) return;
+    if (!rawText && !pendingFiles.length) return;
 
     try {
-      if (pendingFile) {
-        const { file } = pendingFile;
-        clearFile();
-        const hideUploadIndicator = showPersistentNotification('Uploading file...', 'info');
-        let msgData;
-        try {
-          msgData = await SDH.FileUpload.handleFileUpload(
-            file, activeUser, stage => console.debug('[Chat] File upload:', stage),
-          );
-        } catch (uploadErr) {
-          console.error('[Chat] File upload error:', uploadErr);
-          hideUploadIndicator();
-          showToast(uploadErr.message || 'File upload failed.', 'error');
-          return;
+      if (pendingFiles.length > 0) {
+        const filesToSend = [...pendingFiles];
+        clearFiles();
+
+        const totalFiles = filesToSend.length;
+        const hideUploadIndicator = showPersistentNotification(
+          totalFiles === 1 ? `Uploading ${filesToSend[0].file.name}...` : `Uploading 1 of ${totalFiles} files...`,
+          'info'
+        );
+
+        let successCount = 0;
+        for (let i = 0; i < totalFiles; i++) {
+          const item = filesToSend[i];
+          const file = item.file;
+          try {
+            const msgData = await SDH.FileUpload.handleFileUpload(
+              file, activeUser, stage => console.debug('[Chat] File upload:', file.name, stage),
+            );
+            const tempId = `temp_${Date.now()}_${i}`;
+            appendMessage({
+              sender: window.SDH_DATA.currentUser, isFromMe: true, content: null,
+              messageType: msgData.message_type,
+              originalFilename: msgData.original_filename, mimeType: msgData.mime_type,
+              timestamp: msgData.timestamp, messageId: tempId,
+              hasServerFile: true, fileId: msgData.file_id,
+            });
+            scrollToBottom();
+            successCount++;
+          } catch (uploadErr) {
+            console.error('[Chat] File upload error:', file.name, uploadErr);
+            showToast(`Failed to upload ${file.name}: ${uploadErr.message || 'Error'}`, 'error');
+          }
         }
+
         hideUploadIndicator();
-        const tempId = `temp_${Date.now()}`;
-        appendMessage({
-          sender: window.SDH_DATA.currentUser, isFromMe: true, content: null,
-          messageType: msgData.message_type,
-          originalFilename: msgData.original_filename, mimeType: msgData.mime_type,
-          timestamp: msgData.timestamp, messageId: tempId,
-          hasServerFile: true, fileId: msgData.file_id,
-        });
-        scrollToBottom();
-        showToast('File sent \u2713', 'success');
+        if (successCount > 0) {
+          showToast(successCount === 1 ? 'File sent ✓' : `${successCount} files sent ✓`, 'success');
+        }
+
+        if (rawText) {
+          const payload = { type: 'chat_message', receiver: activeUser, message_type: 'text', message: rawText };
+          if (activeUser.startsWith('group_')) {
+            payload.type = 'group_message';
+          }
+
+          const tempId = `temp_${Date.now()}_txt`;
+          appendMessage({
+            sender: window.SDH_DATA.currentUser, isFromMe: true,
+            content: rawText, messageType: 'text',
+            originalFilename: '', mimeType: '',
+            timestamp: new Date().toISOString(), messageId: tempId,
+          });
+          pendingAckMap.set(tempId, null);
+          scrollToBottom();
+          stopTyping();
+          input.value = '';
+          input.style.height = 'auto';
+
+          SDH.WS.sendMessage(payload);
+
+          if (!activeUser.startsWith('group_') && !_isSelfChat(activeUser)) {
+            const existingItem = document.getElementById(`user-item-${activeUser}`);
+            if (!existingItem) {
+              _refreshSidebar();
+            }
+          }
+        }
+
         return;
       }
 
@@ -2135,6 +2177,7 @@ SDH.Chat = (() => {
       }
     }
     if (activeUser === username) return;
+    clearFiles();
     activeUser = username; activeUserId = userId;
     sessionStorage.setItem('ndm_last_chat', username);
     if (userId) sessionStorage.setItem('ndm_last_chat_id', String(userId));
@@ -2345,30 +2388,170 @@ SDH.Chat = (() => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
 
-  // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
-  //  File handling
-  // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
+  // ════════════════════════════════════════════════════════════════
+  //  File handling (Multi-file support)
+  // ════════════════════════════════════════════════════════════════
+  const MAX_BATCH_FILES = 10;
+
+  function _formatFileSize(bytes) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function _getFileIconSvg(mimeType, fileName) {
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+      return `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`;
+    }
+    if (mimeType?.startsWith('video/') || ['mp4', 'webm', 'ogg', 'mov'].includes(ext)) {
+      return `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>`;
+    }
+    if (mimeType === 'application/pdf' || ext === 'pdf') {
+      return `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>`;
+    }
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+      return `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>`;
+    }
+    return `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
+  }
+
   function handleFileSelect(input) {
-    const file = input.files[0];
-    if (!file) return;
-    if (file.size > MAX_FILE_SIZE) { showToast('File too large. Maximum 5 MB.', 'error'); input.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      pendingFile = { file, arrayBuffer: e.target.result };
-      const preview = document.getElementById('filePreview');
-      const name = document.getElementById('filePreviewName');
-      if (preview && name) {
-        name.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-        preview.classList.remove('hidden');
-      }
-    };
-    reader.readAsArrayBuffer(file);
+    const rawFiles = Array.from(input.files || []);
+    if (!rawFiles.length) return;
+    addFilesToPending(rawFiles);
     input.value = '';
   }
 
-  function clearFile() {
-    pendingFile = null;
-    document.getElementById('filePreview')?.classList.add('hidden');
+  function addFilesToPending(files) {
+    if (!files || !files.length) return;
+
+    let addedCount = 0;
+    let oversizedCount = 0;
+
+    for (const file of files) {
+      if (pendingFiles.length >= MAX_BATCH_FILES) {
+        showToast(`Maximum ${MAX_BATCH_FILES} files can be selected at once.`, 'warning');
+        break;
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        oversizedCount++;
+        continue;
+      }
+
+      // Prevent duplicate files in the same batch
+      const isDuplicate = pendingFiles.some(item =>
+        item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified
+      );
+      if (isDuplicate) continue;
+
+      const id = 'f_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      let thumbUrl = null;
+      if (file.type && file.type.startsWith('image/')) {
+        try { thumbUrl = URL.createObjectURL(file); } catch (e) {}
+      }
+
+      pendingFiles.push({ id, file, thumbUrl });
+      addedCount++;
+    }
+
+    if (oversizedCount > 0) {
+      showToast(`${oversizedCount} file(s) exceeded the 5 MB limit and were skipped.`, 'error');
+    }
+
+    renderFilePreviews();
+  }
+
+  function removeFile(fileId) {
+    const idx = pendingFiles.findIndex(item => item.id === fileId);
+    if (idx !== -1) {
+      const item = pendingFiles[idx];
+      if (item.thumbUrl) {
+        try { URL.revokeObjectURL(item.thumbUrl); } catch (e) {}
+      }
+      pendingFiles.splice(idx, 1);
+      renderFilePreviews();
+    }
+  }
+
+  function clearFiles() {
+    pendingFiles.forEach(item => {
+      if (item.thumbUrl) {
+        try { URL.revokeObjectURL(item.thumbUrl); } catch (e) {}
+      }
+    });
+    pendingFiles = [];
+    const container = document.getElementById('filePreviewContainer');
+    if (container) {
+      container.innerHTML = '';
+      container.classList.add('hidden');
+      container.style.display = 'none';
+    }
+    const legacyPreview = document.getElementById('filePreview');
+    if (legacyPreview) {
+      legacyPreview.classList.add('hidden');
+      legacyPreview.style.display = 'none';
+    }
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) fileInput.value = '';
+  }
+
+  // Backward compatibility alias
+  const clearFile = clearFiles;
+
+  function renderFilePreviews() {
+    const container = document.getElementById('filePreviewContainer');
+    if (!container) return;
+
+    if (!pendingFiles.length) {
+      container.innerHTML = '';
+      container.classList.add('hidden');
+      container.style.display = 'none';
+      return;
+    }
+
+    container.classList.remove('hidden');
+    container.style.display = 'flex';
+
+    let chipsHtml = '';
+    pendingFiles.forEach(item => {
+      const f = item.file;
+      const sizeStr = _formatFileSize(f.size);
+      const isImg = Boolean(item.thumbUrl);
+      const iconHtml = isImg
+        ? `<img src="${item.thumbUrl}" alt="preview" class="w-5 h-5 rounded object-cover flex-shrink-0" />`
+        : `<div class="w-5 h-5 rounded bg-divine-gold/20 text-divine-gold flex items-center justify-center flex-shrink-0">${_getFileIconSvg(f.type, f.name)}</div>`;
+
+      chipsHtml += `
+        <div class="sdh-file-chip inline-flex items-center gap-2 max-w-[240px] sm:max-w-[280px] min-w-0 px-2.5 py-1.5 rounded-xl text-xs box-border" data-file-id="${item.id}">
+          ${iconHtml}
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="sdh-file-chip-name truncate font-medium" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+            <span class="text-[10px] opacity-70">${sizeStr}</span>
+          </div>
+          <button type="button" onclick="event.stopPropagation(); SDH.Chat.removeFile('${item.id}')"
+            class="sdh-file-chip-remove p-1 rounded-lg text-divine-muted hover:text-red-400 hover:bg-red-500/15 transition-all flex-shrink-0 cursor-pointer"
+            title="Remove ${escapeHtml(f.name)}">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      `;
+    });
+
+    if (pendingFiles.length > 1) {
+      chipsHtml += `
+        <button type="button" onclick="event.stopPropagation(); SDH.Chat.clearFiles()"
+          class="px-2.5 py-1 text-[11px] font-semibold rounded-lg text-red-400 hover:bg-red-500/15 transition-colors cursor-pointer flex-shrink-0 self-center"
+          title="Remove all files">
+          Clear all (${pendingFiles.length})
+        </button>
+      `;
+    }
+
+    container.innerHTML = chipsHtml;
   }
 
 
@@ -2430,6 +2613,25 @@ SDH.Chat = (() => {
     }
     document.getElementById('sidebarOverlay')?.classList.add('hidden');
   }
+
+  // ── Clipboard paste attachment support ─────────────────────────────────────
+  document.addEventListener('paste', (e) => {
+    const input = document.getElementById('messageInput');
+    if (!input || document.activeElement !== input) return;
+    const items = e.clipboardData?.items;
+    if (!items || !items.length) return;
+    const files = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        const f = items[i].getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      addFilesToPending(files);
+    }
+  });
 
   // ── Scroll + Toast ────────────────────────────────────────────────────────
   let isScrollingTimeout = null;
@@ -3395,6 +3597,7 @@ SDH.Chat = (() => {
   async function selectGroup(groupId, groupName) {
     if (window.innerWidth < 640) closeSidebar();
     if (activeUser === `group_${groupId}`) return;
+    clearFiles();
     activeUser = `group_${groupId}`;
     activeUserId = groupId;
     sessionStorage.setItem('ndm_last_chat', activeUser);
@@ -3804,6 +4007,8 @@ SDH.Chat = (() => {
     onInput,
     onKeyDown,
     handleFileSelect,
+    removeFile,
+    clearFiles,
     clearFile,
     filterUsers,
     openSidebar,

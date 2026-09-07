@@ -2655,6 +2655,19 @@ input[type="password"]::-webkit-reveal {
   box-shadow: 0 0 22px rgba(168, 85, 247, 0.28);
 }
 
+[data-theme="dark"] .sdh-input-bar {
+  margin: 0 auto 1.25rem auto;
+  width: min(880px, calc(100% - 2.5rem));
+  max-width: 880px;
+  align-self: center;
+  box-sizing: border-box;
+  border-radius: 24px;
+  background: rgba(18, 18, 20, 0.6) !important;
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
 /* ── Electric border → sleek silver gradient ──────────────────────── */
 .electric-border {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.4));
