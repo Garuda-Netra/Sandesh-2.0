@@ -164,6 +164,24 @@
 {% block extra_js %}
 <script>
   document.addEventListener('DOMContentLoaded', async function() {
+    // Clear any stale chat states from previous accounts in this browser tab
+    sessionStorage.removeItem('ndm_last_chat');
+    sessionStorage.removeItem('ndm_last_chat_id');
+    sessionStorage.removeItem('ndm_last_chat_name');
+    sessionStorage.removeItem('ndm_last_chat_user');
+
+    // On standard registration form submit, flag fresh login
+    const regForm = document.querySelector('form');
+    if (regForm) {
+      regForm.addEventListener('submit', function() {
+        sessionStorage.removeItem('ndm_last_chat');
+        sessionStorage.removeItem('ndm_last_chat_id');
+        sessionStorage.removeItem('ndm_last_chat_name');
+        sessionStorage.removeItem('ndm_last_chat_user');
+        sessionStorage.setItem('ndm_just_logged_in', '1');
+      });
+    }
+
     const btn = document.getElementById('google-signin-btn');
     if (!btn) return;
 
@@ -182,6 +200,13 @@
         console.error('[Sandesh] syncWithDjango: Clerk returned a null token.');
         return false;
       }
+
+      // Mark fresh login & clear old chat session
+      sessionStorage.removeItem('ndm_last_chat');
+      sessionStorage.removeItem('ndm_last_chat_id');
+      sessionStorage.removeItem('ndm_last_chat_name');
+      sessionStorage.removeItem('ndm_last_chat_user');
+      sessionStorage.setItem('ndm_just_logged_in', '1');
 
       // Mark that we are attempting a sync so we can detect redirect loops.
       sessionStorage.setItem('clerk_sync_pending', '1');

@@ -917,6 +917,7 @@ SDH.Chat = (() => {
     sessionStorage.removeItem('ndm_last_chat');
     sessionStorage.removeItem('ndm_last_chat_id');
     sessionStorage.removeItem('ndm_last_chat_name');
+    sessionStorage.removeItem('ndm_last_chat_user');
 
     const container = document.getElementById('messagesContainer');
     if (container) {
@@ -2214,6 +2215,7 @@ SDH.Chat = (() => {
     activeUser = username; activeUserId = userId;
     sessionStorage.setItem('ndm_last_chat', username);
     if (userId) sessionStorage.setItem('ndm_last_chat_id', String(userId));
+    sessionStorage.setItem('ndm_last_chat_user', window.SDH_DATA?.currentUser || '');
 
     if (SDH.WS && userId) {
       SDH.WS.connectWebSocket(userId, false);
@@ -3675,6 +3677,7 @@ SDH.Chat = (() => {
     sessionStorage.setItem('ndm_last_chat', activeUser);
     sessionStorage.setItem('ndm_last_chat_id', String(groupId));
     if (groupName) sessionStorage.setItem('ndm_last_chat_name', groupName);
+    sessionStorage.setItem('ndm_last_chat_user', window.SDH_DATA?.currentUser || '');
 
     renderedIds.clear();
     dateSeparators.clear();

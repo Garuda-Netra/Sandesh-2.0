@@ -268,6 +268,7 @@
 </style>
 
 {{ users_json|json_script:"sdh-users-data" }}
+{{ groups|json_script:"sdh-groups-data" }}
 
 <!-- Hidden data for JS -->
 <script>
@@ -300,6 +301,7 @@
     turnServerUsername: "{{ turn_server_username|escapejs }}",
     turnServerCredential: "{{ turn_server_credential|escapejs }}",
     users: JSON.parse(document.getElementById('sdh-users-data').textContent),
+    groups: JSON.parse(document.getElementById('sdh-groups-data')?.textContent || '[]'),
     // Chat Lock & Security Data
     hasSecurityPin: {{ has_security_pin|yesno:"true,false" }},
     biometricEnabled: {{ biometric_enabled|yesno:"true,false" }},
@@ -2916,24 +2918,66 @@
       console.error('[NDM] initializeChat error:', e);
     }
 
-    // Restore the last active conversation (username + numeric user ID)
+    // Helper: Reset conversation panel to Home empty state & connect global WS
+    function resetToHomeState() {
+      sessionStorage.removeItem('ndm_just_logged_in');
+      sessionStorage.removeItem('ndm_last_chat');
+      sessionStorage.removeItem('ndm_last_chat_id');
+      sessionStorage.removeItem('ndm_last_chat_name');
+      sessionStorage.removeItem('ndm_last_chat_user');
+      if (window.SDH?.Chat?._resetConversationPanel) {
+        window.SDH.Chat._resetConversationPanel();
+      }
+      SDH.WS?.connectWebSocket?.('global');
+    }
+
+    // 1. Fresh login check: always show the Home / Welcome page, never auto-restore
+    const justLoggedIn = sessionStorage.getItem('ndm_just_logged_in') === '1';
+    if (justLoggedIn) {
+      resetToHomeState();
+      return;
+    }
+
+    // 2. User ownership check: make sure saved chat belongs to current logged-in user
     const lastUser = sessionStorage.getItem('ndm_last_chat');
     const lastId = sessionStorage.getItem('ndm_last_chat_id');
     const lastName = sessionStorage.getItem('ndm_last_chat_name');
+    const lastChatOwner = sessionStorage.getItem('ndm_last_chat_user');
+    const currentUser = window.SDH_DATA?.currentUser;
+
+    if (lastChatOwner && currentUser && lastChatOwner !== currentUser) {
+      resetToHomeState();
+      return;
+    }
+
+    // 3. Restore last active conversation ONLY if it belongs to current user's actual contact / group list
     if (lastUser && lastId) {
       const isGroup = lastUser.startsWith('group_');
+
+      let isValidTarget = false;
+      if (isGroup) {
+        const gId = parseInt(lastId, 10);
+        const groupsList = window.SDH_DATA?.groups || [];
+        isValidTarget = groupsList.some(g => g.id === gId);
+      } else {
+        if (lastUser === currentUser || lastUser === 'saved') {
+          isValidTarget = true;
+        } else {
+          const usersList = window.SDH_DATA?.users || [];
+          isValidTarget = usersList.some(u => u.username === lastUser || String(u.id) === String(lastId));
+        }
+      }
+
+      if (!isValidTarget) {
+        resetToHomeState();
+        return;
+      }
+
       const isLocked = window.SDH?.ChatLock?.isChatLocked?.(lastUser, isGroup);
       const isUnlocked = window.SDH?.ChatLock?.isUnlocked?.();
 
       if (isLocked && !isUnlocked) {
-        // Clear active selection so locked chat is NOT visible on load
-        sessionStorage.removeItem('ndm_last_chat');
-        sessionStorage.removeItem('ndm_last_chat_id');
-        sessionStorage.removeItem('ndm_last_chat_name');
-        if (window.SDH?.Chat?._resetConversationPanel) {
-          window.SDH.Chat._resetConversationPanel();
-        }
-        SDH.WS?.connectWebSocket?.('global');
+        resetToHomeState();
       } else {
         if (isGroup) {
           SDH.Chat.selectGroup(parseInt(lastId, 10), lastName || lastUser);
@@ -2942,7 +2986,7 @@
         }
       }
     } else {
-      SDH.WS?.connectWebSocket?.('global');
+      resetToHomeState();
     }
   });
 </script>
