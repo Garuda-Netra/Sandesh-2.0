@@ -153,6 +153,69 @@
   .msg-bubble-sender .media-msg svg {
     color: #ffffff !important;
   }
+
+  /* ── File Download Action Buttons in Chat Bubbles ── */
+  .sdh-file-download-btn,
+  .file-msg button {
+    background: rgba(255, 255, 255, 0.12) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .sdh-file-download-btn svg,
+  .file-msg button svg {
+    stroke: currentColor !important;
+  }
+
+  .sdh-file-download-btn:hover,
+  .file-msg button:hover {
+    background: rgba(255, 255, 255, 0.24) !important;
+    color: #ffffff !important;
+  }
+
+  /* Light mode for received / non-sender messages (white card background) */
+  [data-theme="light"] .file-msg .sdh-file-download-btn,
+  [data-theme="light"] .msg-bubble-receiver .file-msg button,
+  [data-theme="light"] .file-msg:not(.msg-bubble-sender *) button {
+    color: #1e1b4b !important;
+    background: rgba(30, 27, 75, 0.08) !important;
+    border: 1px solid rgba(30, 27, 75, 0.18) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  [data-theme="light"] .file-msg .sdh-file-download-btn svg,
+  [data-theme="light"] .msg-bubble-receiver .file-msg button svg,
+  [data-theme="light"] .file-msg:not(.msg-bubble-sender *) button svg {
+    stroke: #1e1b4b !important;
+    color: #1e1b4b !important;
+  }
+
+  [data-theme="light"] .file-msg .sdh-file-download-btn:hover,
+  [data-theme="light"] .msg-bubble-receiver .file-msg button:hover,
+  [data-theme="light"] .file-msg:not(.msg-bubble-sender *) button:hover {
+    color: #0f172a !important;
+    background: rgba(30, 27, 75, 0.16) !important;
+    border-color: rgba(30, 27, 75, 0.3) !important;
+  }
+
+  /* Light mode sender bubbles (gradient purple background) stay crisp white */
+  [data-theme="light"] .msg-bubble-sender .file-msg .sdh-file-download-btn,
+  [data-theme="light"] .msg-bubble-sender .file-msg button {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.22) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  }
+
+  [data-theme="light"] .msg-bubble-sender .file-msg .sdh-file-download-btn svg,
+  [data-theme="light"] .msg-bubble-sender .file-msg button svg {
+    stroke: #ffffff !important;
+    color: #ffffff !important;
+  }
+
+  [data-theme="light"] .msg-bubble-sender .file-msg button:hover {
+    background: rgba(255, 255, 255, 0.35) !important;
+  }
 </style>
 
 {{ users_json|json_script:"sdh-users-data" }}
@@ -2030,7 +2093,7 @@
 <script src="{% static 'js/fileUpload.js' %}?v=2.1"></script>
 <script src="{% static 'js/mediaViewer.js' %}?v=1.0"></script>
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
-<script src="{% static 'js/chat.js' %}?v=2.7"></script>
+<script src="{% static 'js/chat.js' %}?v=2.8"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.0"></script>
 <script src="{% static 'js/userSearch.js' %}?v=2.0"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->

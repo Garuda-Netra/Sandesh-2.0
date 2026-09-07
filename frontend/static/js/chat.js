@@ -1647,7 +1647,7 @@ SDH.Chat = (() => {
                 </div>
                 <button type="button"
                         onclick="event.stopPropagation(); SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'video/mp4')}',buttonEl:this})"
-                        class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold hover:scale-[1.02] active:scale-[0.98] transition-all flex-shrink-0 cursor-pointer"
+                        class="sdh-file-download-btn flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white border border-black/10 dark:border-white/10 text-xs font-semibold hover:scale-[1.02] active:scale-[0.98] transition-all flex-shrink-0 cursor-pointer shadow-sm"
                         title="Download video">
                   <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -1691,7 +1691,7 @@ SDH.Chat = (() => {
                 </div>
                 <button type="button"
                         onclick="event.stopPropagation(); SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'application/pdf',buttonEl:this})"
-                        class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all flex-shrink-0 cursor-pointer"
+                        class="sdh-file-download-btn p-2 rounded-lg bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white border border-black/10 dark:border-white/10 transition-all flex-shrink-0 cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
                         title="Download PDF">
                   <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -1716,7 +1716,7 @@ SDH.Chat = (() => {
                 </div>
                 <button type="button"
                         onclick="event.stopPropagation(); SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'audio/mpeg')}',buttonEl:this})"
-                        class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all flex-shrink-0 cursor-pointer"
+                        class="sdh-file-download-btn p-2 rounded-lg bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white border border-black/10 dark:border-white/10 transition-all flex-shrink-0 cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
                         title="Download Audio">
                   <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
@@ -1738,7 +1738,7 @@ SDH.Chat = (() => {
               </div>
               <button type="button"
                       onclick="event.stopPropagation(); SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'application/octet-stream')}',buttonEl:this})"
-                      class="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all flex-shrink-0 cursor-pointer"
+                      class="sdh-file-download-btn p-2 rounded-lg bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white border border-black/10 dark:border-white/10 transition-all flex-shrink-0 cursor-pointer hover:scale-105 active:scale-95 shadow-sm"
                       title="Download ${escapeHtml(originalFilename)}">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
