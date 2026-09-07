@@ -114,7 +114,8 @@ SDH.MediaViewer = (() => {
 
     const response = await fetch(_downloadUrl(fileId), { credentials: 'same-origin' });
     if (!response.ok) {
-      throw new Error(`Failed to load file (HTTP ${response.status})`);
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Failed to load file (HTTP ${response.status})`);
     }
 
     const rawBlob = await response.blob();
@@ -523,6 +524,10 @@ SDH.MediaViewer = (() => {
   function retry() {
     if (activeMedia) {
       const copy = { ...activeMedia };
+      if (copy.fileId) {
+        blobCache.delete(String(copy.fileId));
+      }
+      copy.blobUrl = null;
       open(copy);
     }
   }

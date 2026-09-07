@@ -878,70 +878,97 @@ def download_file(request, file_id):
     Handles both direct messages and group messages without ID collisions.
     Only the sender, receiver, or authorized group members may download.
     """
-    is_group_requested = request.GET.get('type') == 'group'
-    msg = None
-    is_group = False
-
-    if not is_group_requested:
-        direct_msg = Message.objects.filter(
-            pk=file_id,
-            message_type__in=(
-                Message.MESSAGE_TYPE_FILE,
-                Message.MESSAGE_TYPE_IMAGE,
-                Message.MESSAGE_TYPE_VIDEO,
-            )
-        ).first()
-        if direct_msg and request.user in (direct_msg.sender, direct_msg.receiver):
-            msg = direct_msg
-            is_group = False
-
-    if not msg:
-        from .models import GroupMessage, GroupMembership
-        group_msg = GroupMessage.objects.filter(
-            pk=file_id,
-            message_type__in=(
-                GroupMessage.MESSAGE_TYPE_FILE,
-                GroupMessage.MESSAGE_TYPE_IMAGE,
-                GroupMessage.MESSAGE_TYPE_VIDEO,
-            )
-        ).first()
-        if group_msg and GroupMembership.objects.filter(group=group_msg.group, user=request.user).exists():
-            msg = group_msg
-            is_group = True
-
-    if not msg:
-        raise Http404('File not found.')
-
-    if not msg.file:
-        return JsonResponse({'error': 'No file stored for this message.'}, status=404)
-
-    # ── Stream file ─────────────────────────────────────────────
     try:
-        file_handle = msg.file.open('rb')
-    except FileNotFoundError:
-        return JsonResponse({'error': 'File data missing on server.'}, status=404)
+        is_group_requested = request.GET.get('type') == 'group'
+        msg = None
 
-    # Use the stored MIME type for the Content-Type header.
-    content_type = msg.mime_type or 'application/octet-stream'
+        if not is_group_requested:
+            direct_msg = Message.objects.filter(
+                pk=file_id,
+                message_type__in=(
+                    Message.MESSAGE_TYPE_FILE,
+                    Message.MESSAGE_TYPE_IMAGE,
+                    Message.MESSAGE_TYPE_VIDEO,
+                )
+            ).first()
+            if direct_msg and request.user in (direct_msg.sender, direct_msg.receiver):
+                msg = direct_msg
 
-    response = FileResponse(
-        file_handle,
-        content_type=content_type,
-        as_attachment=False,
-    )
-    safe_filename = os.path.basename(msg.file.name).replace('"', '').replace('\r', '').replace('\n', '')
-    safe_display_name = (msg.file_name or msg.original_filename or 'sdh_file').replace('\r', '').replace('\n', '').replace('"', '')
-    response['Content-Disposition'] = (
-        f'attachment; filename="{safe_filename}"'
-    )
-    response['X-Content-Type-Options'] = 'nosniff'
-    response['Content-Security-Policy'] = "default-src 'none'; sandbox"
-    response['X-SDH-Original-Mime'] = content_type
-    response['X-SDH-File-Name']     = safe_display_name
-    response['Access-Control-Expose-Headers'] = (
-        'X-SDH-Original-Mime, X-SDH-File-Name'
-    )
-    return response
+        if not msg:
+            from .models import GroupMessage, GroupMembership
+            group_msg = GroupMessage.objects.filter(
+                pk=file_id,
+                message_type__in=(
+                    GroupMessage.MESSAGE_TYPE_FILE,
+                    GroupMessage.MESSAGE_TYPE_IMAGE,
+                    GroupMessage.MESSAGE_TYPE_VIDEO,
+                )
+            ).first()
+            if group_msg and GroupMembership.objects.filter(group=group_msg.group, user=request.user).exists():
+                msg = group_msg
+
+        if not msg:
+            return JsonResponse({'error': 'File not found or access denied.'}, status=404)
+
+        if not msg.file:
+            return JsonResponse({'error': 'No file stored for this message.'}, status=404)
+
+        # ── Resolve Display Filename & MIME ─────────────────────────
+        content_type = (msg.mime_type or '').strip() or 'application/octet-stream'
+        raw_name = getattr(msg.file, 'name', '') or ''
+        fallback_name = msg.file_name or msg.original_filename or 'sdh_file'
+        safe_filename = os.path.basename(raw_name).replace('"', '').replace('\r', '').replace('\n', '') if raw_name else fallback_name
+        safe_display_name = fallback_name.replace('\r', '').replace('\n', '').replace('"', '')
+
+        # ── Handle Storage (Local and Cloudinary/Remote) ─────────────
+        file_url = None
+        try:
+            if hasattr(msg.file, 'url'):
+                file_url = msg.file.url
+        except Exception:
+            file_url = None
+
+        file_handle = None
+
+        # 1. Try local filesystem open
+        try:
+            file_handle = msg.file.open('rb')
+        except Exception:
+            file_handle = None
+
+        # 2. Fallback to remote HTTP stream (e.g. Cloudinary storage where .open() is unsupported)
+        if not file_handle and file_url and (file_url.startswith('http://') or file_url.startswith('https://')):
+            try:
+                import urllib.request
+                req = urllib.request.Request(
+                    file_url,
+                    headers={'User-Agent': 'Sandesh-MediaStream/2.0'}
+                )
+                file_handle = urllib.request.urlopen(req, timeout=15)
+            except Exception:
+                file_handle = None
+
+        if not file_handle:
+            return JsonResponse({'error': 'File data missing or inaccessible on server.'}, status=404)
+
+        response = FileResponse(
+            file_handle,
+            content_type=content_type,
+            as_attachment=False,
+        )
+        response['Content-Disposition'] = f'inline; filename="{safe_display_name}"'
+        response['X-Content-Type-Options'] = 'nosniff'
+        response['X-SDH-Original-Mime'] = content_type
+        response['X-SDH-File-Name']     = safe_display_name
+        response['Access-Control-Expose-Headers'] = (
+            'X-SDH-Original-Mime, X-SDH-File-Name'
+        )
+        return response
+
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': f'Failed to load file: {str(exc)}'}, status=500)
 
 
 # ---------------------------------------------------------------------------

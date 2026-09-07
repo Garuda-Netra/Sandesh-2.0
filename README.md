@@ -4,7 +4,7 @@
 
 Welcome to **Sandesh 2.0**! 🌟 A lightning-fast, ultra-secure, and beautifully designed real-time messaging app built to make chatting feel as natural and seamless as breathing.
 
-I created Sandesh with a single, uncompromising vision: to give you a pristine, deeply personal space to connect. No ads, no trackers, no algorithmic clutter—just you and the people who matter most. Whether you love the sleek elegance of Dark Mode 🌙 or the crisp, vibrant feel of Light Theme ☀️, Sandesh effortlessly adapts to your vibe. Most importantly, it is a **privacy-first** platform where your conversations are strictly yours.
+I created Sandesh with a single, uncompromising vision: to give you a pristine, deeply personal space to connect. No ads, no trackers, no algorithmic clutter-just you and the people who matter most. Whether you love the sleek elegance of Dark Mode 🌙 or the crisp, vibrant feel of Light Theme ☀️, Sandesh effortlessly adapts to your vibe. Most importantly, it is a **privacy-first** platform where your conversations are strictly yours.
 
 Your data. Your rules. Total peace of mind. 🛡️
 
@@ -21,7 +21,7 @@ Sandesh uniquely harmonizes **Vedic philosophical depth** with **futuristic glas
 ## ✨ Features & Capabilities
 
 - **🎨 Gorgeous & Responsive Design:** A modern, glassmorphism-inspired interface that looks stunning and works flawlessly on your phone, tablet, or desktop.
-- **⚡ Real-Time Messaging:** Powered by highly optimized WebSockets (`/ws/chat/`), your messages fly across the screen instantly—no refreshing required!
+- **⚡ Real-Time Messaging:** Powered by highly optimized WebSockets (`/ws/chat/`), your messages fly across the screen instantly-no refreshing required!
 - **✔️ Live Delivery & Read Receipts:** Instant WhatsApp-style visual tracking from sent ➔ delivered (`✓✓` grey) ➔ read (`✓✓` purple/gold).
 - **🟢 Live Indicators & Anti-Flicker Presence:** See exactly who's online with persistent connection-counted presence tracking and watch satisfying typing indicators in real-time.
 - **🔒 Privacy-First Controls & Disappearing Messages:** Take back control with disappearing messages. Set your chats to self-destruct after 2 days, 1 week, 1 month, or 6 months.
