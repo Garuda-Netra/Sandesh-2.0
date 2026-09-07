@@ -17,10 +17,10 @@
   <link rel="manifest" href="/manifest.webmanifest" />
 
   <!-- App Icons & Favicons -->
-  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'icons/favicon-32x32.png' %}" />
-  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'icons/favicon-16x16.png' %}" />
-  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}" />
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=ancient" />
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'icons/favicon-32x32.png' %}?v=ancient" />
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'icons/favicon-16x16.png' %}?v=ancient" />
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}?v=ancient" />
 
   <!-- Tailwind CSS (CDN – swap for compiled build in production) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -1129,7 +1129,7 @@
   <aside id="pwaInstallBanner" aria-label="Install Sandesh App"
        class="hidden fixed bottom-5 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-50 items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/95 dark:bg-[#121220]/95 border border-purple-500/30 shadow-[0_15px_40px_rgba(147,51,234,0.25)] backdrop-blur-xl transition-all duration-300 animate-slide-in">
     <div class="flex items-center gap-3 min-w-0">
-      <img src="{% static 'icons/icon-192x192.png' %}" alt="Sandesh Icon" class="w-11 h-11 rounded-xl shadow-md flex-shrink-0 object-cover border border-purple-500/20" />
+      <img src="{% static 'icons/icon-192x192.png' %}?v=ancient" alt="Sandesh Icon" class="w-11 h-11 rounded-xl shadow-md flex-shrink-0 object-cover border border-purple-500/20" />
       <div class="min-w-0">
         <h4 class="text-sm font-semibold text-slate-900 dark:text-white truncate">Install Sandesh</h4>
         <p class="text-xs text-slate-500 dark:text-zinc-400 truncate">Fullscreen & fast native app</p>
@@ -1154,7 +1154,7 @@
   <div id="pwaIosModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
     <div class="w-full max-w-sm bg-white dark:bg-[#121220] border border-purple-500/30 rounded-3xl p-6 shadow-2xl text-center">
       <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-        <img src="{% static 'icons/icon-192x192.png' %}" alt="Sandesh" class="w-10 h-10 rounded-xl" />
+        <img src="{% static 'icons/icon-192x192.png' %}?v=ancient" alt="Sandesh" class="w-10 h-10 rounded-xl" />
       </div>
       <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Install Sandesh on iOS</h3>
       <p class="text-xs text-slate-600 dark:text-zinc-300 mb-5 leading-relaxed">
