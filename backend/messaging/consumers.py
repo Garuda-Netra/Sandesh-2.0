@@ -868,7 +868,9 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         allowed_types = {
             'offer', 'answer', 'ice-candidate',
             'call-request', 'call-accept', 'call-reject', 'call-end',
-            'call-quality',
+            'call-quality', 'call-mute', 'call-camera',
+            'call-upgrade-request', 'call-upgrade-accept', 'call-upgrade-reject',
+            'call-upgrade',
         }
         if sig_type not in allowed_types:
             return

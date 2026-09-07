@@ -3410,6 +3410,11 @@ SDH.Chat = (() => {
     if (activeUser && activeUser.startsWith('group_')) {
       initiateGroupCall(callType);
     } else {
+      if (SDH.WebRTC?.isCallInProgress?.()) {
+        if (callType === 'video' && SDH.WebRTC.getCallType?.() === 'voice') {
+          return SDH.WebRTC.requestVideoUpgrade();
+        }
+      }
       SDH.WebRTC.startCall(callType);
     }
   }
