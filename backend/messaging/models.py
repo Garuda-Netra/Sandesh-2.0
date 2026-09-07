@@ -189,12 +189,36 @@ class Moment(models.Model):
         (MOMENT_TYPE_TEXT, 'Text'),
     ]
 
+    PRIVACY_ALL = 'all'
+    PRIVACY_EXCLUDE = 'exclude'
+    PRIVACY_ONLY = 'only'
+
+    PRIVACY_CHOICES = [
+        (PRIVACY_ALL, 'My Contacts'),
+        (PRIVACY_EXCLUDE, 'My Contacts Except...'),
+        (PRIVACY_ONLY, 'Only Share With...'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='moments')
     media = models.FileField(upload_to='moments/', null=True, blank=True)
     text_content = models.TextField(blank=True, default='')
     caption = models.CharField(max_length=255, blank=True, default='')
     moment_type = models.CharField(max_length=10, choices=MOMENT_TYPES, default=MOMENT_TYPE_IMAGE)
     
+    # Privacy fields (WhatsApp status privacy)
+    privacy_type = models.CharField(
+        max_length=10,
+        choices=PRIVACY_CHOICES,
+        default=PRIVACY_ALL,
+        db_index=True
+    )
+    privacy_users = models.ManyToManyField(
+        User,
+        related_name='targeted_moments',
+        blank=True,
+        help_text="Excluded users if 'exclude', or allowed users if 'only'"
+    )
+
     # Soundtrack fields
     song_file = models.FileField(upload_to='moments/songs/', null=True, blank=True)
     spotify_track_id = models.CharField(max_length=255, blank=True, default='')
@@ -217,6 +241,37 @@ class Moment(models.Model):
 
     def __str__(self):
         return f"Moment by {self.user.username} at {self.timestamp}"
+
+
+class MomentPrivacySetting(models.Model):
+    """
+    Stores default status/moment privacy preferences for a user,
+    similar to WhatsApp Status Privacy settings.
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='moment_privacy_setting'
+    )
+    privacy_type = models.CharField(
+        max_length=10,
+        choices=Moment.PRIVACY_CHOICES,
+        default=Moment.PRIVACY_ALL
+    )
+    custom_users = models.ManyToManyField(
+        User,
+        related_name='default_moment_privacy_users',
+        blank=True,
+        help_text="Default excluded users or allowed users"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Moment Privacy Setting'
+        verbose_name_plural = 'Moment Privacy Settings'
+
+    def __str__(self):
+        return f"{self.user.username}'s Moment Privacy ({self.privacy_type})"
 
 
 @receiver(post_delete, sender=Moment)

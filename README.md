@@ -44,15 +44,28 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 
 ---
 
-### 📸 Moments, Spotify & Media
+### 📸 Moments, Status Privacy & Media
 - **📸 24-Hour Moments (Stories)**: Post temporary visual stories with viewer tracking, emoji reactions, and built-in Spotify music integration.
+- **👁️ WhatsApp-Style Status Privacy *(New!)* **: Granular audience control for every story update:
+  - *My Contacts:* Visible to all mutual friends.
+  - *My Contacts Except...:* Hide stories from specific individuals with contact exclusion counters.
+  - *Only Share With...:* Whitelist specific friends who can view your moment.
+  - *Persistent Defaults & Live Broadcast Filtering:* Settings persist across uploads and WebSocket events are strictly routed only to permitted friends.
 - **🖼️ Interactive Media Lightbox**: High-resolution viewer modal for photos, videos, and PDFs with pan, zoom, playback controls, and keyboard navigation.
 - **📎 Multi-File Attachments & Document Previews**: Send photos, videos, audio clips, PDFs, documents, and archives up to 5 MB with instant previews.
 
 ---
 
-### 📞 Crystal-Clear Calling & Groups
+### 📞 Crystal-Clear Calling & Professional Ringtones
 - **📞 Peer-to-Peer Voice & Video Calls**: Browser-native high-definition calling using WebRTC with global STUN/TURN fallback.
+- **🎵 Studio-Grade Caller Ringtones *(New!)* **: Replaced basic beeps with 5 high-definition synthesized Web Audio API tones:
+  - *Celestial Chime (Default):* Luxury multi-note harmonic arpeggio.
+  - *Executive Lounge:* Refined corporate Rhodes vibraphone chords.
+  - *Modern Marimba:* Crisp acoustic wooden percussion motif.
+  - *Cosmic Horizon:* Ambient ethereal drifting pads with vibrato.
+  - *Classic Bell:* Modernized dual-cadence telephone ring.
+- **🔔 Realistic Outgoing Ringback Tone**: Instant audio feedback when placing an outgoing call so you know the recipient's phone is ringing.
+- **🎛️ Ringtone Settings & Live Preview**: Real-time volume slider, tone preview buttons with sound wave indicators, and a 4-second interactive test call simulator.
 - **🔔 Missed Call Alerts**: Automatically logs clear "Missed Call" summary cards with timestamps directly into the chat stream.
 - **👥 Dynamic Group Chats**: Create groups with custom avatars, manage member roles (Owner, Admin, Member), invite friends, and track per-member read receipts.
 

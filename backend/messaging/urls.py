@@ -42,6 +42,7 @@ urlpatterns = [
     # Moments (Temporary Updates)
     path('api/moments/', views.get_moments, name='get_moments'),
     path('api/moments/upload/', views.upload_moment, name='upload_moment'),
+    path('api/moments/privacy/', views.moment_privacy_settings, name='moment_privacy_settings'),
     path('api/moments/<int:moment_id>/', views.delete_moment, name='delete_moment'),
     path('api/moments/<int:moment_id>/view/', views.view_moment, name='view_moment'),
     path('api/moments/<int:moment_id>/react/', views.react_moment, name='react_moment'),

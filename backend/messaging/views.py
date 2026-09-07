@@ -12,7 +12,7 @@ import base64
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.http import JsonResponse, FileResponse, Http404
+from django.http import JsonResponse, FileResponse, Http404, HttpResponseNotAllowed
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect
 from django.db.models import Q
@@ -27,7 +27,7 @@ import secrets
 import time
 from django.contrib.auth.hashers import make_password, check_password
 
-from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead, ChatLock, UserSecurityCredential
+from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead, ChatLock, UserSecurityCredential, Moment, MomentPrivacySetting
 from .chatbot import generate_chatbot_reply
 from .file_security import validate_uploaded_file
 from users.models import UserProfile, Friendship
@@ -1420,15 +1420,45 @@ def call_view(request, username=None):
 
 
 # ---------------------------------------------------------------------------
-# Moments (Temporary Updates) API
+# Moments (Temporary Updates) API & WhatsApp-Style Status Privacy
 # ---------------------------------------------------------------------------
+
+def _can_user_view_moment(user, moment):
+    """
+    Check if a user has permission to view a specific moment
+    based on ownership, friendship, blocking, and privacy settings.
+    """
+    if moment.user_id == user.id:
+        return True
+
+    blocked, _ = _is_chat_blocked(user, moment.user)
+    if blocked:
+        return False
+
+    try:
+        user_profile = user.profile
+        moment_user_profile = moment.user.profile
+        if not Friendship.are_friends(user_profile, moment_user_profile):
+            return False
+    except Exception:
+        return False
+
+    if moment.privacy_type == Moment.PRIVACY_ALL:
+        return True
+    elif moment.privacy_type == Moment.PRIVACY_EXCLUDE:
+        return not moment.privacy_users.filter(id=user.id).exists()
+    elif moment.privacy_type == Moment.PRIVACY_ONLY:
+        return moment.privacy_users.filter(id=user.id).exists()
+
+    return False
+
 
 @login_required
 @require_GET
 def get_moments(request):
     """
     Returns active (unexpired) moments for the current user and their friends.
-    Grouped by user.
+    Grouped by user. Enforces WhatsApp-style status privacy settings.
     """
     try:
         my_profile = request.user.profile
@@ -1442,19 +1472,28 @@ def get_moments(request):
         .values_list('user_id', flat=True)
     ) if friend_profile_ids else set()
 
-    visible_user_ids = {request.user.id}
+    visible_friend_ids = set()
     if friend_user_ids:
         for u in User.objects.filter(id__in=friend_user_ids):
             blocked, _ = _is_chat_blocked(request.user, u)
             if not blocked:
-                visible_user_ids.add(u.id)
+                visible_friend_ids.add(u.id)
 
-    from .models import Moment
     now = timezone.now()
+
+    # User's own moments are always visible to the user:
+    own_moments_q = Q(user=request.user)
+
+    # Friends' moments must satisfy privacy conditions:
+    friends_moments_q = Q(user_id__in=visible_friend_ids) & (
+        Q(privacy_type=Moment.PRIVACY_ALL) |
+        (Q(privacy_type=Moment.PRIVACY_EXCLUDE) & ~Q(privacy_users=request.user)) |
+        (Q(privacy_type=Moment.PRIVACY_ONLY) & Q(privacy_users=request.user))
+    )
+
     active_moments = Moment.objects.filter(
-        user_id__in=visible_user_ids,
-        expires_at__gt=now
-    ).order_by('user_id', 'timestamp')
+        (own_moments_q | friends_moments_q) & Q(expires_at__gt=now)
+    ).distinct().order_by('user_id', 'timestamp')
 
     # Group by user
     grouped = {}
@@ -1473,6 +1512,7 @@ def get_moments(request):
             'text_content': m.text_content,
             'caption': m.caption,
             'moment_type': m.moment_type,
+            'privacy_type': m.privacy_type,
             'song_url': m.song_file.url if m.song_file else None,
             'spotify_track_id': m.spotify_track_id,
             'spotify_track_info': m.spotify_track_info,
@@ -1482,11 +1522,11 @@ def get_moments(request):
 
         # Only include viewers and reactions for the creator's own moments
         if uid == request.user.id:
+            moment_data['privacy_users_count'] = m.privacy_users.count() if m.privacy_type != Moment.PRIVACY_ALL else 0
             moment_data['viewers'] = [
                 {
                     'id': v.id,
                     'username': v.username,
-                    # Fallback to random avatar if no profile media, but ideally we'd fetch profile image
                     'avatar': v.profile.avatar.url if hasattr(v, 'profile') and v.profile.avatar else f"https://ui-avatars.com/api/?name={v.username}&background=random"
                 }
                 for v in m.viewers.all()
@@ -1500,13 +1540,92 @@ def get_moments(request):
 
 @login_required
 @csrf_protect
+def moment_privacy_settings(request):
+    """
+    GET: Return user's saved status/moment privacy preferences and friend contacts.
+    POST: Update user's default status/moment privacy preferences.
+    """
+    setting, _ = MomentPrivacySetting.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        try:
+            my_profile = request.user.profile
+        except UserProfile.DoesNotExist:
+            return JsonResponse({'error': 'Profile not found.'}, status=404)
+
+        friend_profile_ids = Friendship.get_friend_profile_ids(my_profile)
+        friend_users = User.objects.filter(
+            profile__id__in=friend_profile_ids
+        ).exclude(id=request.user.id).select_related('profile').order_by('username')
+
+        custom_user_ids = set(setting.custom_users.values_list('id', flat=True))
+
+        friends_list = []
+        for friend in friend_users:
+            blocked, _ = _is_chat_blocked(request.user, friend)
+            if blocked:
+                continue
+            avatar_url = friend.profile.avatar.url if hasattr(friend, 'profile') and friend.profile.avatar else f"https://ui-avatars.com/api/?name={friend.username}&background=random"
+            full_name = f"{friend.first_name} {friend.last_name}".strip() or friend.username
+            friends_list.append({
+                'id': friend.id,
+                'username': friend.username,
+                'full_name': full_name,
+                'avatar': avatar_url,
+                'is_selected': friend.id in custom_user_ids
+            })
+
+        return JsonResponse({
+            'status': 'ok',
+            'privacy_type': setting.privacy_type,
+            'custom_user_ids': list(custom_user_ids),
+            'friends': friends_list
+        })
+
+    elif request.method == 'POST':
+        try:
+            if request.content_type == 'application/json':
+                body = json.loads(request.body.decode('utf-8'))
+            else:
+                body = request.POST
+        except Exception:
+            return JsonResponse({'error': 'Invalid payload.'}, status=400)
+
+        privacy_type = body.get('privacy_type', Moment.PRIVACY_ALL)
+        if privacy_type not in (Moment.PRIVACY_ALL, Moment.PRIVACY_EXCLUDE, Moment.PRIVACY_ONLY):
+            return JsonResponse({'error': 'Invalid privacy type.'}, status=400)
+
+        user_ids = body.get('user_ids', [])
+        if isinstance(user_ids, str):
+            try:
+                user_ids = json.loads(user_ids)
+            except Exception:
+                user_ids = [int(x) for x in user_ids.split(',') if x.strip().isdigit()]
+
+        setting.privacy_type = privacy_type
+        setting.save()
+
+        if privacy_type in (Moment.PRIVACY_EXCLUDE, Moment.PRIVACY_ONLY):
+            setting.custom_users.set(User.objects.filter(id__in=user_ids))
+        else:
+            setting.custom_users.clear()
+
+        return JsonResponse({
+            'status': 'ok',
+            'privacy_type': setting.privacy_type,
+            'custom_user_ids': list(setting.custom_users.values_list('id', flat=True))
+        })
+
+    return HttpResponseNotAllowed(['GET', 'POST'])
+
+
+@login_required
+@csrf_protect
 @require_POST
 def upload_moment(request):
     """
-    Upload a new moment.
+    Upload a new moment with optional privacy settings.
     """
-    from .models import Moment
-    
     moment_type = request.POST.get('moment_type', Moment.MOMENT_TYPE_IMAGE)
     caption = request.POST.get('caption', '').strip()
     text_content = request.POST.get('text_content', '').strip()
@@ -1552,17 +1671,48 @@ def upload_moment(request):
     if moment_type == Moment.MOMENT_TYPE_TEXT and not text_content:
         return JsonResponse({'error': 'Text content is required for text moments.'}, status=400)
 
+    # Handle privacy settings
+    privacy_type = request.POST.get('privacy_type', '').strip()
+    privacy_user_ids_raw = request.POST.get('privacy_user_ids', None)
+
+    user_setting, _ = MomentPrivacySetting.objects.get_or_create(user=request.user)
+
+    if not privacy_type or privacy_type not in (Moment.PRIVACY_ALL, Moment.PRIVACY_EXCLUDE, Moment.PRIVACY_ONLY):
+        privacy_type = user_setting.privacy_type
+
+    # Determine targeted custom users
+    privacy_users = []
+    if privacy_user_ids_raw is not None:
+        try:
+            if isinstance(privacy_user_ids_raw, str) and (privacy_user_ids_raw.startswith('[') or ',' in privacy_user_ids_raw):
+                parsed_ids = json.loads(privacy_user_ids_raw) if privacy_user_ids_raw.startswith('[') else [int(x) for x in privacy_user_ids_raw.split(',') if x.strip().isdigit()]
+            elif isinstance(privacy_user_ids_raw, list):
+                parsed_ids = privacy_user_ids_raw
+            else:
+                parsed_ids = [int(privacy_user_ids_raw)] if str(privacy_user_ids_raw).isdigit() else []
+            privacy_users = list(User.objects.filter(id__in=parsed_ids))
+        except Exception:
+            privacy_users = list(user_setting.custom_users.all())
+    elif privacy_type in (Moment.PRIVACY_EXCLUDE, Moment.PRIVACY_ONLY):
+        privacy_users = list(user_setting.custom_users.all())
+
     # Create the moment
     moment = Moment.objects.create(
         user=request.user,
         moment_type=moment_type,
         caption=caption,
         text_content=text_content,
+        privacy_type=privacy_type,
         media=uploaded_file,
         song_file=song_file,
         spotify_track_id=spotify_track_id,
         spotify_track_info=spotify_track_info
     )
+
+    if privacy_type in (Moment.PRIVACY_EXCLUDE, Moment.PRIVACY_ONLY) and privacy_users:
+        moment.privacy_users.set(privacy_users)
+
+    privacy_user_id_set = {u.id for u in privacy_users}
 
     moment_data = {
         'id': moment.id,
@@ -1572,6 +1722,7 @@ def upload_moment(request):
         'text_content': moment.text_content,
         'caption': moment.caption,
         'moment_type': moment.moment_type,
+        'privacy_type': moment.privacy_type,
         'song_url': moment.song_file.url if moment.song_file else None,
         'spotify_track_id': moment.spotify_track_id,
         'spotify_track_info': moment.spotify_track_info,
@@ -1579,22 +1730,35 @@ def upload_moment(request):
         'expires_at': moment.expires_at.isoformat(),
     }
 
-    # Broadcast to all friends via WebSocket
+    # Broadcast to friends who have privacy permission to see it via WebSocket
     try:
         my_profile = request.user.profile
         friend_profile_ids = Friendship.get_friend_profile_ids(my_profile)
         friend_users = User.objects.filter(profile__id__in=friend_profile_ids)
         channel_layer = get_channel_layer()
+
+        target_friends = []
         for friend in friend_users:
             blocked, _ = _is_chat_blocked(request.user, friend)
-            if not blocked:
-                async_to_sync(channel_layer.group_send)(
-                    f"user_chat_{friend.id}",
-                    {
-                        'type': 'new_moment',
-                        'moment': moment_data
-                    }
-                )
+            if blocked:
+                continue
+            if privacy_type == Moment.PRIVACY_ALL:
+                target_friends.append(friend)
+            elif privacy_type == Moment.PRIVACY_EXCLUDE:
+                if friend.id not in privacy_user_id_set:
+                    target_friends.append(friend)
+            elif privacy_type == Moment.PRIVACY_ONLY:
+                if friend.id in privacy_user_id_set:
+                    target_friends.append(friend)
+
+        for friend in target_friends:
+            async_to_sync(channel_layer.group_send)(
+                f"user_chat_{friend.id}",
+                {
+                    'type': 'new_moment',
+                    'moment': moment_data
+                }
+            )
         # also broadcast to self
         async_to_sync(channel_layer.group_send)(
             f"user_chat_{request.user.id}",
@@ -1615,7 +1779,6 @@ def delete_moment(request, moment_id):
     """
     Deletes a specific moment owned by the user.
     """
-    from .models import Moment
     moment = get_object_or_404(Moment, id=moment_id, user=request.user)
     moment.delete() # Triggers pre/post delete signals
 
@@ -1653,10 +1816,13 @@ def delete_moment(request, moment_id):
 @csrf_protect
 def view_moment(request, moment_id):
     """
-    Mark a moment as viewed by the current user.
+    Mark a moment as viewed by the current user with privacy check.
     """
-    from .models import Moment
     moment = get_object_or_404(Moment, id=moment_id)
+
+    # Permission check: verify viewing user is allowed to access this moment
+    if not _can_user_view_moment(request.user, moment):
+        return JsonResponse({'error': 'You do not have permission to view this moment.'}, status=403)
     
     # Don't add if it's their own moment
     if moment.user != request.user:
@@ -1666,8 +1832,6 @@ def view_moment(request, moment_id):
             
             # Broadcast to the owner in real-time
             try:
-                from channels.layers import get_channel_layer
-                from asgiref.sync import async_to_sync
                 channel_layer = get_channel_layer()
                 async_to_sync(channel_layer.group_send)(
                     f"user_chat_{moment.user.id}",
@@ -1692,10 +1856,13 @@ def view_moment(request, moment_id):
 @csrf_protect
 def react_moment(request, moment_id):
     """
-    Save a user reaction to a moment and broadcast it.
+    Save a user reaction to a moment and broadcast it with privacy check.
     """
-    from .models import Moment
     moment = get_object_or_404(Moment, id=moment_id)
+
+    # Permission check: verify reacting user is allowed to access this moment
+    if not _can_user_view_moment(request.user, moment):
+        return JsonResponse({'error': 'You do not have permission to react to this moment.'}, status=403)
     
     emoji = request.POST.get('emoji', '').strip()
     if not emoji:
@@ -1725,8 +1892,6 @@ def react_moment(request, moment_id):
     
     # Broadcast to the owner in real-time
     try:
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"user_chat_{moment.user.id}",

@@ -430,6 +430,8 @@ SDH.WebRTC = (() => {
 
   // ── Remote accepted our call ──────────────────────────────────
   async function handleCallAccepted(data) {
+    // Stop outgoing ringback tone when recipient answers
+    _stopRingtone();
     // Transition caller from "calling" panel to active call panel.
     // The SDP answer will arrive shortly and establish the media channel.
     showActiveCallPanel(currentCallType);
@@ -823,6 +825,9 @@ SDH.WebRTC = (() => {
   // ── UI helpers ────────────────────────────────────────────────
   // ── Show outgoing-call (ringing) panel ──────────────────────
   function showCallingPanel(callType) {
+    // Start realistic outgoing telephone ringback tone
+    RingtoneEngine.startOutgoingRingback();
+
     // call.html bridge
     if (window._SDHCallPage) {
       window._SDHCallPage.onCalling(callType);
@@ -947,35 +952,454 @@ SDH.WebRTC = (() => {
     console.error('[WebRTC] Media error:', err);
   }
 
-  // ── Ringtone (incoming call) ──────────────────────────────────
-  function _startRingtone() {
-    _stopRingtone();
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const beep = () => {
-        const osc  = ctx.createOscillator();
+  // ── High-Fidelity Professional Ringtone Synthesizer Engine ──────
+  const RingtoneEngine = (() => {
+    let audioCtx = null;
+    let ringtoneTimer = null;
+    let ringbackTimer = null;
+    let previewTimer = null;
+    let activeNodes = [];
+
+    function getAudioContext() {
+      if (!audioCtx || audioCtx.state === 'closed') {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function getSelectedTone() {
+      return localStorage.getItem('sdh_call_ringtone') || 'celestial';
+    }
+
+    function getVolume() {
+      const v = parseFloat(localStorage.getItem('sdh_ringtone_vol'));
+      return isNaN(v) ? 0.75 : Math.max(0, Math.min(1, v));
+    }
+
+    function isRingbackEnabled() {
+      return localStorage.getItem('sdh_ringback_enabled') !== 'false';
+    }
+
+    function stopAllNodes() {
+      activeNodes.forEach(node => {
+        try {
+          if (node.stop) node.stop();
+          if (node.disconnect) node.disconnect();
+        } catch (e) {}
+      });
+      activeNodes = [];
+    }
+
+    // Play a synthetic note with harmonic overtones and smooth envelope
+    function playHarmonicTone(ctx, freq, startTime, duration, masterGain, type = 'sine') {
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = type;
+      osc1.frequency.setValueAtTime(freq, startTime);
+
+      // Harmonic overtone (octave higher for shimmer & warmth)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(freq * 2, startTime);
+
+      osc1.connect(gain1);
+      gain1.connect(masterGain);
+      osc2.connect(gain2);
+      gain2.connect(masterGain);
+
+      const attack = 0.015;
+      gain1.gain.setValueAtTime(0.0001, startTime);
+      gain1.gain.exponentialRampToValueAtTime(0.65, startTime + attack);
+      gain1.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+      gain2.gain.setValueAtTime(0.0001, startTime);
+      gain2.gain.exponentialRampToValueAtTime(0.2, startTime + attack);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, startTime + (duration * 0.7));
+
+      osc1.start(startTime);
+      osc1.stop(startTime + duration + 0.05);
+      osc2.start(startTime);
+      osc2.stop(startTime + duration + 0.05);
+
+      activeNodes.push(osc1, osc2, gain1, gain2);
+    }
+
+    // 1. Celestial Chime: Warm, luxury polyphonic arpeggio
+    function playCelestial(ctx, masterGain) {
+      const now = ctx.currentTime;
+      const notes = [
+        { f: 523.25, t: 0.00, d: 0.8 }, // C5
+        { f: 659.25, t: 0.12, d: 0.8 }, // E5
+        { f: 783.99, t: 0.24, d: 0.9 }, // G5
+        { f: 1046.50, t: 0.36, d: 1.2 }, // C6
+        { f: 1174.66, t: 0.58, d: 0.6 }, // D6 shimmer
+        { f: 1046.50, t: 0.74, d: 1.4 }  // C6 resolve
+      ];
+      notes.forEach(n => playHarmonicTone(ctx, n.f, now + n.t, n.d, masterGain, 'sine'));
+    }
+
+    // 2. Executive Lounge: Smooth corporate vibraphone chord progression
+    function playExecutive(ctx, masterGain) {
+      const now = ctx.currentTime;
+      // Chord 1: A4, C#5, E5
+      [440.00, 554.37, 659.25].forEach(f => playHarmonicTone(ctx, f, now, 0.9, masterGain, 'sine'));
+      // Chord 2: B4, D#5, F#5
+      [493.88, 622.25, 739.99].forEach(f => playHarmonicTone(ctx, f, now + 0.45, 1.4, masterGain, 'sine'));
+    }
+
+    // 3. Modern Marimba: Crisp acoustic wooden percussion motif
+    function playMarimba(ctx, masterGain) {
+      const now = ctx.currentTime;
+      const notes = [
+        { f: 783.99, t: 0.00, d: 0.35 },
+        { f: 987.77, t: 0.14, d: 0.35 },
+        { f: 1174.66, t: 0.28, d: 0.45 },
+        { f: 987.77, t: 0.44, d: 0.35 },
+        { f: 783.99, t: 0.60, d: 0.70 }
+      ];
+      notes.forEach(n => playHarmonicTone(ctx, n.f, now + n.t, n.d, masterGain, 'triangle'));
+    }
+
+    // 4. Cosmic Horizon: Ambient ethereal drifting chord
+    function playCosmic(ctx, masterGain) {
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      const gain = ctx.createGain();
+
+      osc1.frequency.value = 587.33;
+      osc2.frequency.value = 880.00;
+      osc2.detune.value = 8;
+
+      lfo.frequency.value = 4.5;
+      lfoGain.gain.value = 6;
+      lfo.connect(osc1.frequency);
+      lfo.connect(osc2.frequency);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(masterGain);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.5, now + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+
+      lfo.start(now);
+      osc1.start(now);
+      osc2.start(now);
+      lfo.stop(now + 1.9);
+      osc1.stop(now + 1.9);
+      osc2.stop(now + 1.9);
+
+      activeNodes.push(osc1, osc2, lfo, lfoGain, gain);
+    }
+
+    // 5. Classic Bell: Crisp modern telephone dual-tone (440Hz + 480Hz)
+    function playClassic(ctx, masterGain) {
+      const now = ctx.currentTime;
+      const playPulse = (start) => {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type            = 'sine';
-        osc.frequency.value = 480;
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.4);
+
+        osc1.frequency.value = 440;
+        osc2.frequency.value = 480;
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(masterGain);
+
+        gain.gain.setValueAtTime(0.001, start);
+        gain.gain.linearRampToValueAtTime(0.4, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.45);
+
+        osc1.start(start);
+        osc2.start(start);
+        osc1.stop(start + 0.48);
+        osc2.stop(start + 0.48);
+        activeNodes.push(osc1, osc2, gain);
       };
-      beep();
-      ringtoneInterval = setInterval(beep, 1200);
-      // Auto-stop after 30 s if caller never gets answered
-      setTimeout(() => _stopRingtone(), 30_000);
-    } catch { /* AudioContext unavailable — fail silently */ }
+      playPulse(now);
+      playPulse(now + 0.55);
+    }
+
+    const TONES = {
+      'celestial': { name: 'Celestial Chime', desc: 'Modern luxury polyphonic chime (Default)', badge: 'Default', play: playCelestial, interval: 2800 },
+      'executive': { name: 'Executive Lounge', desc: 'Warm corporate vibraphone chords', badge: 'Refined', play: playExecutive, interval: 3000 },
+      'marimba':   { name: 'Modern Marimba', desc: 'Crisp acoustic rosewood percussion', badge: 'Upbeat', play: playMarimba, interval: 2600 },
+      'cosmic':    { name: 'Cosmic Horizon', desc: 'Ambient ethereal futuristic pad', badge: 'Ambient', play: playCosmic, interval: 3200 },
+      'classic':   { name: 'Classic Bell', desc: 'Modernized dual-cadence telephone ring', badge: 'Classic', play: playClassic, interval: 2800 },
+    };
+
+    function startIncomingRingtone() {
+      stopAll();
+      try {
+        const ctx = getAudioContext();
+        const toneId = getSelectedTone();
+        const tone = TONES[toneId] || TONES['celestial'];
+        const vol = getVolume();
+
+        const masterGain = ctx.createGain();
+        masterGain.gain.value = vol;
+        masterGain.connect(ctx.destination);
+
+        const loop = () => {
+          try {
+            tone.play(ctx, masterGain);
+          } catch (e) {
+            console.warn('[RingtoneEngine] loop error:', e);
+          }
+        };
+
+        loop();
+        ringtoneTimer = setInterval(loop, tone.interval);
+
+        // Auto stop after 35s if not answered
+        setTimeout(() => stopIncomingRingtone(), 35_000);
+      } catch (err) {
+        console.warn('[RingtoneEngine] start error:', err);
+      }
+    }
+
+    function stopIncomingRingtone() {
+      if (ringtoneTimer) {
+        clearInterval(ringtoneTimer);
+        ringtoneTimer = null;
+      }
+      stopAllNodes();
+    }
+
+    // Realistic outgoing telephone ringback tone (soft dual tone 400Hz + 450Hz)
+    function startOutgoingRingback() {
+      stopAll();
+      if (!isRingbackEnabled()) return;
+      try {
+        const ctx = getAudioContext();
+        const vol = Math.min(0.22, getVolume() * 0.35);
+
+        const masterGain = ctx.createGain();
+        masterGain.gain.value = vol;
+        masterGain.connect(ctx.destination);
+
+        const playRingbackPulse = () => {
+          const now = ctx.currentTime;
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc1.frequency.value = 400;
+          osc2.frequency.value = 450;
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(masterGain);
+
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.35, now + 0.05);
+          gain.gain.setValueAtTime(0.35, now + 1.2);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.35);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.4);
+          osc2.stop(now + 1.4);
+          activeNodes.push(osc1, osc2, gain);
+        };
+
+        playRingbackPulse();
+        ringbackTimer = setInterval(playRingbackPulse, 3800);
+      } catch (e) {
+        console.warn('[RingtoneEngine] ringback error:', e);
+      }
+    }
+
+    function stopOutgoingRingback() {
+      if (ringbackTimer) {
+        clearInterval(ringbackTimer);
+        ringbackTimer = null;
+      }
+      stopAllNodes();
+    }
+
+    function stopAll() {
+      stopIncomingRingtone();
+      stopOutgoingRingback();
+      stopPreview();
+    }
+
+    function previewTone(toneId) {
+      stopAll();
+      const tone = TONES[toneId] || TONES['celestial'];
+      const ctx = getAudioContext();
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = getVolume();
+      masterGain.connect(ctx.destination);
+
+      tone.play(ctx, masterGain);
+
+      if (previewTimer) clearTimeout(previewTimer);
+      previewTimer = setTimeout(() => {
+        stopPreview();
+      }, 2500);
+    }
+
+    function stopPreview() {
+      if (previewTimer) {
+        clearTimeout(previewTimer);
+        previewTimer = null;
+      }
+      stopAllNodes();
+      document.querySelectorAll('.sdh-tone-preview-btn').forEach(b => {
+        b.innerHTML = '▶ Preview';
+        b.classList.remove('bg-divine-gold', 'text-black');
+      });
+    }
+
+    return {
+      TONES,
+      getSelectedTone,
+      getVolume,
+      isRingbackEnabled,
+      startIncomingRingtone,
+      stopIncomingRingtone,
+      startOutgoingRingback,
+      stopOutgoingRingback,
+      stopAll,
+      previewTone,
+      stopPreview,
+      setRingtone: (toneId) => {
+        if (TONES[toneId]) localStorage.setItem('sdh_call_ringtone', toneId);
+      },
+      setVolume: (vol) => {
+        localStorage.setItem('sdh_ringtone_vol', vol.toString());
+      },
+      setRingbackEnabled: (enabled) => {
+        localStorage.setItem('sdh_ringback_enabled', enabled ? 'true' : 'false');
+      }
+    };
+  })();
+
+  // ── Ringtone helper methods ────────────────────────────────────
+  function _startRingtone() {
+    RingtoneEngine.startIncomingRingtone();
   }
 
   function _stopRingtone() {
-    if (ringtoneInterval) {
-      clearInterval(ringtoneInterval);
-      ringtoneInterval = null;
+    RingtoneEngine.stopAll();
+  }
+
+  // ── Ringtone Settings UI Logic ─────────────────────────────────
+  function openRingtoneSettings() {
+    const modal = document.getElementById('ringtoneSettingsModal');
+    if (!modal) return;
+    renderRingtoneSettingsUI();
+    modal.classList.remove('hidden');
+  }
+
+  function renderRingtoneSettingsUI() {
+    const listEl = document.getElementById('ringtoneOptionsList');
+    if (!listEl) return;
+
+    const currentTone = RingtoneEngine.getSelectedTone();
+    const currentVol = Math.round(RingtoneEngine.getVolume() * 100);
+    const ringbackOn = RingtoneEngine.isRingbackEnabled();
+
+    const slider = document.getElementById('ringtoneVolSlider');
+    if (slider) slider.value = currentVol;
+    const volLabel = document.getElementById('ringtoneVolLabel');
+    if (volLabel) volLabel.textContent = `${currentVol}%`;
+
+    const toggle = document.getElementById('ringbackToneToggle');
+    if (toggle) toggle.checked = ringbackOn;
+
+    let html = '';
+    for (const [id, info] of Object.entries(RingtoneEngine.TONES)) {
+      const isSelected = id === currentTone;
+      html += `
+        <div class="rs-tone-card p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
+          isSelected 
+            ? 'is-selected border-divine-gold/70 bg-divine-gold/10 shadow-[0_0_15px_rgba(212,175,55,0.15)]' 
+            : 'border-divine-border/60 bg-divine-surface/40 hover:border-divine-gold/40'
+        }" onclick="SDH.WebRTC.selectRingtone('${id}')">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
+              isSelected ? 'bg-divine-gold text-black' : 'bg-white/5 text-divine-muted border border-white/10'
+            }">
+              ${isSelected ? '✓' : '♪'}
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="tone-name text-xs font-bold text-divine-text">${info.name}</span>
+                <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full ${
+                  isSelected ? 'bg-divine-gold/20 text-divine-gold border border-divine-gold/30' : 'bg-white/5 text-divine-muted border border-white/10'
+                }">${info.badge}</span>
+              </div>
+              <p class="tone-desc text-[10px] text-divine-muted mt-0.5">${info.desc}</p>
+            </div>
+          </div>
+          <button type="button" onclick="event.stopPropagation(); SDH.WebRTC.togglePreview('${id}', this)"
+            class="sdh-tone-preview-btn px-2.5 py-1 rounded-lg border border-divine-gold/40 bg-divine-gold/10 hover:bg-divine-gold/20 text-divine-gold text-[10px] font-bold transition-all">
+            ▶ Preview
+          </button>
+        </div>
+      `;
     }
+    listEl.innerHTML = html;
+  }
+
+  function selectRingtone(toneId) {
+    RingtoneEngine.setRingtone(toneId);
+    renderRingtoneSettingsUI();
+    SDH.Chat?.showToast?.(`Ringtone set to "${RingtoneEngine.TONES[toneId].name}"`, 'success');
+  }
+
+  let activePreviewToneId = null;
+  function togglePreview(toneId, btn) {
+    if (activePreviewToneId === toneId) {
+      RingtoneEngine.stopPreview();
+      activePreviewToneId = null;
+      btn.innerHTML = '▶ Preview';
+      btn.classList.remove('bg-divine-gold', 'text-black');
+    } else {
+      activePreviewToneId = toneId;
+      RingtoneEngine.previewTone(toneId);
+      document.querySelectorAll('.sdh-tone-preview-btn').forEach(b => {
+        b.innerHTML = '▶ Preview';
+        b.classList.remove('bg-divine-gold', 'text-black');
+      });
+      btn.innerHTML = '⏹ Stop';
+      btn.classList.add('bg-divine-gold', 'text-black');
+    }
+  }
+
+  function onVolumeSliderChange(val) {
+    const v = parseInt(val, 10) / 100;
+    RingtoneEngine.setVolume(v);
+    const volLabel = document.getElementById('ringtoneVolLabel');
+    if (volLabel) volLabel.textContent = `${val}%`;
+  }
+
+  function onRingbackToggleChange(checked) {
+    RingtoneEngine.setRingbackEnabled(checked);
+    SDH.Chat?.showToast?.(checked ? 'Outgoing ringback tone enabled' : 'Outgoing ringback tone disabled', 'info');
+  }
+
+  function testIncomingCall() {
+    document.getElementById('ringtoneSettingsModal')?.classList.add('hidden');
+    RingtoneEngine.stopPreview();
+    showIncomingCallPanel('Demo Caller', 'voice');
+    _startRingtone();
+    setTimeout(() => {
+      _stopRingtone();
+      hideCallOverlay();
+      SDH.Chat?.showToast?.('Test call ended.', 'info');
+    }, 4000);
   }
 
   // ── Named spec aliases ────────────────────────────────────────
@@ -1024,6 +1448,16 @@ SDH.WebRTC = (() => {
     toggleMute,
     toggleCamera,
     changeQuality,
+    // Ringtone & Audio Settings
+    openRingtoneSettings,
+    selectRingtone,
+    togglePreview,
+    previewTone: RingtoneEngine.previewTone,
+    stopTonePreview: RingtoneEngine.stopPreview,
+    onVolumeSliderChange,
+    onRingbackToggleChange,
+    testIncomingCall,
+    getRingtoneEngine: () => RingtoneEngine,
   };
 
 })();

@@ -19,10 +19,23 @@ SDH.Moments = (function() {
     let viewedMomentsKey = 'sdh_viewed_moments';
     let viewedMoments = {};
 
+    // Privacy settings state
+    let privacySettings = {
+        privacy_type: 'all',
+        custom_user_ids: [],
+        friends: []
+    };
+    let uploadPrivacyType = null;
+    let uploadCustomUserIds = null;
+    let isFromUploadModal = false;
+    let tempSelectedUserIds = new Set();
+    let tempPrivacyType = 'all';
+
     function init() {
         viewedMomentsKey = `sdh_viewed_moments_${window.SDH_DATA.currentUserId}`;
         viewedMoments = JSON.parse(localStorage.getItem(viewedMomentsKey) || '{}');
         fetchMoments();
+        loadPrivacySettings();
         
         // Listen for websocket events from Chat
         document.addEventListener('sdh_ws_message', function(e) {
@@ -225,6 +238,9 @@ SDH.Moments = (function() {
         clearSpotifySelection();
         setSoundtrackMode('upload');
         toggleUploadFields();
+        uploadPrivacyType = privacySettings.privacy_type;
+        uploadCustomUserIds = [...privacySettings.custom_user_ids];
+        updateUploadPrivacyBadge();
     }
 
     function toggleUploadFields() {
@@ -367,6 +383,12 @@ SDH.Moments = (function() {
         formData.append('moment_type', type);
         formData.append('caption', caption);
         
+        // Include WhatsApp-style privacy settings
+        const privacyType = uploadPrivacyType || privacySettings.privacy_type;
+        const customIds = uploadCustomUserIds !== null ? uploadCustomUserIds : privacySettings.custom_user_ids;
+        formData.append('privacy_type', privacyType);
+        formData.append('privacy_user_ids', JSON.stringify(customIds));
+        
         if (type === 'text') {
             formData.append('text_content', textContent);
         } else {
@@ -465,6 +487,18 @@ SDH.Moments = (function() {
         // Show/Hide Delete and Views buttons
         const isMine = userGroup.username === window.SDH_DATA.currentUser;
         document.getElementById('mvDeleteBtn').classList.toggle('hidden', !isMine);
+        
+        const privBadge = document.getElementById('mvPrivacyBadge');
+        if (privBadge) {
+            if (isMine && moment.privacy_type) {
+                privBadge.classList.remove('hidden');
+                if (moment.privacy_type === 'all') privBadge.innerText = '👥 Contacts';
+                else if (moment.privacy_type === 'exclude') privBadge.innerText = '🚫 Except';
+                else if (moment.privacy_type === 'only') privBadge.innerText = '⭐ Only';
+            } else {
+                privBadge.classList.add('hidden');
+            }
+        }
         
         const viewsBtn = document.getElementById('mvViewsBtn');
         viewsBtn.classList.toggle('hidden', !isMine);
@@ -833,8 +867,262 @@ SDH.Moments = (function() {
         handleMomentViewedEvent,  // Exposed for chat.js WS event routing
         handleMomentReactedEvent, // Exposed for chat.js WS event routing
         showViews,
-        hideViews
+        hideViews,
+        // Status Privacy APIs
+        openPrivacyModal,
+        handlePrivacyRadioChange,
+        togglePrivacyContact,
+        selectAllPrivacyContacts,
+        filterPrivacyContacts,
+        savePrivacySettings,
+        updateUploadPrivacyBadge,
+        getPrivacySettings: () => privacySettings
     };
+
+    // ─── STATUS PRIVACY LOGIC (WhatsApp-style) ──────────────────────────────
+
+    async function loadPrivacySettings() {
+        try {
+            const res = await fetch('/messaging/api/moments/privacy/');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.status === 'ok') {
+                privacySettings.privacy_type = data.privacy_type || 'all';
+                privacySettings.custom_user_ids = data.custom_user_ids || [];
+                privacySettings.friends = data.friends || [];
+                updateUploadPrivacyBadge();
+            }
+        } catch (e) {
+            console.error("Failed to load moment privacy settings", e);
+        }
+    }
+
+    function updateUploadPrivacyBadge() {
+        const type = uploadPrivacyType || privacySettings.privacy_type;
+        const customIds = uploadCustomUserIds !== null ? uploadCustomUserIds : privacySettings.custom_user_ids;
+
+        const iconEl = document.getElementById('muPrivacyIcon');
+        const labelEl = document.getElementById('muPrivacyLabel');
+        if (!iconEl || !labelEl) return;
+
+        if (type === 'all') {
+            iconEl.textContent = '👥';
+            labelEl.textContent = 'All Contacts';
+        } else if (type === 'exclude') {
+            iconEl.textContent = '🚫';
+            const count = customIds ? customIds.length : 0;
+            labelEl.textContent = count === 0 ? 'All Contacts' : `${count} excluded`;
+        } else if (type === 'only') {
+            iconEl.textContent = '⭐';
+            const count = customIds ? customIds.length : 0;
+            labelEl.textContent = count === 0 ? 'No contacts selected' : `${count} selected`;
+        }
+    }
+
+    function purgeSearchAutofill() {
+        const inp = document.getElementById('mpSearchInput');
+        if (!inp) return;
+        const curUser = (window.SDH_DATA?.currentUser || '').toLowerCase();
+        const check = () => {
+            if (inp.value && (inp.value.toLowerCase() === curUser || inp.value.toLowerCase() === 'raj_123')) {
+                inp.value = '';
+                renderContactsList('');
+            }
+        };
+        inp.value = '';
+        requestAnimationFrame(check);
+        setTimeout(check, 50);
+        setTimeout(check, 150);
+        setTimeout(check, 350);
+    }
+
+    async function openPrivacyModal(fromUpload = false) {
+        isFromUploadModal = fromUpload;
+        const modal = document.getElementById('momentPrivacyModal');
+        if (!modal) return;
+
+        if (!privacySettings.friends || privacySettings.friends.length === 0) {
+            await loadPrivacySettings();
+        }
+
+        tempPrivacyType = (fromUpload && uploadPrivacyType) ? uploadPrivacyType : privacySettings.privacy_type;
+        const sourceIds = (fromUpload && uploadCustomUserIds !== null) ? uploadCustomUserIds : privacySettings.custom_user_ids;
+        tempSelectedUserIds = new Set(sourceIds);
+
+        const radios = document.querySelectorAll('input[name="moment_privacy"]');
+        radios.forEach(r => {
+            r.checked = (r.value === tempPrivacyType);
+        });
+
+        const searchInp = document.getElementById('mpSearchInput');
+        if (searchInp) {
+            searchInp.value = '';
+            if (!searchInp.dataset.boundPurge) {
+                searchInp.dataset.boundPurge = 'true';
+                searchInp.addEventListener('focus', () => purgeSearchAutofill());
+                searchInp.addEventListener('input', () => {
+                    const curUser = (window.SDH_DATA?.currentUser || '').toLowerCase();
+                    if (searchInp.value && (searchInp.value.toLowerCase() === curUser || searchInp.value.toLowerCase() === 'raj_123')) {
+                        searchInp.value = '';
+                        renderContactsList('');
+                    }
+                });
+                searchInp.addEventListener('animationstart', (e) => {
+                    if (e.animationName && e.animationName.includes('onautofill')) {
+                        purgeSearchAutofill();
+                    }
+                });
+            }
+        }
+        purgeSearchAutofill();
+
+        renderPrivacyContactsUI();
+        modal.classList.remove('hidden');
+    }
+
+    function handlePrivacyRadioChange(newType) {
+        tempPrivacyType = newType;
+        const searchInp = document.getElementById('mpSearchInput');
+        if (searchInp) searchInp.value = '';
+        purgeSearchAutofill();
+        renderPrivacyContactsUI();
+    }
+
+    function renderPrivacyContactsUI() {
+        const contactsSection = document.getElementById('mpContactsSection');
+        const headingEl = document.getElementById('mpSelectionHeading');
+        const excludedBadge = document.getElementById('mpExcludedBadge');
+        const includedBadge = document.getElementById('mpIncludedBadge');
+
+        const count = tempSelectedUserIds.size;
+        if (tempPrivacyType === 'exclude') {
+            excludedBadge?.classList.remove('hidden');
+            if (excludedBadge) excludedBadge.textContent = `${count} excluded`;
+            includedBadge?.classList.add('hidden');
+        } else if (tempPrivacyType === 'only') {
+            includedBadge?.classList.remove('hidden');
+            if (includedBadge) includedBadge.textContent = `${count} selected`;
+            excludedBadge?.classList.add('hidden');
+        } else {
+            excludedBadge?.classList.add('hidden');
+            includedBadge?.classList.add('hidden');
+        }
+
+        if (tempPrivacyType === 'all') {
+            contactsSection?.classList.add('hidden');
+            return;
+        }
+
+        contactsSection?.classList.remove('hidden');
+        if (headingEl) {
+            headingEl.textContent = tempPrivacyType === 'exclude' 
+                ? 'Choose contacts to exclude' 
+                : 'Choose contacts to share with';
+        }
+
+        renderContactsList(document.getElementById('mpSearchInput')?.value || '');
+    }
+
+    function renderContactsList(filterText = '') {
+        const listEl = document.getElementById('mpContactsList');
+        if (!listEl) return;
+
+        const q = filterText.toLowerCase().trim();
+        const filtered = (privacySettings.friends || []).filter(f => 
+            f.username.toLowerCase().includes(q) || f.full_name.toLowerCase().includes(q)
+        );
+
+        if (filtered.length === 0) {
+            listEl.innerHTML = `<div class="text-center py-6 text-xs text-divine-muted">No contacts found.</div>`;
+            return;
+        }
+
+        let html = '';
+        filtered.forEach(f => {
+            const isChecked = tempSelectedUserIds.has(f.id);
+            html += `
+                <div class="mp-contact-item flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 cursor-pointer transition-colors"
+                     onclick="SDH.Moments.togglePrivacyContact(${f.id})">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <img src="${f.avatar}" class="w-9 h-9 rounded-full object-cover border border-white/10 flex-shrink-0" />
+                        <div class="min-w-0">
+                            <div class="mp-contact-name text-xs font-semibold text-divine-text truncate">${f.full_name}</div>
+                            <div class="mp-contact-username text-[10px] text-divine-muted truncate">@${f.username}</div>
+                        </div>
+                    </div>
+                    <input type="checkbox" ${isChecked ? 'checked' : ''} class="w-4 h-4 rounded text-divine-gold focus:ring-divine-gold border-divine-border pointer-events-none" />
+                </div>
+            `;
+        });
+        listEl.innerHTML = html;
+    }
+
+    function togglePrivacyContact(userId) {
+        if (tempSelectedUserIds.has(userId)) {
+            tempSelectedUserIds.delete(userId);
+        } else {
+            tempSelectedUserIds.add(userId);
+        }
+        renderPrivacyContactsUI();
+    }
+
+    function selectAllPrivacyContacts(select) {
+        if (select) {
+            (privacySettings.friends || []).forEach(f => tempSelectedUserIds.add(f.id));
+        } else {
+            tempSelectedUserIds.clear();
+        }
+        renderPrivacyContactsUI();
+    }
+
+    function filterPrivacyContacts(val) {
+        renderContactsList(val);
+    }
+
+    async function savePrivacySettings() {
+        const btn = document.getElementById('mpSaveBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+        }
+
+        const selectedIds = Array.from(tempSelectedUserIds);
+
+        try {
+            const res = await fetch('/messaging/api/moments/privacy/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': window.SDH_DATA.csrfToken
+                },
+                body: JSON.stringify({
+                    privacy_type: tempPrivacyType,
+                    user_ids: selectedIds
+                })
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                privacySettings.privacy_type = data.privacy_type;
+                privacySettings.custom_user_ids = data.custom_user_ids;
+                uploadPrivacyType = data.privacy_type;
+                uploadCustomUserIds = data.custom_user_ids;
+
+                updateUploadPrivacyBadge();
+                document.getElementById('momentPrivacyModal')?.classList.add('hidden');
+                SDH.Chat?.showToast?.('Moment visibility updated successfully.', 'success');
+            } else {
+                alert(data.error || 'Failed to update visibility settings');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to update visibility settings');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = 'Save Preferences';
+            }
+        }
+    }
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
