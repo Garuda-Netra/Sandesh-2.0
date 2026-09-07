@@ -455,9 +455,15 @@ SDH.Chat = (() => {
         updateUnreadBadge(chatTarget);
         updateDocumentTitle();
 
+        const isLocked = window.SDH?.ChatLock?.isChatLocked?.(chatTarget, isGroupMsg);
         let notifTitle = isGroupMsg ? `New message in Group` : `New message from ${data.sender}`;
         if (isGroupMsg && data.sender) notifTitle = `New message from ${data.sender} in Group`;
-        const previewText = data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`;
+        let previewText = data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`;
+
+        if (isLocked && !window.SDH?.ChatLock?.isUnlocked?.()) {
+          notifTitle = '🔒 Locked Chat';
+          previewText = 'New message';
+        }
 
         const clickHandler = () => {
           if (isGroupMsg) {
@@ -477,20 +483,22 @@ SDH.Chat = (() => {
         showToast(`${notifTitle}: ${previewText}`, 'info', clickHandler);
         playNotificationSound();
 
-        // Move contact to top under Saved Messages
-        const targetItem = document.getElementById(`user-item-${chatTarget}`);
-        if (targetItem) {
-          const userList = document.getElementById('userList');
-          if (userList) {
-            const savedMsgItem = userList.querySelector('[data-self="1"]');
-            if (savedMsgItem && savedMsgItem.nextSibling) {
-              userList.insertBefore(targetItem, savedMsgItem.nextSibling);
-            } else {
-              userList.prepend(targetItem);
+        // Move contact to top under Saved Messages only if not locked
+        if (!isLocked) {
+          const targetItem = document.getElementById(`user-item-${chatTarget}`);
+          if (targetItem) {
+            const userList = document.getElementById('userList');
+            if (userList) {
+              const savedMsgItem = userList.querySelector('[data-self="1"]');
+              if (savedMsgItem && savedMsgItem.nextSibling) {
+                userList.insertBefore(targetItem, savedMsgItem.nextSibling);
+              } else {
+                userList.prepend(targetItem);
+              }
             }
+          } else {
+            _refreshSidebar();
           }
-        } else {
-          _refreshSidebar();
         }
       }
       return;
@@ -908,6 +916,7 @@ SDH.Chat = (() => {
     SDH.WS?.connectWebSocket?.('global');
     sessionStorage.removeItem('ndm_last_chat');
     sessionStorage.removeItem('ndm_last_chat_id');
+    sessionStorage.removeItem('ndm_last_chat_name');
 
     const container = document.getElementById('messagesContainer');
     if (container) {
@@ -921,8 +930,21 @@ SDH.Chat = (() => {
 
     const usernameEl = document.getElementById('chatUsername');
     if (usernameEl) usernameEl.textContent = 'Select a contact';
+
+    const avatarEl = document.getElementById('chatAvatar');
+    if (avatarEl) avatarEl.textContent = '—';
+
+    const statusEl = document.getElementById('chatTypingStatus');
+    if (statusEl) statusEl.textContent = 'Choose someone to start messaging';
+
     document.getElementById('callButtons')?.classList.add('hidden');
     document.getElementById('inputBar')?.classList.add('hidden');
+    document.getElementById('kebabUserOptions')?.classList.add('hidden');
+    document.getElementById('kebabGroupOptions')?.classList.add('hidden');
+    document.getElementById('kebabDropdown')?.classList.add('hidden');
+
+    document.querySelectorAll('.user-item').forEach(el =>
+      el.classList.remove('active-chat-item'));
   }
 
   /** Opens the "Remove User" confirmation modal for a sidebar contact. */
@@ -2176,6 +2198,17 @@ SDH.Chat = (() => {
         if (itemEl?.dataset?.userId) userId = itemEl.dataset.userId;
       }
     }
+
+    // Chat Lock Verification
+    if (window.SDH?.ChatLock?.isChatLocked?.(username, false)) {
+      if (!window.SDH.ChatLock.isUnlocked()) {
+        window.SDH.ChatLock.ensureChatAccessible(username, false, () => {
+          selectUser(username, userId);
+        });
+        return;
+      }
+    }
+
     if (activeUser === username) return;
     clearFiles();
     activeUser = username; activeUserId = userId;
@@ -2303,7 +2336,18 @@ SDH.Chat = (() => {
     const container = document.getElementById('messagesContainer');
     try {
       const res = await fetch(`${window.SDH_DATA?.historyUrl || '/messaging/api/history/'}${username}/`);
-      if (!res.ok) throw new Error(res.statusText);
+      if (!res.ok) {
+        if (res.status === 423) {
+          if (window.SDH?.ChatLock) {
+            window.SDH.ChatLock.showAuthModal({
+              reason: `Unlock to view this chat`,
+              onSuccess: () => loadHistory(username)
+            });
+          }
+          return;
+        }
+        throw new Error(res.statusText);
+      }
       const data = await res.json();
 
       if (container) container.innerHTML = '';
@@ -2790,6 +2834,11 @@ SDH.Chat = (() => {
   //  Bootstrap
   // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
   async function initializeChat() {
+    try {
+      window.SDH?.ChatLock?.init?.();
+    } catch (e) {
+      console.warn('[Chat] ChatLock init error:', e);
+    }
     await loadUnreadCounts();
     _updateOnlineCount();
     // Load friend requests
@@ -3340,6 +3389,18 @@ SDH.Chat = (() => {
     const dropdown = document.getElementById('kebabDropdown');
     if (dropdown) {
       dropdown.classList.toggle('hidden');
+      if (!dropdown.classList.contains('hidden') && window.SDH?.ChatLock) {
+        const isGroup = activeUser && activeUser.startsWith('group_');
+        const locked = window.SDH.ChatLock.isChatLocked(activeUser, isGroup);
+        const lockChatBtnText = document.getElementById('lockChatBtnText');
+        const lockGroupBtnText = document.getElementById('lockGroupBtnText');
+        if (lockChatBtnText) {
+          lockChatBtnText.textContent = locked ? 'Unlock Chat' : 'Lock Chat';
+        }
+        if (lockGroupBtnText) {
+          lockGroupBtnText.textContent = locked ? 'Unlock Group' : 'Lock Group';
+        }
+      }
     }
   }
 
@@ -3596,6 +3657,17 @@ SDH.Chat = (() => {
 
   async function selectGroup(groupId, groupName) {
     if (window.innerWidth < 640) closeSidebar();
+
+    // Chat Lock Verification
+    if (window.SDH?.ChatLock?.isChatLocked?.(`group_${groupId}`, true)) {
+      if (!window.SDH.ChatLock.isUnlocked()) {
+        window.SDH.ChatLock.ensureChatAccessible(`group_${groupId}`, true, () => {
+          selectGroup(groupId, groupName);
+        });
+        return;
+      }
+    }
+
     if (activeUser === `group_${groupId}`) return;
     clearFiles();
     activeUser = `group_${groupId}`;
@@ -3891,7 +3963,18 @@ SDH.Chat = (() => {
     const container = document.getElementById('messagesContainer');
     try {
       const res = await fetch(`/messaging/api/groups/${groupId}/history/`);
-      if (!res.ok) throw new Error(res.statusText);
+      if (!res.ok) {
+        if (res.status === 423) {
+          if (window.SDH?.ChatLock) {
+            window.SDH.ChatLock.showAuthModal({
+              reason: `Unlock to view this group chat`,
+              onSuccess: () => loadGroupHistory(groupId, groupName)
+            });
+          }
+          return;
+        }
+        throw new Error(res.statusText);
+      }
       const data = await res.json();
 
       if (container) container.innerHTML = '';
@@ -4079,6 +4162,9 @@ SDH.Chat = (() => {
     closeRetentionModal,
     saveRetentionSetting,
     showToast,
+    getActiveUser: () => activeUser,
+    getActiveUserId: () => activeUserId,
+    _resetConversationPanel,
   };
 
 })();

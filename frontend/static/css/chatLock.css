@@ -1,0 +1,112 @@
+/**
+ * SDH – Chat Lock & Security Styles
+ * ==================================================
+ * WhatsApp-style Biometrics, PIN Keypad, Folder, and Micro-interactions.
+ */
+
+/* ─── Masked PIN Dots ─────────────────────────────────────────── */
+.sdh-pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(168, 85, 247, 0.4);
+  background: transparent;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sdh-pin-dot-active {
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  border-color: #c084fc;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
+  transform: scale(1.15);
+}
+
+[data-theme="light"] .sdh-pin-dot {
+  border-color: rgba(147, 51, 234, 0.35);
+}
+
+[data-theme="light"] .sdh-pin-dot-active {
+  background: linear-gradient(135deg, #9333ea, #4f46e5);
+  border-color: #9333ea;
+  box-shadow: 0 0 10px rgba(147, 51, 234, 0.4);
+}
+
+/* ─── Keypad Buttons ──────────────────────────────────────────── */
+.sdh-keypad-btn {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  font-weight: 600;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.sdh-keypad-btn:hover {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.3);
+  transform: translateY(-1px);
+}
+
+.sdh-keypad-btn:active {
+  transform: scale(0.95);
+  background: rgba(168, 85, 247, 0.25);
+}
+
+[data-theme="light"] .sdh-keypad-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #1e293b;
+}
+
+[data-theme="light"] .sdh-keypad-btn:hover {
+  background: rgba(147, 51, 234, 0.08);
+  border-color: rgba(147, 51, 234, 0.2);
+}
+
+/* ─── Pulse Fingerprint Animation ─────────────────────────────── */
+.sdh-pulse-fingerprint {
+  animation: sdhBioPulse 2.4s infinite ease-in-out;
+}
+
+@keyframes sdhBioPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(168, 85, 247, 0));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.5));
+  }
+}
+
+/* ─── Shake Animation for incorrect PIN ───────────────────────── */
+.sdh-shake {
+  animation: sdhShakeAnim 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes sdhShakeAnim {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(4px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+  40%, 60% { transform: translate3d(6px, 0, 0); }
+}
+
+/* ─── Chat Lock Badge in Sidebar ──────────────────────────────── */
+.sdh-chat-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  transition: transform 0.2s ease;
+}
+
+.user-item:hover .sdh-chat-lock-badge {
+  transform: scale(1.1);
+}

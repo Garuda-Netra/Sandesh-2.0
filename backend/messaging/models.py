@@ -518,3 +518,91 @@ class AutoWishMessage(models.Model):
 
     def __str__(self):
         return f"Wish for {self.user.username} (Delivered: {self.is_delivered})"
+
+
+# ---------------------------------------------------------------------------
+# Chat Lock & User Security Models
+# ---------------------------------------------------------------------------
+class UserSecurityCredential(models.Model):
+    """
+    Stores security credentials for WhatsApp-style chat locking:
+    - Hashed PIN (PBKDF2)
+    - Biometric WebAuthn platform authenticator credentials (Fingerprint/Touch ID/Face ID)
+    - Rate-limiting counters to prevent brute-force attacks
+    """
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='security_credential'
+    )
+    pin_hash = models.CharField(max_length=255, blank=True, default='')
+    biometric_enabled = models.BooleanField(default=False)
+    biometric_credential_id = models.TextField(blank=True, default='')
+    biometric_public_key = models.TextField(blank=True, default='')
+    failed_attempts = models.PositiveIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Security Credential'
+        verbose_name_plural = 'User Security Credentials'
+
+    def __str__(self):
+        return f"Security credentials for {self.user.username}"
+
+    @property
+    def has_pin(self):
+        return bool(self.pin_hash)
+
+
+class ChatLock(models.Model):
+    """
+    Tracks locked chats for a specific user.
+    Each user can individually lock direct chats, group chats, or saved messages.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chat_locks'
+    )
+    locked_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='+'
+    )
+    locked_group = models.ForeignKey(
+        'Group',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='+'
+    )
+    is_self_chat = models.BooleanField(
+        default=False,
+        help_text="True if the user has locked their Saved Messages"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Chat Lock'
+        verbose_name_plural = 'Chat Locks'
+        unique_together = [
+            ('user', 'locked_user'),
+            ('user', 'locked_group'),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'locked_user']),
+            models.Index(fields=['user', 'locked_group']),
+        ]
+
+    def __str__(self):
+        target = "Saved Messages" if self.is_self_chat else (
+            self.locked_user.username if self.locked_user else (
+                self.locked_group.name if self.locked_group else "Unknown"
+            )
+        )
+        return f"{self.user.username} locked {target}"
+

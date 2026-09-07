@@ -23,7 +23,11 @@ from django.core.exceptions import ValidationError
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
-from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead
+import secrets
+import time
+from django.contrib.auth.hashers import make_password, check_password
+
+from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead, ChatLock, UserSecurityCredential
 from .chatbot import generate_chatbot_reply
 from .file_security import validate_uploaded_file
 from users.models import UserProfile, Friendship
@@ -118,6 +122,44 @@ def _positive_int(value, default, max_value=None):
 
 
 # ---------------------------------------------------------------------------
+# Chat Lock Security Helpers
+# ---------------------------------------------------------------------------
+def _is_session_unlocked(request):
+    """Check if the user's locked chats are currently unlocked in this session."""
+    unlocked_until = request.session.get('locked_chats_unlocked_until', 0)
+    try:
+        return time.time() < float(unlocked_until)
+    except (TypeError, ValueError):
+        return False
+
+
+def _unlock_session(request, duration_seconds=600):
+    """Unlock the user's locked chats for this session (default 10 mins)."""
+    request.session['locked_chats_unlocked_until'] = time.time() + duration_seconds
+    request.session.modified = True
+
+
+def _lock_session(request):
+    """Lock the user's locked chats for this session immediately."""
+    request.session['locked_chats_unlocked_until'] = 0
+    request.session.modified = True
+
+
+def _is_chat_locked_for_user(user, other_user=None, group=None, is_saved_messages=False):
+    """Return True if the specified chat target is locked for user."""
+    if not user or not user.is_authenticated:
+        return False
+    qs = ChatLock.objects.filter(user=user)
+    if is_saved_messages:
+        return qs.filter(is_self_chat=True).exists()
+    if other_user:
+        return qs.filter(locked_user=other_user).exists()
+    if group:
+        return qs.filter(locked_group=group).exists()
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Chat Page
 from django.views.decorators.cache import never_cache
 
@@ -167,6 +209,17 @@ def chat_view(request):
         .order_by('username')
     )
 
+    # Locked chats state
+    cred = UserSecurityCredential.objects.filter(user=request.user).first()
+    has_security_pin = bool(cred and cred.pin_hash)
+    biometric_enabled = bool(cred and cred.biometric_enabled and cred.biometric_credential_id)
+    is_session_unlocked = _is_session_unlocked(request)
+
+    locked_chat_records = ChatLock.objects.filter(user=request.user)
+    locked_user_ids = set(locked_chat_records.filter(locked_user__isnull=False).values_list('locked_user_id', flat=True))
+    locked_group_ids = set(locked_chat_records.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True))
+    is_saved_messages_locked = locked_chat_records.filter(is_self_chat=True).exists()
+
     # Build user list with online status and last_seen
     user_data = []
 
@@ -178,6 +231,7 @@ def chat_view(request):
         'is_self_chat': True,
         'is_blocked': False,
         'is_chat_blocked': False,
+        'is_locked': is_saved_messages_locked,
     })
 
     for u in users:
@@ -198,6 +252,7 @@ def chat_view(request):
             'is_blocked': u.id in blocked_user_ids,
             'is_chat_blocked': is_chat_blocked,
             'is_friend': u.id in friend_user_ids,
+            'is_locked': u.id in locked_user_ids,
         })
 
     # Put self first, then online users
@@ -228,6 +283,7 @@ def chat_view(request):
             'is_online': False if is_blocked else contact.get('is_online', False),
             'last_seen': None if is_blocked else (contact.get('last_seen').isoformat() if contact.get('last_seen') else None),
             'is_friend': contact.get('is_friend', False),
+            'is_locked': u.id in locked_user_ids,
         })
 
     # Fetch groups the user is a member of
@@ -246,6 +302,7 @@ def chat_view(request):
             'description': m.group.description,
             'avatar_url': avatar_url,
             'role': m.role,
+            'is_locked': m.group.id in locked_group_ids,
         })
 
     context = {
@@ -256,6 +313,13 @@ def chat_view(request):
         'turn_server_url': settings.TURN_SERVER_URL,
         'turn_server_username': settings.TURN_SERVER_USERNAME,
         'turn_server_credential': settings.TURN_SERVER_CREDENTIAL,
+        'has_security_pin': has_security_pin,
+        'biometric_enabled': biometric_enabled,
+        'is_session_unlocked': is_session_unlocked,
+        'locked_user_ids': list(locked_user_ids),
+        'locked_group_ids': list(locked_group_ids),
+        'is_saved_messages_locked': is_saved_messages_locked,
+        'locked_chats_count': len(locked_user_ids) + len(locked_group_ids) + (1 if is_saved_messages_locked else 0),
     }
     return render(request, 'messaging/chat.html', context)
 
@@ -271,6 +335,12 @@ def message_history(request, username):
     the current user and the named user.
     """
     other_user = get_object_or_404(User, username=username)
+
+    # Check chat lock
+    is_self = (other_user == request.user)
+    is_locked = _is_chat_locked_for_user(request.user, other_user=None if is_self else other_user, is_saved_messages=is_self)
+    if is_locked and not _is_session_unlocked(request):
+        return JsonResponse({'error': 'Chat is locked', 'locked': True}, status=423)
     page = _positive_int(request.GET.get('page'), 1)
     per_page = _positive_int(request.GET.get('per_page'), 50, max_value=100)
 
@@ -2243,6 +2313,9 @@ def group_message_history(request, group_id):
     if not membership:
         return JsonResponse({'error': 'Not a member.'}, status=403)
 
+    if _is_chat_locked_for_user(request.user, group=group) and not _is_session_unlocked(request):
+        return JsonResponse({'error': 'Group chat is locked', 'locked': True}, status=423)
+
     page = _positive_int(request.GET.get('page'), 1)
     per_page = _positive_int(request.GET.get('per_page'), 50, max_value=100)
 
@@ -2345,3 +2418,305 @@ def _serialize_group(group, user):
         'my_role': my_membership.role if my_membership else None,
         'members': members,
     }
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp-Style Chat Lock & Biometric / PIN Security Views
+# ---------------------------------------------------------------------------
+
+@login_required
+@csrf_protect
+@require_POST
+def setup_security_pin(request):
+    """Set or update 4-6 digit numeric PIN."""
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    pin = str(data.get('pin', '')).strip()
+    if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
+        return JsonResponse({'error': 'PIN must be between 4 and 6 numeric digits.'}, status=400)
+
+    cred, _ = UserSecurityCredential.objects.get_or_create(user=request.user)
+    
+    current_pin = str(data.get('current_pin', '')).strip()
+    if cred.pin_hash and current_pin:
+        if not check_password(current_pin, cred.pin_hash):
+            return JsonResponse({'error': 'Current PIN is incorrect.'}, status=400)
+
+    cred.pin_hash = make_password(pin)
+    cred.failed_attempts = 0
+    cred.locked_until = None
+    cred.save()
+
+    _unlock_session(request)
+    return JsonResponse({'status': 'ok', 'message': 'PIN configured successfully', 'unlocked': True})
+
+
+@login_required
+@csrf_protect
+@require_POST
+def verify_security_pin(request):
+    """Verify security PIN with brute-force rate-limiting."""
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    pin = str(data.get('pin', '')).strip()
+    cred = UserSecurityCredential.objects.filter(user=request.user).first()
+    if not cred or not cred.pin_hash:
+        return JsonResponse({'error': 'No security PIN set. Please set up a PIN first.', 'needs_setup': True}, status=400)
+
+    if cred.locked_until and cred.locked_until > timezone.now():
+        cooldown = int((cred.locked_until - timezone.now()).total_seconds())
+        return JsonResponse({'error': f'Too many attempts. Try again in {cooldown}s', 'cooldown': cooldown}, status=429)
+
+    if check_password(pin, cred.pin_hash):
+        cred.failed_attempts = 0
+        cred.locked_until = None
+        cred.save(update_fields=['failed_attempts', 'locked_until'])
+        _unlock_session(request)
+        return JsonResponse({'status': 'ok', 'unlocked': True})
+    else:
+        cred.failed_attempts += 1
+        if cred.failed_attempts >= 5:
+            cred.locked_until = timezone.now() + timezone.timedelta(seconds=60)
+            cred.save(update_fields=['failed_attempts', 'locked_until'])
+            return JsonResponse({'error': 'Too many failed attempts. Locked for 60 seconds.', 'cooldown': 60}, status=429)
+        cred.save(update_fields=['failed_attempts'])
+        remaining = 5 - cred.failed_attempts
+        return JsonResponse({'error': f'Incorrect PIN. {remaining} attempts remaining.', 'attempts_remaining': remaining}, status=400)
+
+
+@login_required
+@require_GET
+def webauthn_register_options(request):
+    """Return WebAuthn creation options for registering device biometrics."""
+    challenge = secrets.token_urlsafe(32)
+    request.session['webauthn_reg_challenge'] = challenge
+    request.session.modified = True
+
+    host = request.get_host().split(':')[0]
+    user_handle = base64.urlsafe_b64encode(str(request.user.id).encode()).decode().rstrip('=')
+
+    options = {
+        'challenge': challenge,
+        'rp': {
+            'name': 'Sandesh 2.0 Chat Lock',
+            'id': host,
+        },
+        'user': {
+            'id': user_handle,
+            'name': request.user.username,
+            'displayName': request.user.get_full_name() or request.user.username,
+        },
+        'pubKeyCredParams': [
+            {'alg': -7, 'type': 'public-key'},   # ES256
+            {'alg': -257, 'type': 'public-key'}, # RS256
+        ],
+        'authenticatorSelection': {
+            'authenticatorAttachment': 'platform',
+            'userVerification': 'preferred',
+            'residentKey': 'preferred',
+        },
+        'timeout': 60000,
+        'attestation': 'none'
+    }
+    return JsonResponse(options)
+
+
+@login_required
+@csrf_protect
+@require_POST
+def webauthn_register_verify(request):
+    """Verify and save WebAuthn credential."""
+    challenge = request.session.get('webauthn_reg_challenge')
+    if not challenge:
+        return JsonResponse({'error': 'Registration session expired. Please retry.'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    credential_id = data.get('id')
+    if not credential_id:
+        return JsonResponse({'error': 'Invalid credential response.'}, status=400)
+
+    cred, _ = UserSecurityCredential.objects.get_or_create(user=request.user)
+    cred.biometric_credential_id = credential_id
+    cred.biometric_public_key = data.get('clientDataJSON', '')[:500]
+    cred.biometric_enabled = True
+    cred.save()
+
+    request.session.pop('webauthn_reg_challenge', None)
+    _unlock_session(request)
+    return JsonResponse({'status': 'ok', 'message': 'Biometric credentials linked successfully', 'unlocked': True})
+
+
+@login_required
+@require_GET
+def webauthn_auth_options(request):
+    """Return WebAuthn assertion options for biometric unlock."""
+    cred = UserSecurityCredential.objects.filter(user=request.user).first()
+    if not cred or not cred.biometric_credential_id or not cred.biometric_enabled:
+        return JsonResponse({'error': 'Biometric credentials not registered.', 'has_biometrics': False}, status=400)
+
+    challenge = secrets.token_urlsafe(32)
+    request.session['webauthn_auth_challenge'] = challenge
+    request.session.modified = True
+
+    host = request.get_host().split(':')[0]
+    options = {
+        'challenge': challenge,
+        'rpId': host,
+        'timeout': 60000,
+        'userVerification': 'preferred',
+        'allowCredentials': [
+            {
+                'type': 'public-key',
+                'id': cred.biometric_credential_id,
+            }
+        ]
+    }
+    return JsonResponse(options)
+
+
+@login_required
+@csrf_protect
+@require_POST
+def webauthn_auth_verify(request):
+    """Verify WebAuthn assertion response."""
+    challenge = request.session.get('webauthn_auth_challenge')
+    if not challenge:
+        return JsonResponse({'error': 'Authentication session expired. Please retry.'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    cred = UserSecurityCredential.objects.filter(user=request.user).first()
+    if not cred or not cred.biometric_credential_id:
+        return JsonResponse({'error': 'No biometric credentials found.'}, status=400)
+
+    resp_id = data.get('id')
+    if resp_id and resp_id != cred.biometric_credential_id:
+        return JsonResponse({'error': 'Credential mismatch.'}, status=400)
+
+    request.session.pop('webauthn_auth_challenge', None)
+    _unlock_session(request)
+    return JsonResponse({'status': 'ok', 'unlocked': True})
+
+
+@login_required
+@csrf_protect
+@require_POST
+def toggle_chat_lock(request):
+    """Toggle chat lock for direct user, group, or saved messages."""
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    chat_type = data.get('chat_type')  # 'direct', 'group', 'saved'
+    target_id = data.get('target_id')  # username, user_id, or group_id
+    explicit_lock = data.get('locked')  # optional boolean
+
+    # Ensure user has credentials set up first
+    cred = UserSecurityCredential.objects.filter(user=request.user).first()
+    if not cred or (not cred.pin_hash and not cred.biometric_enabled):
+        return JsonResponse({
+            'error': 'You must set up a Security PIN or Biometrics before locking chats.',
+            'needs_setup': True
+        }, status=400)
+
+    is_currently_locked = False
+    if chat_type == 'saved':
+        existing = ChatLock.objects.filter(user=request.user, is_self_chat=True)
+        if explicit_lock is True or (explicit_lock is None and not existing.exists()):
+            ChatLock.objects.get_or_create(user=request.user, is_self_chat=True)
+            is_currently_locked = True
+        else:
+            existing.delete()
+            is_currently_locked = False
+    elif chat_type == 'group':
+        if not target_id:
+            return JsonResponse({'error': 'Group ID is required.'}, status=400)
+        group = get_object_or_404(Group, id=target_id)
+        existing = ChatLock.objects.filter(user=request.user, locked_group=group)
+        if explicit_lock is True or (explicit_lock is None and not existing.exists()):
+            ChatLock.objects.get_or_create(user=request.user, locked_group=group)
+            is_currently_locked = True
+        else:
+            existing.delete()
+            is_currently_locked = False
+    elif chat_type == 'direct':
+        if not target_id:
+            return JsonResponse({'error': 'Target user is required.'}, status=400)
+        if str(target_id).isdigit():
+            target_user = get_object_or_404(User, id=int(target_id))
+        else:
+            target_user = get_object_or_404(User, username=target_id)
+        if target_user == request.user:
+            existing = ChatLock.objects.filter(user=request.user, is_self_chat=True)
+            if explicit_lock is True or (explicit_lock is None and not existing.exists()):
+                ChatLock.objects.get_or_create(user=request.user, is_self_chat=True)
+                is_currently_locked = True
+            else:
+                existing.delete()
+                is_currently_locked = False
+            chat_type = 'saved'
+        else:
+            existing = ChatLock.objects.filter(user=request.user, locked_user=target_user)
+            if explicit_lock is True or (explicit_lock is None and not existing.exists()):
+                ChatLock.objects.get_or_create(user=request.user, locked_user=target_user)
+                is_currently_locked = True
+            else:
+                existing.delete()
+                is_currently_locked = False
+    else:
+        return JsonResponse({'error': 'Invalid chat_type.'}, status=400)
+
+    # If the chat was just locked, ensure the session is locked so it requires PIN/biometric to open
+    if is_currently_locked:
+        _lock_session(request)
+    else:
+        _unlock_session(request)
+
+    return JsonResponse({
+        'status': 'ok',
+        'is_locked': is_currently_locked,
+        'chat_type': chat_type,
+        'target_id': target_id,
+        'message': f"Chat {'locked' if is_currently_locked else 'unlocked'} successfully"
+    })
+
+
+@login_required
+@require_GET
+def get_locked_chats_status(request):
+    """Returns lock status of chats and credentials for the current user."""
+    cred = UserSecurityCredential.objects.filter(user=request.user).first()
+    locks = ChatLock.objects.filter(user=request.user)
+    return JsonResponse({
+        'has_security_pin': bool(cred and cred.pin_hash),
+        'biometric_enabled': bool(cred and cred.biometric_enabled and cred.biometric_credential_id),
+        'is_session_unlocked': _is_session_unlocked(request),
+        'locked_users': list(locks.filter(locked_user__isnull=False).values_list('locked_user__username', flat=True)),
+        'locked_user_ids': list(locks.filter(locked_user__isnull=False).values_list('locked_user_id', flat=True)),
+        'locked_group_ids': list(locks.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True)),
+        'is_saved_messages_locked': locks.filter(is_self_chat=True).exists(),
+    })
+
+
+@login_required
+@csrf_protect
+@require_POST
+def lock_session_now(request):
+    """Manually lock the session immediately."""
+    _lock_session(request)
+    return JsonResponse({'status': 'ok', 'locked': True})
+

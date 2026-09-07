@@ -22,6 +22,17 @@ urlpatterns = [
     # Secure file transfer
     path('upload-file/', views.upload_file, name='upload_file'),
     path('download-file/<int:file_id>/', views.download_file, name='download_file'),
+
+    # ── WhatsApp-Style Chat Lock & Security ───────────────────────
+    path('api/security/setup-pin/', views.setup_security_pin, name='setup_security_pin'),
+    path('api/security/verify-pin/', views.verify_security_pin, name='verify_security_pin'),
+    path('api/security/webauthn-register-options/', views.webauthn_register_options, name='webauthn_register_options'),
+    path('api/security/webauthn-register-verify/', views.webauthn_register_verify, name='webauthn_register_verify'),
+    path('api/security/webauthn-auth-options/', views.webauthn_auth_options, name='webauthn_auth_options'),
+    path('api/security/webauthn-auth-verify/', views.webauthn_auth_verify, name='webauthn_auth_verify'),
+    path('api/chat-lock/toggle/', views.toggle_chat_lock, name='toggle_chat_lock'),
+    path('api/chat-lock/status/', views.get_locked_chats_status, name='get_locked_chats_status'),
+    path('api/chat-lock/lock-now/', views.lock_session_now, name='lock_session_now'),
     # Professional message deletion
     path('api/message/<int:message_id>/remove-my-view/', views.remove_from_my_view, name='remove_from_my_view'),
     path('api/message/<int:message_id>/delete-for-all/', views.delete_for_all, name='delete_for_all'),
