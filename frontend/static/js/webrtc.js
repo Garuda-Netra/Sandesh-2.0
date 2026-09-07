@@ -1290,7 +1290,7 @@ SDH.WebRTC = (() => {
     }
 
     function getSelectedTone() {
-      return localStorage.getItem('sdh_call_ringtone') || 'celestial';
+      return localStorage.getItem('sdh_call_ringtone') || 'shankha';
     }
 
     function getVolume() {
@@ -1448,8 +1448,104 @@ SDH.WebRTC = (() => {
       playPulse(now + 0.55);
     }
 
+    // 6. Divine Shankha: Sacred acoustic conch shell resonance with breath swell, harmonics & celestial echo
+    function playShankha(ctx, masterGain) {
+      const now = ctx.currentTime;
+
+      // Acoustic Conch Resonator Function
+      const playConchBurst = (startTime, baseFreq, duration, volumeMult = 1.0) => {
+        const oscFundamental = ctx.createOscillator();
+        const oscHarmonic2   = ctx.createOscillator();
+        const oscHarmonic3   = ctx.createOscillator();
+        const oscHarmonic4   = ctx.createOscillator();
+        const oscSubDrone    = ctx.createOscillator();
+
+        // 5.2 Hz Breath Vibrato LFO
+        const lfo = ctx.createOscillator();
+        const lfoGain = ctx.createGain();
+        lfo.frequency.value = 5.2;
+        lfoGain.gain.value = 4.5;
+        lfo.connect(oscFundamental.frequency);
+        lfo.connect(oscHarmonic2.frequency);
+        lfo.connect(oscHarmonic3.frequency);
+
+        // Conch acoustic filter (warm horn formant)
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(baseFreq * 2.2, startTime);
+        filter.Q.value = 1.8;
+
+        const burstGain = ctx.createGain();
+
+        // Natural breath swell pitch bend at attack
+        oscFundamental.type = 'sine';
+        oscFundamental.frequency.setValueAtTime(baseFreq * 0.93, startTime);
+        oscFundamental.frequency.exponentialRampToValueAtTime(baseFreq, startTime + 0.22);
+
+        oscHarmonic2.type = 'triangle';
+        oscHarmonic2.frequency.setValueAtTime(baseFreq * 2, startTime);
+
+        oscHarmonic3.type = 'sine';
+        oscHarmonic3.frequency.setValueAtTime(baseFreq * 3, startTime);
+
+        oscHarmonic4.type = 'sine';
+        oscHarmonic4.frequency.setValueAtTime(baseFreq * 4, startTime);
+
+        oscSubDrone.type = 'sine';
+        oscSubDrone.frequency.setValueAtTime(baseFreq * 0.5, startTime);
+
+        const g1 = ctx.createGain(); g1.gain.value = 0.55;
+        const g2 = ctx.createGain(); g2.gain.value = 0.32;
+        const g3 = ctx.createGain(); g3.gain.value = 0.22;
+        const g4 = ctx.createGain(); g4.gain.value = 0.12;
+        const gSub = ctx.createGain(); gSub.gain.value = 0.25;
+
+        oscFundamental.connect(g1); g1.connect(burstGain);
+        oscHarmonic2.connect(g2);   g2.connect(burstGain);
+        oscHarmonic3.connect(g3);   g3.connect(filter);
+        oscHarmonic4.connect(g4);   g4.connect(filter);
+        oscSubDrone.connect(gSub);  gSub.connect(burstGain);
+        filter.connect(burstGain);
+
+        // Conch Breath Envelope (Attack swell -> Sustained sacred resonance -> Decaying fade)
+        const attackTime = 0.28;
+        const sustainTime = duration - 0.7;
+
+        burstGain.gain.setValueAtTime(0.0001, startTime);
+        burstGain.gain.exponentialRampToValueAtTime(0.75 * volumeMult, startTime + attackTime);
+        burstGain.gain.setValueAtTime(0.75 * volumeMult, startTime + sustainTime);
+        burstGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+        burstGain.connect(masterGain);
+
+        const stopTime = startTime + duration + 0.1;
+        lfo.start(startTime);
+        oscFundamental.start(startTime);
+        oscHarmonic2.start(startTime);
+        oscHarmonic3.start(startTime);
+        oscHarmonic4.start(startTime);
+        oscSubDrone.start(startTime);
+
+        lfo.stop(stopTime);
+        oscFundamental.stop(stopTime);
+        oscHarmonic2.stop(stopTime);
+        oscHarmonic3.stop(stopTime);
+        oscHarmonic4.stop(stopTime);
+        oscSubDrone.stop(stopTime);
+
+        activeNodes.push(lfo, lfoGain, oscFundamental, oscHarmonic2, oscHarmonic3, oscHarmonic4, oscSubDrone, filter, burstGain, g1, g2, g3, g4, gSub);
+      };
+
+      // 1. Primary Divine Shankha Call (A3 ~220Hz, deep majestic swell)
+      playConchBurst(now, 220.0, 2.3, 0.95);
+
+      // 2. Resonant Echo Surge (E4 ~330Hz, celestial overtone echo)
+      playConchBurst(now + 1.25, 329.63, 1.8, 0.70);
+    }
+
     const TONES = {
-      'celestial': { name: 'Celestial Chime', desc: 'Modern luxury polyphonic chime (Default)', badge: 'Default', play: playCelestial, interval: 2800 },
+      'shankha':   { name: 'Divine Shankha', desc: 'Sacred acoustic conch shell resonance (Default)', badge: 'Divine', play: playShankha, interval: 3400 },
+      'celestial': { name: 'Celestial Chime', desc: 'Modern luxury polyphonic chime', badge: 'Popular', play: playCelestial, interval: 2800 },
       'executive': { name: 'Executive Lounge', desc: 'Warm corporate vibraphone chords', badge: 'Refined', play: playExecutive, interval: 3000 },
       'marimba':   { name: 'Modern Marimba', desc: 'Crisp acoustic rosewood percussion', badge: 'Upbeat', play: playMarimba, interval: 2600 },
       'cosmic':    { name: 'Cosmic Horizon', desc: 'Ambient ethereal futuristic pad', badge: 'Ambient', play: playCosmic, interval: 3200 },
@@ -1563,9 +1659,10 @@ SDH.WebRTC = (() => {
       tone.play(ctx, masterGain);
 
       if (previewTimer) clearTimeout(previewTimer);
+      const previewDuration = Math.min(3500, Math.max(2500, (tone.interval || 3000) - 200));
       previewTimer = setTimeout(() => {
         stopPreview();
-      }, 2500);
+      }, previewDuration);
     }
 
     function stopPreview() {

@@ -58,8 +58,9 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 
 ### 📞 Crystal-Clear Calling & Professional Ringtones
 - **📞 Peer-to-Peer Voice & Video Calls**: Browser-native high-definition calling using WebRTC with global STUN/TURN fallback.
-- **🎵 Studio-Grade Caller Ringtones *(New!)* **: Replaced basic beeps with 5 high-definition synthesized Web Audio API tones:
-  - *Celestial Chime (Default):* Luxury multi-note harmonic arpeggio.
+- **🎵 Studio-Grade Caller Ringtones *(New!)* **: Replaced basic beeps with 6 high-definition synthesized Web Audio API tones:
+  - *Divine Shankha (Default / Signature):* Sacred acoustic conch shell resonance with natural breath swell, warm horn harmonics, and celestial temple echo.
+  - *Celestial Chime:* Luxury multi-note harmonic arpeggio.
   - *Executive Lounge:* Refined corporate Rhodes vibraphone chords.
   - *Modern Marimba:* Crisp acoustic wooden percussion motif.
   - *Cosmic Horizon:* Ambient ethereal drifting pads with vibrato.
