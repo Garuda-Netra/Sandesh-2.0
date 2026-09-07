@@ -1,40 +1,51 @@
-# Python
+# ===========================================================================
+# Byte-compiled / optimized / DLL files
+# ===========================================================================
 __pycache__/
 *.py[cod]
+*$py.class
 *.pyo
 *.pyd
 *.pycache
+.Python
 
+# ===========================================================================
 # Virtual Environments
+# ===========================================================================
 .venv/
 venv/
 env/
 ENV/
+env.bak/
+venv.bak/
 
+# ===========================================================================
 # Environment Variables & Secrets
+# ===========================================================================
 .env
 .env.*
 !.env.example
+*.env
 
-# Django Runtime Data
+# ===========================================================================
+# Django Runtime Data & Databases
+# ===========================================================================
 db.sqlite3
+db.sqlite3-journal
 *.sqlite3
+*.sqlite3-journal
 *.sqlite
+*.sqlite-journal
 backend/db.sqlite3
+backend/db.sqlite3-journal
 backend/media/
 media/
 backend/staticfiles/
 staticfiles/
 
-# IDE & Editor Data
-.gemini/
-.agents/
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Uploaded Files
+# ===========================================================================
+# Uploaded Files & Temporary Media
+# ===========================================================================
 *.pdf
 *.doc
 *.docx
@@ -46,37 +57,86 @@ staticfiles/
 *.zip
 *.rar
 *.7z
+*.tar.gz
 
+# ===========================================================================
+# IDE & Editor Data
+# ===========================================================================
+.gemini/
+.agents/
+.vscode/
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ===========================================================================
 # Packaging & Build
+# ===========================================================================
 *.egg-info/
 .eggs/
 pip-wheel-metadata/
 build/
 dist/
+*.manifest
+*.spec
 
+# ===========================================================================
 # Testing & Coverage
+# ===========================================================================
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
 
-# Logs
+# ===========================================================================
+# Logs & Process Files
+# ===========================================================================
 *.log
+*.pid
+*.seed
+dump.rdb
+celerybeat-schedule
+celerybeat.pid
 
+# ===========================================================================
 # OS System Files
+# ===========================================================================
 .DS_Store
 .DS_Store?
-Thumbs.db
+._*
+.Spotlight-V100
+.Trashes
 ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
 
-# Temporary Files
+# ===========================================================================
+# Project-Specific Temporary Files
+# ===========================================================================
 backend/db_dump.txt
 frontend/static/js/recover*
+*.bak
+*.tmp
+*.temp
 
+# ===========================================================================
 # Secrets & Credentials
+# ===========================================================================
 firebase-credentials.json
 *credentials*.json
 *.pem
 *.key
 *.cert
+*.crt
+*.pfx
+*.p12

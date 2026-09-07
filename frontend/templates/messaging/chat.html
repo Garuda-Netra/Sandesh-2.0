@@ -2027,7 +2027,7 @@
 <script src="{% static 'js/fileUpload.js' %}?v=2.1"></script>
 <script src="{% static 'js/mediaViewer.js' %}?v=1.0"></script>
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
-<script src="{% static 'js/chat.js' %}?v=2.6"></script>
+<script src="{% static 'js/chat.js' %}?v=2.7"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.0"></script>
 <script src="{% static 'js/userSearch.js' %}?v=2.0"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->
@@ -2102,7 +2102,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="px-6 py-4 border-t border-divine-border/50 bg-divine-surface/60 backdrop-blur-xl flex justify-end gap-3 rounded-b-3xl relative z-10">
+      <div id="cgModalFooter" class="px-6 py-4 border-t border-divine-border/50 bg-divine-surface/60 backdrop-blur-xl flex justify-end gap-3 rounded-b-3xl relative z-10">
         <button onclick="SDH.Chat.closeCreateGroupModal()" class="sdh-liquid-btn btn-secondary px-5 py-2.5">
           <span>Cancel</span>
         </button>

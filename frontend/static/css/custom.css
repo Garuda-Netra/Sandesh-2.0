@@ -286,7 +286,6 @@
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-danger::before {
-  --btn-gradient: rgba(254, 226, 226, 1) !important;
   --btn-border: rgba(248, 113, 113, 0.4) !important;
 }
 
@@ -302,13 +301,13 @@
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-secondary::before {
-  --btn-gradient: rgba(168, 85, 247, 0.10) !important;
-  --btn-border: rgba(168, 85, 247, 0.4) !important;
+  --btn-gradient: #ffffff !important;
+  --btn-border: #d1d5db !important;
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-secondary:hover::before {
-  --btn-gradient: rgba(168, 85, 247, 0.20) !important;
-  --btn-border: rgba(168, 85, 247, 0.6) !important;
+  --btn-gradient: #f8fafc !important;
+  --btn-border: #94a3b8 !important;
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-secondary {
@@ -332,15 +331,15 @@
 
 /* Ensure secondary/back buttons stay visible in light theme */
 [data-theme="light"] .sdh-liquid-btn.btn-secondary {
-  border-color: rgba(168, 85, 247, 0.55);
-  background: rgba(168, 85, 247, 0.10);
+  border-color: #d1d5db;
+  background: #ffffff;
   color: var(--c-text);
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-secondary:hover {
-  border-color: rgba(168, 85, 247, 0.85);
-  background: rgba(168, 85, 247, 0.16);
-  color: var(--c-gold);
+  border-color: #94a3b8;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 [data-theme="light"] .sdh-back-btn {
@@ -413,6 +412,9 @@ body {
 }
 
 /* Common opacity variants used in templates (approximate: ignore alpha) */
+.bg-divine-surface\/50,
+.bg-divine-surface\/60,
+.bg-divine-surface\/80,
 .bg-divine-surface\/90 {
   background-color: var(--c-surface) !important;
 }
@@ -421,6 +423,14 @@ body {
   background-color: var(--c-card) !important;
 }
 
+.bg-divine-deep\/40,
+.bg-divine-deep\/60,
+.bg-divine-deep\/80 {
+  background-color: var(--c-deep) !important;
+}
+
+.border-divine-border\/40,
+.border-divine-border\/50,
 .border-divine-border\/60 {
   border-color: var(--c-border) !important;
 }
@@ -3562,6 +3572,40 @@ input[type="password"]::-webkit-reveal {
   opacity: 0.6;
 }
 
+/* Secondary button */
+[data-theme="light"] .sdh-liquid-btn.btn-secondary::before {
+  --btn-gradient: #ffffff !important;
+  --btn-border: #d1d5db !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary {
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #374151 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary span {
+  color: #374151 !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+  transform: translateY(-1px) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover span {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover::before {
+  --btn-gradient: #f8fafc !important;
+  --btn-border: #94a3b8 !important;
+}
+
 /* Light mode overrides for the profile modal to maintain professional readability */
 [data-theme="light"] #userProfileModal .bg-divine-card {
   background: #ffffff !important;
@@ -3802,6 +3846,10 @@ input[type="password"]::-webkit-reveal {
 }
 
 /* ─── Create Group Modal ──────────────────────────────────────── */
+[data-theme="light"] #createGroupModal {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(8px) !important;
+}
 [data-theme="light"] #createGroupModal > div {
   background: #ffffff !important;
   border: 1px solid rgba(245, 158, 11, 0.18) !important;
@@ -3812,6 +3860,22 @@ input[type="password"]::-webkit-reveal {
 [data-theme="light"] #createGroupModal > div > div:first-child {
   background: rgba(255, 251, 235, 0.95) !important;
   border-bottom: 1px solid rgba(245, 158, 11, 0.12) !important;
+}
+
+/* Header close button */
+[data-theme="light"] #createGroupModal > div > div:first-child button {
+  color: #64748b !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] #createGroupModal > div > div:first-child button:hover {
+  color: #1e293b !important;
+  background: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Labels */
+[data-theme="light"] #createGroupModal label {
+  color: #475569 !important;
 }
 
 /* Member labels in create group */
@@ -3847,15 +3911,88 @@ input[type="password"]::-webkit-reveal {
   color: #1f2937 !important;
 }
 
+/* Members list container in light mode */
+[data-theme="light"] #cgMembersList {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Member rows inside create group */
+[data-theme="light"] #createGroupModal .sdh-cg-member-row {
+  color: #1f2937 !important;
+  border: 1px solid transparent;
+}
+
+[data-theme="light"] #createGroupModal .sdh-cg-member-row:hover {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="light"] #createGroupModal .sdh-cg-member-row span {
+  color: #1f2937 !important;
+}
+
+[data-theme="light"] #createGroupModal .sdh-cg-member-row .bg-divine-surface {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #d97706 !important;
+}
+
 /* Empty state text */
+[data-theme="light"] #createGroupModal .sdh-cg-empty-msg,
+[data-theme="light"] #cgMembersList .sdh-cg-empty-msg {
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
 [data-theme="light"] #createGroupModal p[class*="text-white"] {
   color: #6b7280 !important;
 }
 
 /* Checkbox styling in light mode */
 [data-theme="light"] #createGroupModal .cg-member-checkbox {
-  background: rgba(0, 0, 0, 0.04) !important;
-  border-color: rgba(245, 158, 11, 0.4) !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Create group modal footer in light mode */
+[data-theme="light"] #createGroupModal > div > div:last-child,
+[data-theme="light"] #cgModalFooter {
+  background: rgba(255, 251, 235, 0.95) !important;
+  border-top: 1px solid rgba(245, 158, 11, 0.15) !important;
+}
+
+/* Secondary / Cancel button in Create Group modal */
+[data-theme="light"] #createGroupModal .btn-secondary {
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #374151 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] #createGroupModal .btn-secondary::before {
+  --btn-gradient: #ffffff !important;
+  --btn-border: #d1d5db !important;
+}
+
+[data-theme="light"] #createGroupModal .btn-secondary span {
+  color: #374151 !important;
+}
+
+[data-theme="light"] #createGroupModal .btn-secondary:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] #createGroupModal .btn-secondary:hover::before {
+  --btn-gradient: #f8fafc !important;
+  --btn-border: #94a3b8 !important;
+}
+
+[data-theme="light"] #createGroupModal .btn-secondary:hover span {
+  color: #0f172a !important;
 }
 
 /* ─── Confirmation Modals (Clear, Unfriend, Block, etc.) ──────── */
@@ -3904,16 +4041,31 @@ input[type="password"]::-webkit-reveal {
 
 /* Secondary button */
 [data-theme="light"] .sdh-liquid-btn.btn-secondary::before {
-  --btn-gradient: rgba(245, 158, 11, 0.06) !important;
-  --btn-border: rgba(245, 158, 11, 0.25) !important;
+  --btn-gradient: #ffffff !important;
+  --btn-border: #d1d5db !important;
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-secondary {
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #374151 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary span {
   color: #374151 !important;
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-secondary:hover {
-  color: #92400e !important;
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+  transform: translateY(-1px) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover span {
+  color: #0f172a !important;
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-secondary:hover::before {
