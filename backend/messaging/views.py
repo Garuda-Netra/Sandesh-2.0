@@ -776,6 +776,11 @@ def upload_file(request):
         if not GroupMembership.objects.filter(group=group, user=request.user).exists():
             return JsonResponse({'error': 'You are not a member of this group.'}, status=403)
             
+        try:
+            uploaded.seek(0)
+        except Exception:
+            pass
+
         msg = GroupMessage.objects.create(
             group=group,
             sender=request.user,
@@ -829,6 +834,11 @@ def upload_file(request):
         is_self_chat = receiver == request.user
     
         # ── Persist Message ─────────────────────────────────────────
+        try:
+            uploaded.seek(0)
+        except Exception:
+            pass
+
         msg = Message.objects.create(
             sender=request.user,
             receiver=receiver,
@@ -875,8 +885,7 @@ def download_file(request, file_id):
     """
     Stream a file back to an authorised participant.
 
-    Handles both direct messages and group messages without ID collisions.
-    Only the sender, receiver, or authorized group members may download.
+    Handles direct and group messages, local FileSystemStorage, and Cloudinary/S3.
     """
     try:
         is_group_requested = request.GET.get('type') == 'group'
@@ -914,13 +923,31 @@ def download_file(request, file_id):
             return JsonResponse({'error': 'No file stored for this message.'}, status=404)
 
         # ── Resolve Display Filename & MIME ─────────────────────────
-        content_type = (msg.mime_type or '').strip() or 'application/octet-stream'
         raw_name = getattr(msg.file, 'name', '') or ''
         fallback_name = msg.file_name or msg.original_filename or 'sdh_file'
         safe_filename = os.path.basename(raw_name).replace('"', '').replace('\r', '').replace('\n', '') if raw_name else fallback_name
         safe_display_name = fallback_name.replace('\r', '').replace('\n', '').replace('"', '')
 
-        # ── Handle Storage (Local and Cloudinary/Remote) ─────────────
+        content_type = (msg.mime_type or '').strip()
+        if not content_type or content_type == 'application/octet-stream':
+            if safe_display_name.lower().endswith('.pdf'):
+                content_type = 'application/pdf'
+            elif safe_display_name.lower().endswith(('.jpg', '.jpeg')):
+                content_type = 'image/jpeg'
+            elif safe_display_name.lower().endswith('.png'):
+                content_type = 'image/png'
+            elif safe_display_name.lower().endswith('.webp'):
+                content_type = 'image/webp'
+            elif safe_display_name.lower().endswith('.mp4'):
+                content_type = 'video/mp4'
+            else:
+                content_type = 'application/octet-stream'
+
+        # Ensure PDF mime type is strictly set for PDF files
+        if safe_display_name.lower().endswith('.pdf'):
+            content_type = 'application/pdf'
+
+        # ── Handle Local and Remote Storage ─────────────────────────
         file_url = None
         try:
             if hasattr(msg.file, 'url'):
@@ -930,27 +957,155 @@ def download_file(request, file_id):
 
         file_handle = None
 
-        # 1. Try local filesystem open
+        # Strategy 1: msg.file.open('rb')
         try:
             file_handle = msg.file.open('rb')
         except Exception:
             file_handle = None
 
-        # 2. Fallback to remote HTTP stream (e.g. Cloudinary storage where .open() is unsupported)
-        if not file_handle and file_url and (file_url.startswith('http://') or file_url.startswith('https://')):
+        # Strategy 2: default_storage.open(storage_path, 'rb')
+        if not file_handle and raw_name:
             try:
-                import urllib.request
-                req = urllib.request.Request(
-                    file_url,
-                    headers={'User-Agent': 'Sandesh-MediaStream/2.0'}
-                )
-                file_handle = urllib.request.urlopen(req, timeout=15)
+                from django.core.files.storage import default_storage
+                if default_storage.exists(raw_name):
+                    file_handle = default_storage.open(raw_name, 'rb')
             except Exception:
                 file_handle = None
+
+        # Strategy 3: Exhaustive local filesystem search
+        if not file_handle:
+            candidate_paths = []
+            try:
+                if hasattr(msg.file, 'path'):
+                    candidate_paths.append(msg.file.path)
+            except Exception:
+                pass
+
+            from django.conf import settings
+            from pathlib import Path
+            media_root = str(getattr(settings, 'MEDIA_ROOT', '') or '')
+            base_dir = str(getattr(settings, 'BASE_DIR', '') or '')
+            base_dir_parent = str(Path(base_dir).parent) if base_dir else ''
+            cwd = os.getcwd()
+
+            search_names = [n for n in [
+                raw_name,
+                os.path.basename(raw_name) if raw_name else '',
+                msg.file_name,
+                msg.original_filename,
+            ] if n]
+
+            search_dirs = [d for d in [media_root, base_dir, base_dir_parent, cwd] if d]
+
+            for sdir in search_dirs:
+                for sname in search_names:
+                    candidate_paths.append(os.path.join(sdir, sname))
+                    candidate_paths.append(os.path.join(sdir, 'files', os.path.basename(sname)))
+                    candidate_paths.append(os.path.join(sdir, 'media', os.path.basename(sname)))
+                    candidate_paths.append(os.path.join(sdir, 'media', 'files', os.path.basename(sname)))
+
+            for cp in candidate_paths:
+                try:
+                    if cp and os.path.isfile(cp):
+                        file_handle = open(cp, 'rb')
+                        break
+                except Exception:
+                    continue
+
+        # Strategy 4: Remote Storage (Cloudinary, S3, CDN)
+        if not file_handle:
+            from django.conf import settings
+            cloud_name = getattr(settings, '_CLOUDINARY_CLOUD_NAME', '') or ''
+            api_key = getattr(settings, '_CLOUDINARY_API_KEY', '') or ''
+            api_secret = getattr(settings, '_CLOUDINARY_API_SECRET', '') or ''
+
+            remote_urls = []
+            if file_url and (file_url.startswith('http://') or file_url.startswith('https://')):
+                remote_urls.append(file_url)
+                if file_url.startswith('http://'):
+                    remote_urls.append('https://' + file_url[7:])
+                if '/image/upload/' in file_url:
+                    remote_urls.append(file_url.replace('/image/upload/', '/raw/upload/'))
+                    if file_url.startswith('http://'):
+                        remote_urls.append(('https://' + file_url[7:]).replace('/image/upload/', '/raw/upload/'))
+                if '/raw/upload/' in file_url:
+                    remote_urls.append(file_url.replace('/raw/upload/', '/image/upload/'))
+
+            if raw_name and cloud_name:
+                clean_name = raw_name.replace('\\', '/')
+                base_clean = os.path.basename(clean_name)
+                for res_type in ('raw', 'image'):
+                    for pvar in (clean_name, f'files/{base_clean}', base_clean):
+                        u = f'https://res.cloudinary.com/{cloud_name}/{res_type}/upload/{pvar}'
+                        if u not in remote_urls:
+                            remote_urls.append(u)
+
+                if api_key and api_secret:
+                    try:
+                        import cloudinary.utils
+                        for rt in ('raw', 'image'):
+                            for idvar in (clean_name, f'files/{base_clean}', base_clean):
+                                try:
+                                    s_url, _ = cloudinary.utils.cloudinary_url(
+                                        idvar,
+                                        resource_type=rt,
+                                        secure=True,
+                                        sign_url=True,
+                                    )
+                                    if s_url and s_url not in remote_urls:
+                                        remote_urls.append(s_url)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+
+            # Try streaming from candidate remote URLs
+            auth_creds = (api_key, api_secret) if (api_key and api_secret) else None
+            for ru in remote_urls:
+                try:
+                    import requests as req_lib
+                    resp = req_lib.get(
+                        ru,
+                        stream=True,
+                        timeout=15,
+                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Sandesh-FileStream/2.0'},
+                    )
+                    if resp.status_code in (401, 403) and auth_creds:
+                        resp = req_lib.get(
+                            ru,
+                            stream=True,
+                            timeout=15,
+                            auth=auth_creds,
+                            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Sandesh-FileStream/2.0'},
+                        )
+
+                    if resp.status_code == 200:
+                        from django.http import StreamingHttpResponse
+                        response = StreamingHttpResponse(
+                            resp.iter_content(chunk_size=8192),
+                            content_type=content_type,
+                        )
+                        response['Content-Disposition'] = f'inline; filename="{safe_display_name}"'
+                        response['X-Content-Type-Options'] = 'nosniff'
+                        response['X-SDH-Original-Mime'] = content_type
+                        response['X-SDH-File-Name']     = safe_display_name
+                        response['Access-Control-Allow-Origin'] = '*'
+                        response['Access-Control-Expose-Headers'] = (
+                            'Content-Disposition, Content-Type, X-SDH-Original-Mime, X-SDH-File-Name'
+                        )
+                        return response
+                except Exception:
+                    continue
+
+            # Fallback to redirect if streaming failed but a remote URL exists
+            if remote_urls:
+                from django.shortcuts import redirect
+                return redirect(remote_urls[0])
 
         if not file_handle:
             return JsonResponse({'error': 'File data missing or inaccessible on server.'}, status=404)
 
+        from django.http import FileResponse
         response = FileResponse(
             file_handle,
             content_type=content_type,
@@ -960,8 +1115,9 @@ def download_file(request, file_id):
         response['X-Content-Type-Options'] = 'nosniff'
         response['X-SDH-Original-Mime'] = content_type
         response['X-SDH-File-Name']     = safe_display_name
+        response['Access-Control-Allow-Origin'] = '*'
         response['Access-Control-Expose-Headers'] = (
-            'X-SDH-Original-Mime, X-SDH-File-Name'
+            'Content-Disposition, Content-Type, X-SDH-Original-Mime, X-SDH-File-Name'
         )
         return response
 

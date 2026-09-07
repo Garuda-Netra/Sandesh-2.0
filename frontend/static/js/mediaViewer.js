@@ -112,7 +112,14 @@ SDH.MediaViewer = (() => {
     const cached = getCachedBlob(fileId);
     if (cached?.blobUrl) return cached.blobUrl;
 
-    const response = await fetch(_downloadUrl(fileId), { credentials: 'same-origin' });
+    let response;
+    try {
+      response = await fetch(_downloadUrl(fileId), { credentials: 'same-origin' });
+    } catch (netErr) {
+      // If fetch fails (e.g. cross-origin redirect), fallback to direct URL
+      return _downloadUrl(fileId);
+    }
+
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
       throw new Error(errData.error || `Failed to load file (HTTP ${response.status})`);
@@ -396,12 +403,25 @@ SDH.MediaViewer = (() => {
 
     if (category === 'pdf') {
       containerEl.innerHTML = `
-        <div class="w-[95vw] max-w-5xl h-[82vh] rounded-2xl overflow-hidden border border-white/15 shadow-2xl bg-white flex flex-col">
+        <div class="w-[95vw] max-w-5xl h-[82vh] rounded-2xl overflow-hidden border border-white/15 shadow-2xl bg-white flex flex-col relative">
           <iframe id="mpPdfFrame"
                   src="${blobUrl}#view=FitH&toolbar=1"
-                  class="w-full h-full border-0 block"
+                  class="w-full flex-1 border-0 block"
                   title="${_escape(fileName)}">
           </iframe>
+          <div class="p-2.5 bg-[#0f0f13] border-t border-white/10 text-center text-xs text-white/70 flex items-center justify-between px-4 flex-shrink-0">
+            <span class="truncate mr-3 font-mono text-white/80 text-xs">${_escape(fileName)}</span>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <a href="${blobUrl}" target="_blank" rel="noopener noreferrer"
+                 class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all">
+                Open in new tab ↗
+              </a>
+              <button type="button" onclick="SDH.MediaViewer.downloadCurrent()"
+                      class="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-all">
+                Download PDF
+              </button>
+            </div>
+          </div>
         </div>`;
       return;
     }

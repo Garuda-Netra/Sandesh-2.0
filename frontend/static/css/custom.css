@@ -1893,6 +1893,50 @@ body {
   transform-origin: center center;
 }
 
+/* ─── Light Mode: File/Download Button & File Bubbles ───────────── */
+[data-theme="light"] .sdh-file-download-btn {
+  background: rgba(168, 85, 247, 0.12) !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  color: #7c3aed !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .sdh-file-download-btn:hover {
+  background: rgba(168, 85, 247, 0.22) !important;
+  border-color: rgba(168, 85, 247, 0.5) !important;
+  transform: scale(1.08);
+}
+
+/* PDF bubble in light mode */
+[data-theme="light"] .file-msg .group\/pdf {
+  background: rgba(255, 241, 242, 0.85) !important;
+  border-color: rgba(244, 63, 94, 0.25) !important;
+}
+
+[data-theme="light"] .file-msg .group\/pdf .text-divine-text {
+  color: #1f2937 !important;
+}
+
+/* Audio bubble in light mode */
+[data-theme="light"] .file-msg .group\/aud {
+  background: rgba(255, 251, 235, 0.85) !important;
+  border-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+[data-theme="light"] .file-msg .group\/aud .text-divine-text {
+  color: #1f2937 !important;
+}
+
+/* Generic file bubble in light mode */
+[data-theme="light"] .file-msg .group\/file {
+  background: rgba(245, 243, 255, 0.85) !important;
+  border-color: rgba(168, 85, 247, 0.25) !important;
+}
+
+[data-theme="light"] .file-msg .group\/file .text-divine-text {
+  color: #1f2937 !important;
+}
+
 /* ─── Call accept / reject buttons ────────────────────────────── */
 .sdh-call-accept {
   background: linear-gradient(135deg, #22c55e, #16a34a);
