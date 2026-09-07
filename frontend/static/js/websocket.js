@@ -114,6 +114,13 @@ SDH.WS = (() => {
     
     if (data.type === 'force_logout') {
       console.warn('[SDH.WS] Force logout received. Redirecting to logout.');
+      try {
+        if (window.SDH?.Chatbot?.wipeAll) {
+          window.SDH.Chatbot.wipeAll();
+        }
+      } catch (e) {
+        console.warn('[SDH.WS] Error wiping chatbot on force logout:', e);
+      }
       window.location.href = '/logout/';
       return;
     }

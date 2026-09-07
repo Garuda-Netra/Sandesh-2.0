@@ -402,9 +402,11 @@
     window.SDH_CHATBOT = {
       apiUrl: "{% url 'messaging:chatbot_reply' %}",
       userName: "{{ user.username|default:''|escapejs }}",
+      userId: "{{ user.id }}",
+      sessionKey: "{{ request.session.session_key|default:''|escapejs }}",
     };
   </script>
-  <script src="{% static 'js/chatbot.js' %}?v=2"></script>
+  <script src="{% static 'js/chatbot.js' %}?v=3"></script>
   {% endif %}
 
   <!-- ── Global Cursor Trail Animation ── -->

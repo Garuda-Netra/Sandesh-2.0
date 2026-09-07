@@ -12,6 +12,10 @@ class SessionSecurityMiddleware(MiddlewareMixin):
         if not hasattr(request, 'user') or not request.user.is_authenticated:
             return None
 
+        # Ensure session key exists for authenticated session
+        if not request.session.session_key:
+            request.session.create()
+
         # Get current IP
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:

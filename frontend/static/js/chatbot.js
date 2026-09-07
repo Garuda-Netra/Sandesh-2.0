@@ -3,11 +3,19 @@
 
   window.SDH = window.SDH || {};
 
-  const STORAGE_KEY = 'sdh_bot_history_v1';
-  const OPEN_KEY = 'sdh_bot_open_v1';
+  const LEGACY_STORAGE_KEY = 'sdh_bot_history_v1';
+  const LEGACY_OPEN_KEY = 'sdh_bot_open_v1';
+  const ACTIVE_SESSION_MARKER = 'sdh_bot_active_session_token';
   const MAX_HISTORY = 24;
 
   const Chatbot = {
+    storageKey: '',
+    openKey: '',
+    apiUrl: '',
+    userName: '',
+    userId: '',
+    sessionKey: '',
+
     init() {
       this.panel = document.getElementById('sdhBotPanel');
       this.toggleBtn = document.getElementById('sdhBotToggle');
@@ -24,6 +32,19 @@
 
       this.apiUrl = window.SDH_CHATBOT?.apiUrl || '/messaging/api/chatbot/';
       this.userName = window.SDH_CHATBOT?.userName || '';
+      this.userId = String(window.SDH_CHATBOT?.userId || '');
+      this.sessionKey = String(window.SDH_CHATBOT?.sessionKey || '');
+
+      // Scope storage directly to user ID and active session token
+      const sessionToken = (this.userId && this.sessionKey)
+        ? `${this.userId}_${this.sessionKey}`
+        : (this.userId || 'guest');
+
+      this.storageKey = `sdh_bot_hist_${sessionToken}`;
+      this.openKey = `sdh_bot_open_${sessionToken}`;
+
+      // Manage lifecycle: clear old session histories on fresh login / logout
+      this.manageSessionLifecycle(sessionToken);
 
       this.toggleBtn.addEventListener('click', () => this.toggle());
       this.closeBtn?.addEventListener('click', () => this.close());
@@ -66,6 +87,76 @@
       this.fetchPendingWishes();
     },
 
+    manageSessionLifecycle(currentToken) {
+      try {
+        // Purge legacy keys from older versions
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+        localStorage.removeItem(LEGACY_OPEN_KEY);
+
+        const previousToken = localStorage.getItem(ACTIVE_SESSION_MARKER);
+
+        if (previousToken !== currentToken) {
+          // A fresh login has occurred or user has changed.
+          // Wipe all old session chatbot histories so new session starts fresh.
+          this.wipeAllOldHistories(this.storageKey);
+          localStorage.setItem(ACTIVE_SESSION_MARKER, currentToken);
+        } else {
+          // Same active session. Clean up any leftover keys from expired sessions.
+          this.cleanStaleKeys(this.storageKey, this.openKey);
+        }
+      } catch (err) {
+        console.warn('[SDH.Chatbot] Error during session lifecycle management:', err);
+      }
+    },
+
+    wipeAllOldHistories(currentKey) {
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (k.startsWith('sdh_bot_hist_') || k.startsWith('sdh_bot_open_')) {
+            if (k !== currentKey) {
+              localStorage.removeItem(k);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[SDH.Chatbot] Error wiping old histories:', err);
+      }
+    },
+
+    cleanStaleKeys(keepStorageKey, keepOpenKey) {
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if ((k.startsWith('sdh_bot_hist_') && k !== keepStorageKey) ||
+              (k.startsWith('sdh_bot_open_') && k !== keepOpenKey)) {
+            localStorage.removeItem(k);
+          }
+        }
+      } catch (err) {
+        console.warn('[SDH.Chatbot] Error cleaning stale keys:', err);
+      }
+    },
+
+    wipeAll() {
+      try {
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+        localStorage.removeItem(LEGACY_OPEN_KEY);
+        localStorage.removeItem(ACTIVE_SESSION_MARKER);
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (k.startsWith('sdh_bot_hist_') || k.startsWith('sdh_bot_open_')) {
+            localStorage.removeItem(k);
+          }
+        }
+      } catch (err) {
+        console.warn('[SDH.Chatbot] Error wiping chatbot storage:', err);
+      }
+    },
+
     fetchPendingWishes() {
       fetch('/messaging/api/chatbot/pending-wishes/')
         .then(res => res.json())
@@ -91,7 +182,7 @@
     },
 
     isOpen() {
-      return localStorage.getItem(OPEN_KEY) === '1';
+      return localStorage.getItem(this.openKey) === '1';
     },
 
     open(updateState = true) {
@@ -99,7 +190,7 @@
       this.panel.setAttribute('aria-hidden', 'false');
       this.toggleBtn.setAttribute('aria-expanded', 'true');
       if (updateState) {
-        localStorage.setItem(OPEN_KEY, '1');
+        localStorage.setItem(this.openKey, '1');
       }
       this.scrollToBottom();
       
@@ -112,7 +203,7 @@
       this.panel.classList.remove('is-open');
       this.panel.setAttribute('aria-hidden', 'true');
       this.toggleBtn.setAttribute('aria-expanded', 'false');
-      localStorage.setItem(OPEN_KEY, '0');
+      localStorage.setItem(this.openKey, '0');
     },
 
     toggle() {
@@ -124,7 +215,13 @@
     },
 
     clear() {
-      localStorage.removeItem(STORAGE_KEY);
+      try {
+        if (this.storageKey) {
+          localStorage.removeItem(this.storageKey);
+        }
+      } catch (err) {
+        console.warn('[SDH.Chatbot] Error clearing storage:', err);
+      }
       this.messagesEl.innerHTML = '';
       const greeting = this.userName
         ? `Fresh slate, ${this.userName}. What should we work on?`
@@ -223,15 +320,21 @@
     },
 
     saveHistory(role, content) {
+      if (!this.storageKey) return;
       const history = this.loadHistory();
       history.push({ role, content, ts: Date.now() });
       const trimmed = history.slice(-MAX_HISTORY);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+      try {
+        localStorage.setItem(this.storageKey, JSON.stringify(trimmed));
+      } catch (err) {
+        console.warn('[SDH.Chatbot] Error saving history:', err);
+      }
     },
 
     loadHistory() {
+      if (!this.storageKey) return [];
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(this.storageKey);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed;
@@ -275,6 +378,17 @@
   };
 
   window.SDH.Chatbot = Chatbot;
+
+  // Proactively wipe chatbot storage when user signs out
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target && typeof target.closest === 'function') {
+      const logoutLink = target.closest('a[href*="logout"]');
+      if (logoutLink) {
+        Chatbot.wipeAll();
+      }
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', () => {
     Chatbot.init();
