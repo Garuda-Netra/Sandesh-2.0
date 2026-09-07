@@ -419,8 +419,87 @@ body {
   background-color: var(--c-surface) !important;
 }
 
-.bg-divine-card\/50 {
+.bg-divine-card\/40,
+.bg-divine-card\/50,
+.bg-divine-card\/60,
+.bg-divine-card\/70,
+.bg-divine-card\/80,
+.bg-divine-card\/90,
+.bg-divine-card\/95 {
   background-color: var(--c-card) !important;
+}
+
+/* ─── Auth Loading Overlay Theme Rules ───────────────────────── */
+#authLoadingOverlay {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] #authLoadingOverlay,
+.dark #authLoadingOverlay {
+  background: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+#authLoadingOverlay .sdh-auth-overlay-card {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(168, 85, 247, 0.25) !important;
+  box-shadow: 0 20px 60px -10px rgba(168, 85, 247, 0.2), 0 8px 24px -4px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="dark"] #authLoadingOverlay .sdh-auth-overlay-card,
+.dark #authLoadingOverlay .sdh-auth-overlay-card {
+  background-color: #121220 !important;
+  border: 1px solid rgba(168, 85, 247, 0.35) !important;
+  box-shadow: 0 0 50px rgba(168, 85, 247, 0.3), 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+#authLoadingOverlay #authOverlayTitle {
+  color: #0f172a !important;
+}
+
+[data-theme="dark"] #authLoadingOverlay #authOverlayTitle,
+.dark #authLoadingOverlay #authOverlayTitle {
+  color: #f8fafc !important;
+}
+
+#authLoadingOverlay #authOverlaySubtitle {
+  color: #64748b !important;
+}
+
+[data-theme="dark"] #authLoadingOverlay #authOverlaySubtitle,
+.dark #authLoadingOverlay #authOverlaySubtitle {
+  color: #a1a1aa !important;
+}
+
+#authLoadingOverlay .sdh-auth-overlay-badge {
+  background-color: rgba(168, 85, 247, 0.08) !important;
+  border: 1px solid rgba(168, 85, 247, 0.22) !important;
+  color: #6b21a8 !important;
+}
+
+[data-theme="dark"] #authLoadingOverlay .sdh-auth-overlay-badge,
+.dark #authLoadingOverlay .sdh-auth-overlay-badge {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #e4e4e7 !important;
+}
+
+#authLoadingOverlay .sdh-auth-spinner-outer {
+  border-color: rgba(168, 85, 247, 0.25) !important;
+}
+
+#authLoadingOverlay .sdh-auth-spinner-inner {
+  border-color: rgba(168, 85, 247, 0.15) !important;
+  border-top-color: #9333ea !important;
+}
+
+[data-theme="dark"] #authLoadingOverlay .sdh-auth-spinner-inner,
+.dark #authLoadingOverlay .sdh-auth-spinner-inner {
+  border-color: rgba(168, 85, 247, 0.3) !important;
+  border-top-color: #c084fc !important;
 }
 
 .bg-divine-deep\/40,
@@ -2939,8 +3018,20 @@ input[type="password"]::-webkit-reveal {
 }
 
 [data-theme="light"] .sdh-input {
-  background: rgba(235, 232, 255, 0.9);
-  border-color: rgba(180, 170, 230, 0.6);
+  background: rgba(248, 250, 252, 0.95) !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sdh-input:focus {
+  background: #ffffff !important;
+  border-color: #a855f7 !important;
+  color: #0f172a !important;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15) !important;
+}
+
+[data-theme="light"] .sdh-input::placeholder {
+  color: #64748b !important;
 }
 
 /* ─── Kebab Menus Visibility (Light Mode) ─── */

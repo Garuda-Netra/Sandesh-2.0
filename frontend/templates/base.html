@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" data-theme="dark" class="dark scroll-smooth">
+<html lang="en" data-theme="light" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -107,6 +107,15 @@
 
     // Theme management
     SDH.THEME_KEY = 'sandesh_theme';
+    SDH.updateThemeIcons = function(theme) {
+      document.querySelectorAll('#iconDark, .theme-icon-sun').forEach(function(el) {
+        el.classList.toggle('hidden', theme !== 'dark');
+      });
+      document.querySelectorAll('#iconLight, .theme-icon-moon').forEach(function(el) {
+        el.classList.toggle('hidden', theme === 'dark');
+      });
+    };
+
     SDH.applyTheme = function(theme) {
       const root = document.documentElement;
       if (theme === 'light') {
@@ -117,20 +126,15 @@
         root.setAttribute('data-theme', 'dark');
       }
       
-      // We might be in head where icons don't exist yet, so we use DOMContentLoaded
-      // to update the icons later, but apply the classes immediately.
-      const iconDark = document.getElementById('iconDark');
-      const iconLight = document.getElementById('iconLight');
-      if (iconDark && iconLight) {
-        iconDark.classList.toggle('hidden', theme !== 'light');
-        iconLight.classList.toggle('hidden', theme === 'light');
-      }
-      localStorage.setItem(SDH.THEME_KEY, theme);
+      SDH.updateThemeIcons(theme);
+      try {
+        localStorage.setItem(SDH.THEME_KEY, theme);
+      } catch(e) {}
     };
 
     // Init theme synchronously on load to prevent FOUC
     (function() {
-      const saved = localStorage.getItem(SDH.THEME_KEY) || 'dark';
+      const saved = localStorage.getItem(SDH.THEME_KEY) || 'light';
       SDH.applyTheme(saved);
     })();
 
@@ -182,13 +186,13 @@
 
       <!-- Theme Toggle -->
       <button id="themeToggle" onclick="SDH.toggleTheme(event)"
-              class="sdh-icon-btn p-2 rounded-full"
+              class="sdh-icon-btn p-2 rounded-full text-divine-text hover:text-divine-gold transition-colors"
               title="Toggle theme">
-        <svg id="iconDark" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg id="iconDark" class="theme-icon-sun w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        <svg id="iconLight" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg id="iconLight" class="theme-icon-moon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
         </svg>
@@ -347,7 +351,7 @@
   <!-- ── Global JS ──────────────────────────────────────────── -->
   <script>
     SDH.toggleTheme = function(event) {
-      const current = localStorage.getItem(SDH.THEME_KEY) || 'dark';
+      const current = localStorage.getItem(SDH.THEME_KEY) || 'light';
       const nextTheme = current === 'dark' ? 'light' : 'dark';
 
       // Fallback for browsers that don't support View Transitions
@@ -389,13 +393,8 @@
 
     // Update theme icons if they exist now that DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
-      const saved = localStorage.getItem(SDH.THEME_KEY) || 'dark';
-      const iconDark = document.getElementById('iconDark');
-      const iconLight = document.getElementById('iconLight');
-      if (iconDark && iconLight) {
-        iconDark.classList.toggle('hidden', saved !== 'light');
-        iconLight.classList.toggle('hidden', saved === 'light');
-      }
+      const saved = localStorage.getItem(SDH.THEME_KEY) || 'light';
+      SDH.updateThemeIcons(saved);
     });
 
     // Close dropdown on outside click
