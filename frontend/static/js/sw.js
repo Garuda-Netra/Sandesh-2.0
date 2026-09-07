@@ -19,7 +19,9 @@ const PRECACHE_ASSETS = [
   '/static/icons/icon-512x512.png',
   '/static/icons/apple-touch-icon.png',
   '/static/icons/favicon-32x32.png',
-  '/static/icons/favicon.ico'
+  '/static/icons/favicon.ico',
+  '/static/sounds/shankha.mp3',
+  '/static/sounds/shankha.ogg'
 ];
 
 // ── Install: Precache Core App Shell ─────────────────────────────

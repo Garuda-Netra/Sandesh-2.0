@@ -101,7 +101,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="{% static 'css/custom.css' %}?v=10" />
+  <link rel="stylesheet" href="{% static 'css/custom.css' %}?v=11" />
 
   <style>
     /* Theme Transition API */
@@ -215,12 +215,21 @@
 
       <!-- PWA Install Button (Navbar) -->
       <button id="pwaNavInstallBtn" onclick="SDH.promptPWAInstall()"
-              class="hidden items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 transition-all hover:scale-105"
+              class="hidden sdh-pwa-nav-btn group"
+              type="button"
+              aria-label="Install Sandesh App"
               title="Install Sandesh App">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        <span class="sdh-pwa-pulse" aria-hidden="true">
+          <span class="sdh-pwa-pulse-ping"></span>
+          <span class="sdh-pwa-pulse-dot"></span>
+        </span>
+        <svg class="sdh-pwa-icon w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
         </svg>
-        <span class="hidden md:inline">Install App</span>
+        <span class="sdh-pwa-label">Install App</span>
+        <svg class="sdh-pwa-chevron w-3 h-3 flex-shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+        </svg>
       </button>
 
       <button id="sdhBotToggle" class="sdh-liquid-btn btn-ancient !rounded-full !px-4 !py-2 flex items-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all hover:scale-105" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Open Vyasa">
@@ -1048,13 +1057,25 @@
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
+      // Show navbar install button when running in browser
+      if (!isStandalone) {
+        const navBtn = document.getElementById('pwaNavInstallBtn');
+        if (navBtn) {
+          navBtn.classList.remove('hidden');
+          navBtn.classList.add('inline-flex');
+        }
+      }
+
       window.addEventListener('beforeinstallprompt', function(e) {
         e.preventDefault();
         SDH.deferredPWAEvent = e;
 
         // Show navbar install button
         const navBtn = document.getElementById('pwaNavInstallBtn');
-        if (navBtn) navBtn.classList.remove('hidden');
+        if (navBtn) {
+          navBtn.classList.remove('hidden');
+          navBtn.classList.add('inline-flex');
+        }
 
         // Show floating banner if not previously dismissed in this session and not standalone
         if (!isStandalone && !sessionStorage.getItem('sandesh_pwa_dismissed')) {
@@ -1071,7 +1092,10 @@
       // iOS Safari detection
       if (isIOS && !isStandalone && !sessionStorage.getItem('sandesh_pwa_dismissed')) {
         const navBtn = document.getElementById('pwaNavInstallBtn');
-        if (navBtn) navBtn.classList.remove('hidden');
+        if (navBtn) {
+          navBtn.classList.remove('hidden');
+          navBtn.classList.add('inline-flex');
+        }
         setTimeout(function() {
           const banner = document.getElementById('pwaInstallBanner');
           if (banner) {
@@ -1120,7 +1144,10 @@
         console.log('[Sandesh PWA] App installed successfully');
         SDH.dismissPWABanner(true);
         const navBtn = document.getElementById('pwaNavInstallBtn');
-        if (navBtn) navBtn.classList.add('hidden');
+        if (navBtn) {
+          navBtn.classList.add('hidden');
+          navBtn.classList.remove('inline-flex');
+        }
       });
     })();
   </script>

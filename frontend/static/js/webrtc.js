@@ -20,70 +20,70 @@ window.SDH = window.SDH || {};
 SDH.WebRTC = (() => {
 
   // ── State ─────────────────────────────────────────────────────
-  let peerConnection       = null;
-  let signalSocket         = null;
-  let localStream          = null;
-  let currentUsername      = null;   // OUR own username (signaling inbox)
-  let remoteUser           = null;   // contact selected in sidebar
-  let callPeer             = null;   // username of person we're in/requesting a call with
-  let currentCallType      = null;   // 'voice' | 'video'
-  let currentQuality       = 'medium';
-  let isMuted              = false;
-  let isCameraOff          = false;
-  let isCallActive         = false;
-  let pendingOffer         = null;   // call-request data while waiting for user to accept
-  let pendingOfferSdp      = null;   // buffered SDP offer — processed only AFTER user accepts
+  let peerConnection = null;
+  let signalSocket = null;
+  let localStream = null;
+  let currentUsername = null;   // OUR own username (signaling inbox)
+  let remoteUser = null;   // contact selected in sidebar
+  let callPeer = null;   // username of person we're in/requesting a call with
+  let currentCallType = null;   // 'voice' | 'video'
+  let currentQuality = 'medium';
+  let isMuted = false;
+  let isCameraOff = false;
+  let isCallActive = false;
+  let pendingOffer = null;   // call-request data while waiting for user to accept
+  let pendingOfferSdp = null;   // buffered SDP offer — processed only AFTER user accepts
   let pendingIceCandidates = [];     // ICE candidates buffered before setRemoteDescription
-  let ringtoneInterval     = null;   // handle for incoming-call ringtone loop
-  let videoSwapped         = false;
-  let stylesSaved          = false;
-  let originalRemoteClasses= '';
+  let ringtoneInterval = null;   // handle for incoming-call ringtone loop
+  let videoSwapped = false;
+  let stylesSaved = false;
+  let originalRemoteClasses = '';
   let originalLocalClasses = '';
-  let originalLocalStyle   = '';
-  let originalRemoteStyle  = '';
+  let originalLocalStyle = '';
+  let originalRemoteStyle = '';
 
-  let isUpgradePending     = false;
-  let upgradeTimeout       = null;
+  let isUpgradePending = false;
+  let upgradeTimeout = null;
 
   // ── Media quality presets ─────────────────────────────────────
   const QUALITY = {
     voice: {
-      medium: { 
-        audio: { 
-          echoCancellation: true, 
-          noiseSuppression: true, 
-          autoGainControl: true, 
-          sampleRate: 32000, 
-          channelCount: 1 
-        }, 
-        video: false 
+      medium: {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 32000,
+          channelCount: 1
+        },
+        video: false
       },
-      high: { 
-        audio: { 
-          echoCancellation: true, 
-          noiseSuppression: true, 
-          autoGainControl: true, 
-          sampleRate: 48000, 
-          channelCount: 2 
-        }, 
-        video: false 
+      high: {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 2
+        },
+        video: false
       },
     },
     video: {
       medium: {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 32000 },
-        video: { 
-          width: { ideal: 640, max: 854 }, 
-          height: { ideal: 480, max: 480 }, 
-          frameRate: { ideal: 24, max: 24 } 
+        video: {
+          width: { ideal: 640, max: 854 },
+          height: { ideal: 480, max: 480 },
+          frameRate: { ideal: 24, max: 24 }
         },
       },
       high: {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000 },
-        video: { 
-          width: { ideal: 1280, min: 640, max: 1920 }, 
-          height: { ideal: 720, min: 480, max: 1080 }, 
-          frameRate: { ideal: 30, min: 20, max: 60 } 
+        video: {
+          width: { ideal: 1280, min: 640, max: 1920 },
+          height: { ideal: 720, min: 480, max: 1080 },
+          frameRate: { ideal: 30, min: 20, max: 60 }
         },
       },
     },
@@ -97,7 +97,7 @@ SDH.WebRTC = (() => {
     ];
     // Add TURN server if configured via environment variables
     // (injected into window.SDH_DATA by the Django template)
-    const turnUrl  = window.SDH_DATA?.turnServerUrl;
+    const turnUrl = window.SDH_DATA?.turnServerUrl;
     const turnUser = window.SDH_DATA?.turnServerUsername;
     const turnCred = window.SDH_DATA?.turnServerCredential;
     if (turnUrl) {
@@ -134,51 +134,51 @@ SDH.WebRTC = (() => {
     const dragStart = (e) => {
       if (e.target !== pip) return;
       isDragging = true;
-      
+
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      
+
       startX = clientX;
       startY = clientY;
-      
+
       const rect = pip.getBoundingClientRect();
       const parentRect = pip.parentElement.getBoundingClientRect();
-      
+
       if (!pip.style.left || !pip.style.top) {
         pip.style.left = (rect.left - parentRect.left) + 'px';
         pip.style.top = (rect.top - parentRect.top) + 'px';
         pip.style.right = 'auto';
         pip.style.bottom = 'auto';
       }
-      
+
       initialLeft = parseFloat(pip.style.left);
       initialTop = parseFloat(pip.style.top);
-      
+
       pip.style.transition = 'none';
-      if(e.cancelable) e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     };
 
     const dragMove = (e) => {
       if (!isDragging) return;
-      
+
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      
+
       const dx = clientX - startX;
       const dy = clientY - startY;
-      
+
       let newLeft = initialLeft + dx;
       let newTop = initialTop + dy;
-      
+
       const parent = pip.parentElement;
       const maxX = parent.clientWidth - pip.offsetWidth;
       const maxY = parent.clientHeight - pip.offsetHeight;
-      
+
       if (newLeft < 0) newLeft = 0;
       if (newTop < 0) newTop = 0;
       if (newLeft > maxX) newLeft = maxX;
       if (newTop > maxY) newTop = maxY;
-      
+
       pip.style.left = newLeft + 'px';
       pip.style.top = newTop + 'px';
     };
@@ -192,9 +192,9 @@ SDH.WebRTC = (() => {
     pip.addEventListener('mousedown', dragStart);
     document.addEventListener('mousemove', dragMove);
     document.addEventListener('mouseup', dragEnd);
-    
-    pip.addEventListener('touchstart', dragStart, {passive: false});
-    document.addEventListener('touchmove', dragMove, {passive: false});
+
+    pip.addEventListener('touchstart', dragStart, { passive: false });
+    document.addEventListener('touchmove', dragMove, { passive: false });
     document.addEventListener('touchend', dragEnd);
   }
 
@@ -213,12 +213,12 @@ SDH.WebRTC = (() => {
     }
 
     const wsBase = window.SDH_DATA?.wsBase || `ws://${window.location.host}`;
-    const url    = `${wsBase}/ws/signal/${encodeURIComponent(username)}/`;
+    const url = `${wsBase}/ws/signal/${encodeURIComponent(username)}/`;
 
     signalSocket = new WebSocket(url);
     signalSocket.onmessage = onSignal;
-    signalSocket.onerror   = e => console.error('[WebRTC] Signal socket error:', e);
-    signalSocket.onclose   = e => {
+    signalSocket.onerror = e => console.error('[WebRTC] Signal socket error:', e);
+    signalSocket.onclose = e => {
       signalSocket = null;
       if (e.code !== 1000 && currentUsername) {
         // Reconnect with back-off so we stay reachable even after brief disconnects
@@ -349,8 +349,8 @@ SDH.WebRTC = (() => {
     const domQuality = document.getElementById('qualitySelect')?.value;
     const resolvedQuality = (quality === 'high' || quality === 'medium') ? quality : (domQuality || currentQuality || 'medium');
     currentCallType = callType;
-    currentQuality  = resolvedQuality;
-    callPeer        = remoteUser;   // ← record who we are calling
+    currentQuality = resolvedQuality;
+    callPeer = remoteUser;   // ← record who we are calling
 
     // Request media permissions FIRST so the browser prompt appears before
     // any network activity, and we can bail cleanly on denial.
@@ -372,7 +372,7 @@ SDH.WebRTC = (() => {
       );
       localStream?.getTracks().forEach(t => t.stop());
       localStream = null;
-      callPeer    = null;
+      callPeer = null;
       return;
     }
 
@@ -399,7 +399,7 @@ SDH.WebRTC = (() => {
       return;
     }
     // Record the caller so all subsequent signals go back to them
-    callPeer     = data.from;
+    callPeer = data.from;
     pendingOffer = data;
     _startRingtone();
     showIncomingCallPanel(data.from, data.call_type);
@@ -412,7 +412,7 @@ SDH.WebRTC = (() => {
 
     const { call_type, quality = 'medium' } = pendingOffer;
     currentCallType = call_type;
-    currentQuality  = quality || 'medium';
+    currentQuality = quality || 'medium';
     document.querySelectorAll('#qualitySelect').forEach(el => { el.value = currentQuality; });
     // callPeer was already set in handleIncomingCallRequest
 
@@ -421,9 +421,9 @@ SDH.WebRTC = (() => {
       localStream = await navigator.mediaDevices.getUserMedia(QUALITY[call_type][quality]);
     } catch (err) {
       sendSignal({ type: 'call-reject', reason: 'media_error' });
-      pendingOffer    = null;
+      pendingOffer = null;
       pendingOfferSdp = null;
-      callPeer        = null;
+      callPeer = null;
       hideCallOverlay();
       _handleMediaError(err);
       return;
@@ -459,9 +459,9 @@ SDH.WebRTC = (() => {
   function rejectCall() {
     _stopRingtone();
     sendSignal({ type: 'call-reject', reason: 'declined' });   // to_user = callPeer
-    pendingOffer    = null;
+    pendingOffer = null;
     pendingOfferSdp = null;
-    callPeer        = null;
+    callPeer = null;
     pendingIceCandidates = [];
     hideCallOverlay();
   }
@@ -582,7 +582,7 @@ SDH.WebRTC = (() => {
     peerConnection.ontrack = (e) => {
       const stream = e.streams?.[0];
       if (!stream) return;
-      
+
       const hasVideo = stream.getVideoTracks().length > 0 || e.track?.kind === 'video';
       if (hasVideo) {
         currentCallType = 'video';
@@ -590,25 +590,25 @@ SDH.WebRTC = (() => {
         const remoteVideo = document.getElementById('remoteVideo');
         if (remoteVideo) {
           remoteVideo.srcObject = stream;
-          remoteVideo.play().catch(() => {});
+          remoteVideo.play().catch(() => { });
         }
       } else if (currentCallType === 'video') {
         const remoteVideo = document.getElementById('remoteVideo');
         if (remoteVideo) {
           remoteVideo.srcObject = stream;
-          remoteVideo.play().catch(() => {});
+          remoteVideo.play().catch(() => { });
         }
       }
-      
+
       let remoteAudio = document.getElementById('remoteAudio');
       if (!remoteAudio) {
         remoteAudio = document.createElement('audio');
-        remoteAudio.id       = 'remoteAudio';
+        remoteAudio.id = 'remoteAudio';
         remoteAudio.autoplay = true;
         document.body.appendChild(remoteAudio);
       }
       remoteAudio.srcObject = stream;
-      remoteAudio.play().catch(() => {});
+      remoteAudio.play().catch(() => { });
       updateAudioVisual();
     };
 
@@ -733,11 +733,11 @@ SDH.WebRTC = (() => {
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
       if (videoTrack && QUALITY.video[q]) {
-        try { await videoTrack.applyConstraints(QUALITY.video[q].video); } catch (e) {}
+        try { await videoTrack.applyConstraints(QUALITY.video[q].video); } catch (e) { }
       }
       const audioTrack = localStream.getAudioTracks()[0];
       if (audioTrack && QUALITY.voice[q]) {
-        try { await audioTrack.applyConstraints(QUALITY.voice[q].audio); } catch (e) {}
+        try { await audioTrack.applyConstraints(QUALITY.voice[q].audio); } catch (e) { }
       }
     }
 
@@ -787,14 +787,14 @@ SDH.WebRTC = (() => {
   function hangup(reason) {
     _stopRingtone();
 
-    isCallActive         = false;
-    pendingOffer         = null;
-    pendingOfferSdp      = null;
+    isCallActive = false;
+    pendingOffer = null;
+    pendingOfferSdp = null;
     pendingIceCandidates = [];
-    isMuted              = false;
-    isCameraOff          = false;
-    callPeer             = null;   // reset after call ends
-    isUpgradePending     = false;
+    isMuted = false;
+    isCameraOff = false;
+    callPeer = null;   // reset after call ends
+    isUpgradePending = false;
     if (upgradeTimeout) {
       clearTimeout(upgradeTimeout);
       upgradeTimeout = null;
@@ -812,8 +812,8 @@ SDH.WebRTC = (() => {
 
     // Close the peer connection gracefully
     if (peerConnection) {
-      peerConnection.onicecandidate    = null;
-      peerConnection.ontrack           = null;
+      peerConnection.onicecandidate = null;
+      peerConnection.ontrack = null;
       peerConnection.onconnectionstatechange = null;
       peerConnection.close();
       peerConnection = null;
@@ -821,9 +821,9 @@ SDH.WebRTC = (() => {
 
     // Detach streams from video/audio elements
     const remoteVideo = document.getElementById('remoteVideo');
-    const localVideo  = document.getElementById('localVideo');
+    const localVideo = document.getElementById('localVideo');
     const remoteAudio = document.getElementById('remoteAudio');
-    
+
     if (stylesSaved) {
       if (remoteVideo) {
         remoteVideo.className = originalRemoteClasses;
@@ -838,7 +838,7 @@ SDH.WebRTC = (() => {
     stylesSaved = false;
 
     if (remoteVideo) remoteVideo.srcObject = null;
-    if (localVideo)  localVideo.srcObject  = null;
+    if (localVideo) localVideo.srcObject = null;
     if (remoteAudio) remoteAudio.srcObject = null;
 
     hideCallOverlay();
@@ -859,7 +859,7 @@ SDH.WebRTC = (() => {
     if (btn) {
       btn.title = isMuted ? 'Unmute' : 'Mute';
       btn.setAttribute('aria-pressed', String(isMuted));
-      
+
       if (isMuted) {
         btn.classList.add('muted-active');
         btn.style.background = 'rgba(239, 68, 68, 0.9)';
@@ -907,7 +907,7 @@ SDH.WebRTC = (() => {
   // ── Remote requests to upgrade to video call ─────────────────
   function handleVideoUpgradeRequest(data) {
     if (!isCallActive || currentCallType === 'video') return;
-    try { RingtoneEngine.playChime(); } catch(e) {}
+    try { RingtoneEngine.playChime(); } catch (e) { }
     const requester = data.from || callPeer || 'Contact';
     const requesterEl = document.getElementById('videoUpgradeRequester');
     if (requesterEl) requesterEl.textContent = requester;
@@ -1151,7 +1151,7 @@ SDH.WebRTC = (() => {
     }
     // chat.html: reuse the overlay, hide incoming panel, show active-like state
     const overlay = document.getElementById('callOverlay');
-    const active  = document.getElementById('activeCallPanel');
+    const active = document.getElementById('activeCallPanel');
     document.getElementById('incomingCallPanel')?.classList.add('hidden');
     active?.classList.remove('hidden');
     active?.classList.add('flex');
@@ -1170,11 +1170,11 @@ SDH.WebRTC = (() => {
 
     // ── chat.html overlay ─────────────────────────────────────────
     const overlay = document.getElementById('callOverlay');
-    const panel   = document.getElementById('incomingCallPanel');
-    const active  = document.getElementById('activeCallPanel');
+    const panel = document.getElementById('incomingCallPanel');
+    const active = document.getElementById('activeCallPanel');
     if (!overlay || !panel) return;
 
-    document.getElementById('callerName').textContent    = callerUsername;
+    document.getElementById('callerName').textContent = callerUsername;
     document.getElementById('callTypeLabel').textContent =
       callType === 'video' ? '📹 Video Call' : '📞 Voice Call';
 
@@ -1192,12 +1192,12 @@ SDH.WebRTC = (() => {
     }
 
     // ── chat.html overlay ─────────────────────────────────────────
-    const overlay    = document.getElementById('callOverlay');
-    const incomingP  = document.getElementById('incomingCallPanel');
-    const activeP    = document.getElementById('activeCallPanel');
+    const overlay = document.getElementById('callOverlay');
+    const incomingP = document.getElementById('incomingCallPanel');
+    const activeP = document.getElementById('activeCallPanel');
     const audioVisual = document.getElementById('audioCallVisual');
-    const activeUser  = document.getElementById('activeCallUser');
-    const localVideo  = document.getElementById('localVideo');
+    const activeUser = document.getElementById('activeCallUser');
+    const localVideo = document.getElementById('localVideo');
 
     incomingP?.classList.add('hidden');
     incomingP?.classList.remove('flex');
@@ -1278,6 +1278,8 @@ SDH.WebRTC = (() => {
     let ringbackTimer = null;
     let previewTimer = null;
     let activeNodes = [];
+    let shankhaAudioBuffer = null;
+    let shankhaLoading = false;
 
     function getAudioContext() {
       if (!audioCtx || audioCtx.state === 'closed') {
@@ -1307,7 +1309,8 @@ SDH.WebRTC = (() => {
         try {
           if (node.stop) node.stop();
           if (node.disconnect) node.disconnect();
-        } catch (e) {}
+          if (node.pause) node.pause();
+        } catch (e) { }
       });
       activeNodes = [];
     }
@@ -1448,108 +1451,63 @@ SDH.WebRTC = (() => {
       playPulse(now + 0.55);
     }
 
-    // 6. Divine Shankha: Sacred acoustic conch shell resonance with breath swell, harmonics & celestial echo
+    function preloadOriginalShankha(ctx) {
+      if (shankhaAudioBuffer || shankhaLoading) return;
+      shankhaLoading = true;
+      fetch('/static/sounds/shankha.mp3')
+        .then(res => {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.arrayBuffer();
+        })
+        .then(arr => ctx.decodeAudioData(arr))
+        .then(decoded => {
+          shankhaAudioBuffer = decoded;
+          shankhaLoading = false;
+        })
+        .catch(err => {
+          console.warn('[RingtoneEngine] Preload shankha error:', err);
+          shankhaLoading = false;
+        });
+    }
+
+    // 6. Divine Shankha: Authentic original sacred conch blast recording (शंख नाद)
     function playShankha(ctx, masterGain) {
       const now = ctx.currentTime;
-
-      // Acoustic Conch Resonator Function
-      const playConchBurst = (startTime, baseFreq, duration, volumeMult = 1.0) => {
-        const oscFundamental = ctx.createOscillator();
-        const oscHarmonic2   = ctx.createOscillator();
-        const oscHarmonic3   = ctx.createOscillator();
-        const oscHarmonic4   = ctx.createOscillator();
-        const oscSubDrone    = ctx.createOscillator();
-
-        // 5.2 Hz Breath Vibrato LFO
-        const lfo = ctx.createOscillator();
-        const lfoGain = ctx.createGain();
-        lfo.frequency.value = 5.2;
-        lfoGain.gain.value = 4.5;
-        lfo.connect(oscFundamental.frequency);
-        lfo.connect(oscHarmonic2.frequency);
-        lfo.connect(oscHarmonic3.frequency);
-
-        // Conch acoustic filter (warm horn formant)
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(baseFreq * 2.2, startTime);
-        filter.Q.value = 1.8;
-
-        const burstGain = ctx.createGain();
-
-        // Natural breath swell pitch bend at attack
-        oscFundamental.type = 'sine';
-        oscFundamental.frequency.setValueAtTime(baseFreq * 0.93, startTime);
-        oscFundamental.frequency.exponentialRampToValueAtTime(baseFreq, startTime + 0.22);
-
-        oscHarmonic2.type = 'triangle';
-        oscHarmonic2.frequency.setValueAtTime(baseFreq * 2, startTime);
-
-        oscHarmonic3.type = 'sine';
-        oscHarmonic3.frequency.setValueAtTime(baseFreq * 3, startTime);
-
-        oscHarmonic4.type = 'sine';
-        oscHarmonic4.frequency.setValueAtTime(baseFreq * 4, startTime);
-
-        oscSubDrone.type = 'sine';
-        oscSubDrone.frequency.setValueAtTime(baseFreq * 0.5, startTime);
-
-        const g1 = ctx.createGain(); g1.gain.value = 0.55;
-        const g2 = ctx.createGain(); g2.gain.value = 0.32;
-        const g3 = ctx.createGain(); g3.gain.value = 0.22;
-        const g4 = ctx.createGain(); g4.gain.value = 0.12;
-        const gSub = ctx.createGain(); gSub.gain.value = 0.25;
-
-        oscFundamental.connect(g1); g1.connect(burstGain);
-        oscHarmonic2.connect(g2);   g2.connect(burstGain);
-        oscHarmonic3.connect(g3);   g3.connect(filter);
-        oscHarmonic4.connect(g4);   g4.connect(filter);
-        oscSubDrone.connect(gSub);  gSub.connect(burstGain);
-        filter.connect(burstGain);
-
-        // Conch Breath Envelope (Attack swell -> Sustained sacred resonance -> Decaying fade)
-        const attackTime = 0.28;
-        const sustainTime = duration - 0.7;
-
-        burstGain.gain.setValueAtTime(0.0001, startTime);
-        burstGain.gain.exponentialRampToValueAtTime(0.75 * volumeMult, startTime + attackTime);
-        burstGain.gain.setValueAtTime(0.75 * volumeMult, startTime + sustainTime);
-        burstGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-
-        burstGain.connect(masterGain);
-
-        const stopTime = startTime + duration + 0.1;
-        lfo.start(startTime);
-        oscFundamental.start(startTime);
-        oscHarmonic2.start(startTime);
-        oscHarmonic3.start(startTime);
-        oscHarmonic4.start(startTime);
-        oscSubDrone.start(startTime);
-
-        lfo.stop(stopTime);
-        oscFundamental.stop(stopTime);
-        oscHarmonic2.stop(stopTime);
-        oscHarmonic3.stop(stopTime);
-        oscHarmonic4.stop(stopTime);
-        oscSubDrone.stop(stopTime);
-
-        activeNodes.push(lfo, lfoGain, oscFundamental, oscHarmonic2, oscHarmonic3, oscHarmonic4, oscSubDrone, filter, burstGain, g1, g2, g3, g4, gSub);
-      };
-
-      // 1. Primary Divine Shankha Call (A3 ~220Hz, deep majestic swell)
-      playConchBurst(now, 220.0, 2.3, 0.95);
-
-      // 2. Resonant Echo Surge (E4 ~330Hz, celestial overtone echo)
-      playConchBurst(now + 1.25, 329.63, 1.8, 0.70);
+      preloadOriginalShankha(ctx);
+      if (shankhaAudioBuffer) {
+        try {
+          const source = ctx.createBufferSource();
+          source.buffer = shankhaAudioBuffer;
+          source.connect(masterGain);
+          source.start(now);
+          activeNodes.push(source);
+        } catch (e) {
+          console.warn('[RingtoneEngine] WebAudio buffer playback error:', e);
+        }
+      } else {
+        // Direct HTML5 Audio fallback
+        try {
+          const audio = new Audio('/static/sounds/shankha.mp3');
+          audio.volume = getVolume();
+          audio.play().catch(e => console.warn('[RingtoneEngine] Shankha HTML5 play error:', e));
+          activeNodes.push({
+            stop: () => { audio.pause(); audio.currentTime = 0; },
+            pause: () => { audio.pause(); audio.currentTime = 0; },
+            disconnect: () => {}
+          });
+        } catch (e) {
+          console.warn('[RingtoneEngine] Shankha fallback error:', e);
+        }
+      }
     }
 
     const TONES = {
-      'shankha':   { name: 'Divine Shankha', desc: 'Sacred acoustic conch shell resonance (Default)', badge: 'Divine', play: playShankha, interval: 3400 },
+      'shankha': { name: 'Divine Shankha', desc: 'Original sacred conch shell blast (शंख नाद)', badge: 'Divine', play: playShankha, interval: 6800 },
       'celestial': { name: 'Celestial Chime', desc: 'Modern luxury polyphonic chime', badge: 'Popular', play: playCelestial, interval: 2800 },
       'executive': { name: 'Executive Lounge', desc: 'Warm corporate vibraphone chords', badge: 'Refined', play: playExecutive, interval: 3000 },
-      'marimba':   { name: 'Modern Marimba', desc: 'Crisp acoustic rosewood percussion', badge: 'Upbeat', play: playMarimba, interval: 2600 },
-      'cosmic':    { name: 'Cosmic Horizon', desc: 'Ambient ethereal futuristic pad', badge: 'Ambient', play: playCosmic, interval: 3200 },
-      'classic':   { name: 'Classic Bell', desc: 'Modernized dual-cadence telephone ring', badge: 'Classic', play: playClassic, interval: 2800 },
+      'marimba': { name: 'Modern Marimba', desc: 'Crisp acoustic rosewood percussion', badge: 'Upbeat', play: playMarimba, interval: 2600 },
+      'cosmic': { name: 'Cosmic Horizon', desc: 'Ambient ethereal futuristic pad', badge: 'Ambient', play: playCosmic, interval: 3200 },
+      'classic': { name: 'Classic Bell', desc: 'Modernized dual-cadence telephone ring', badge: 'Classic', play: playClassic, interval: 2800 },
     };
 
     function startIncomingRingtone() {
@@ -1659,7 +1617,7 @@ SDH.WebRTC = (() => {
       tone.play(ctx, masterGain);
 
       if (previewTimer) clearTimeout(previewTimer);
-      const previewDuration = Math.min(3500, Math.max(2500, (tone.interval || 3000) - 200));
+      const previewDuration = (toneId === 'shankha') ? 6700 : Math.min(3500, Math.max(2500, (tone.interval || 3000) - 200));
       previewTimer = setTimeout(() => {
         stopPreview();
       }, previewDuration);
@@ -1753,23 +1711,20 @@ SDH.WebRTC = (() => {
     for (const [id, info] of Object.entries(RingtoneEngine.TONES)) {
       const isSelected = id === currentTone;
       html += `
-        <div class="rs-tone-card p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
-          isSelected 
-            ? 'is-selected border-divine-gold/70 bg-divine-gold/10 shadow-[0_0_15px_rgba(212,175,55,0.15)]' 
-            : 'border-divine-border/60 bg-divine-surface/40 hover:border-divine-gold/40'
+        <div class="rs-tone-card p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${isSelected
+          ? 'is-selected border-divine-gold/70 bg-divine-gold/10 shadow-[0_0_15px_rgba(212,175,55,0.15)]'
+          : 'border-divine-border/60 bg-divine-surface/40 hover:border-divine-gold/40'
         }" onclick="SDH.WebRTC.selectRingtone('${id}')">
           <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
-              isSelected ? 'bg-divine-gold text-black' : 'bg-white/5 text-divine-muted border border-white/10'
-            }">
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${isSelected ? 'bg-divine-gold text-black' : 'bg-white/5 text-divine-muted border border-white/10'
+        }">
               ${isSelected ? '✓' : '♪'}
             </div>
             <div>
               <div class="flex items-center gap-2">
                 <span class="tone-name text-xs font-bold text-divine-text">${info.name}</span>
-                <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full ${
-                  isSelected ? 'bg-divine-gold/20 text-divine-gold border border-divine-gold/30' : 'bg-white/5 text-divine-muted border border-white/10'
-                }">${info.badge}</span>
+                <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-divine-gold/20 text-divine-gold border border-divine-gold/30' : 'bg-white/5 text-divine-muted border border-white/10'
+        }">${info.badge}</span>
               </div>
               <p class="tone-desc text-[10px] text-divine-muted mt-0.5">${info.desc}</p>
             </div>
