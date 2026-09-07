@@ -4124,6 +4124,7 @@ SDH.Chat = (() => {
     executeClearChat,
     // Remove user from my list
     _toggleUserMenu,
+    _closeAllUserMenus,
     _confirmRemoveUser,
     executeRemoveUser,
     // Block contact

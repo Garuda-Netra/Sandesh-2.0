@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/chat-lock/toggle/', views.toggle_chat_lock, name='toggle_chat_lock'),
     path('api/chat-lock/status/', views.get_locked_chats_status, name='get_locked_chats_status'),
     path('api/chat-lock/lock-now/', views.lock_session_now, name='lock_session_now'),
+    path('api/chat-lock/unlock-clear/', views.unlock_and_clear_chat, name='unlock_and_clear_chat'),
     # Professional message deletion
     path('api/message/<int:message_id>/remove-my-view/', views.remove_from_my_view, name='remove_from_my_view'),
     path('api/message/<int:message_id>/delete-for-all/', views.delete_for_all, name='delete_for_all'),

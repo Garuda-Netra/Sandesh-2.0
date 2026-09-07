@@ -117,6 +117,16 @@ SDH.UserSearch = (() => {
               </svg>
               View Profile
             </button>
+            <!-- Lock / Unlock Chat -->
+            <button onclick="SDH.ChatLock.toggleLockFromItem('direct', '${userId}', '${username}'); SDH.Chat._closeAllUserMenus();"
+                    class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm
+                           text-purple-400/90 hover:text-purple-300 hover:bg-divine-surface
+                           transition-colors text-left">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Lock / Unlock Chat
+            </button>
             <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
             ${user.friendship_status === 'friend' ? `
             <button onclick="SDH.Chat._confirmUnfriend('${userId}', '${username}')"

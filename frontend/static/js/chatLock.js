@@ -25,6 +25,10 @@ SDH.ChatLock = (() => {
   let currentPinBuffer      = '';
   let authSuccessCallback   = null;
 
+  // Targets for Lock Warning and Unlock / Forgot PIN flows
+  let pendingLockTarget     = null;
+  let pendingUnlockTarget   = null;
+
   // ── Helper: Base64 / ArrayBuffer conversions for WebAuthn ───────
   function _bufferToBase64Url(buffer) {
     const bytes = new Uint8Array(buffer);
@@ -683,20 +687,189 @@ SDH.ChatLock = (() => {
     return false;
   }
 
+  // ── Lock Confirmation Warning Modal ─────────────────────────────
+  function showWarningModal(target) {
+    pendingLockTarget = target;
+    const modal = document.getElementById('chatLockWarningModal');
+    if (!modal) {
+      confirmLockChat();
+      return;
+    }
+    const titleEl = document.getElementById('chatLockWarningTitle');
+    if (titleEl) {
+      const name = target.displayName || target.targetId || 'this chat';
+      titleEl.textContent = `Lock chat with ${name}?`;
+    }
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeWarningModal() {
+    const modal = document.getElementById('chatLockWarningModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    pendingLockTarget = null;
+  }
+
+  async function confirmLockChat() {
+    if (!pendingLockTarget) return;
+    const { chatType, targetId, displayName } = pendingLockTarget;
+
+    if (!hasSecurityPin) {
+      closeWarningModal();
+      showSetupModal();
+      return;
+    }
+
+    try {
+      const res = await fetch(window.SDH_DATA.chatLockToggleUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': window.SDH_DATA.csrfToken,
+        },
+        body: JSON.stringify({
+          chat_type: chatType,
+          target_id: targetId,
+          locked: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.needs_setup) {
+          closeWarningModal();
+          showSetupModal();
+          return;
+        }
+        if (window.SDH?.Chat?.showToast) {
+          SDH.Chat.showToast(data.error || 'Failed to lock chat', 'error');
+        }
+        return;
+      }
+
+      if (chatType === 'saved') {
+        isSavedMessagesLocked = true;
+      } else if (chatType === 'group') {
+        lockedGroupIds.add(String(targetId));
+      } else {
+        lockedUserIds.add(String(targetId));
+      }
+
+      // Immediately lock session and secure UI
+      isUnlocked = false;
+      folderExpanded = false;
+      _clearAutoLockTimer();
+      const active = window.SDH?.Chat?.getActiveUser?.() || sessionStorage.getItem('ndm_last_chat');
+      if (active && isChatLocked(active, active.startsWith('group_'))) {
+        if (window.SDH?.Chat?._resetConversationPanel) {
+          window.SDH.Chat._resetConversationPanel();
+        }
+      }
+
+      closeWarningModal();
+      syncLockedItemsInDom();
+
+      if (window.SDH?.Chat?.showToast) {
+        SDH.Chat.showToast(`Chat with ${displayName || 'user'} is now locked 🔒`, 'success');
+      }
+    } catch (err) {
+      console.error('[ChatLock] confirmLockChat error:', err);
+      if (window.SDH?.Chat?.showToast) {
+        SDH.Chat.showToast('Network error locking chat', 'error');
+      }
+    }
+  }
+
+  // ── Execute Unlock after Authentication ──────────────────────────
+  async function executeUnlock(chatType, targetId, displayName) {
+    try {
+      const res = await fetch(window.SDH_DATA.chatLockToggleUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': window.SDH_DATA.csrfToken,
+        },
+        body: JSON.stringify({
+          chat_type: chatType,
+          target_id: targetId,
+          locked: false,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (window.SDH?.Chat?.showToast) {
+          SDH.Chat.showToast(data.error || 'Failed to unlock chat', 'error');
+        }
+        return;
+      }
+
+      if (chatType === 'saved') {
+        isSavedMessagesLocked = false;
+      } else if (chatType === 'group') {
+        lockedGroupIds.delete(String(targetId));
+      } else {
+        lockedUserIds.delete(String(targetId));
+      }
+
+      syncLockedItemsInDom();
+      if (window.SDH?.Chat?.showToast) {
+        SDH.Chat.showToast(`Chat with ${displayName || 'user'} unlocked 🔓`, 'success');
+      }
+    } catch (err) {
+      console.error('[ChatLock] executeUnlock error:', err);
+    }
+  }
+
+  // ── Lock / Unlock from Item (Sidebar or Menu) ────────────────────
+  function toggleLockFromItem(chatType, targetId, displayName = null) {
+    if (chatType === 'user') chatType = 'direct';
+
+    if (!displayName) {
+      if (chatType === 'saved' || targetId === 'saved') {
+        displayName = 'Saved Messages';
+      } else if (chatType === 'group') {
+        displayName = `Group #${targetId}`;
+      } else {
+        const uObj = window.SDH_DATA?.users?.find(u => String(u.id) === String(targetId) || u.username === targetId);
+        displayName = uObj?.username || targetId;
+      }
+    }
+
+    const locked = isChatLocked(targetId, chatType === 'group');
+
+    if (!locked) {
+      // Intention: Lock this chat! Show professional warning notice first.
+      showWarningModal({ chatType, targetId, displayName });
+    } else {
+      // Intention: Unlock this chat! MUST require authentication!
+      pendingUnlockTarget = { chatType, targetId, displayName };
+      showAuthModal({
+        reason: `Enter PIN or scan fingerprint to unlock ${displayName}`,
+        onSuccess: () => {
+          const target = pendingUnlockTarget;
+          pendingUnlockTarget = null;
+          if (target) {
+            executeUnlock(target.chatType, target.targetId, target.displayName);
+          }
+        }
+      });
+    }
+  }
+
   // ── Toggle Lock on Current Active Chat ───────────────────────────
-  async function toggleCurrentChatLock() {
+  function toggleCurrentChatLock() {
     const active = window.SDH?.Chat?.getActiveUser?.() || sessionStorage.getItem('ndm_last_chat');
     const activeId = window.SDH?.Chat?.getActiveUserId?.() || sessionStorage.getItem('ndm_last_chat_id');
+    const activeName = window.SDH?.Chat?.getActiveChatName?.() || sessionStorage.getItem('ndm_last_chat_name') || active;
 
     if (!active) {
       if (window.SDH?.Chat?.showToast) {
         SDH.Chat.showToast('Please select a chat first.', 'info');
       }
-      return;
-    }
-
-    if (!hasSecurityPin) {
-      showSetupModal();
       return;
     }
 
@@ -714,110 +887,107 @@ SDH.ChatLock = (() => {
       targetId = activeId || active;
     }
 
+    toggleLockFromItem(chatType, targetId, activeName);
+  }
+
+  // ── Forgot PIN / Delete Data to Unlock Flow ──────────────────────
+  function onForgotPinClicked() {
+    closeAuthModal();
+
+    const modal = document.getElementById('chatLockForgotModal');
+    if (!modal) return;
+
+    const warnTextEl = document.getElementById('chatLockForgotWarningText');
+    const titleEl = document.getElementById('chatLockForgotTitle');
+    const confirmBtn = document.getElementById('chatLockForgotConfirmBtn');
+
+    if (pendingUnlockTarget) {
+      const name = pendingUnlockTarget.displayName || 'this locked chat';
+      if (titleEl) titleEl.textContent = `Unlock ${name}`;
+      if (warnTextEl) {
+        warnTextEl.textContent = `All messages, files, and media for "${name}" will be permanently deleted to remove the lock and restore this chat to your regular list.`;
+      }
+      if (confirmBtn) confirmBtn.textContent = `Delete & Unlock ${name}`;
+    } else {
+      const count = getLockedCount();
+      if (titleEl) titleEl.textContent = `Reset & Unlock All Chats`;
+      if (warnTextEl) {
+        warnTextEl.textContent = `All messages, media, and data across your ${count} locked chat(s) will be permanently deleted to unlock all chats and reset your Security PIN.`;
+      }
+      if (confirmBtn) confirmBtn.textContent = `Delete All & Reset`;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeForgotModal() {
+    const modal = document.getElementById('chatLockForgotModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  async function confirmDeleteAndUnlock() {
+    const target = pendingUnlockTarget;
+    const payload = target ? {
+      chat_type: target.chatType,
+      target_id: target.targetId,
+    } : { target_id: 'all' };
+
     try {
-      const res = await fetch(window.SDH_DATA.chatLockToggleUrl, {
+      const res = await fetch(window.SDH_DATA.chatLockUnlockClearUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': window.SDH_DATA.csrfToken,
         },
-        body: JSON.stringify({
-          chat_type: chatType,
-          target_id: targetId,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        if (data.needs_setup) {
-          showSetupModal();
-          return;
-        }
         if (window.SDH?.Chat?.showToast) {
-          SDH.Chat.showToast(data.error || 'Failed to update chat lock', 'error');
+          SDH.Chat.showToast(data.error || 'Failed to clear data and unlock', 'error');
         }
         return;
       }
 
-      // Update local state
-      if (chatType === 'saved') {
-        isSavedMessagesLocked = data.is_locked;
-      } else if (chatType === 'group') {
-        if (data.is_locked) lockedGroupIds.add(String(targetId));
-        else lockedGroupIds.delete(String(targetId));
-      } else {
-        const uIdStr = String(activeId || targetId);
-        if (data.is_locked) {
-          lockedUserIds.add(uIdStr);
-        } else {
-          lockedUserIds.delete(uIdStr);
+      if (data.cleared_all) {
+        lockedUserIds.clear();
+        lockedGroupIds.clear();
+        isSavedMessagesLocked = false;
+        hasSecurityPin = false;
+        biometricEnabled = false;
+        isUnlocked = true;
+      } else if (target) {
+        if (target.chatType === 'saved') isSavedMessagesLocked = false;
+        else if (target.chatType === 'group') lockedGroupIds.delete(String(target.targetId));
+        else {
+          lockedUserIds.delete(String(target.targetId));
+          if (data.user_id) lockedUserIds.delete(String(data.user_id));
         }
       }
 
-      // If just locked, immediately lock session and clear active panel
-      if (data.is_locked) {
-        isUnlocked = false;
-        folderExpanded = false;
-        _clearAutoLockTimer();
-        if (window.SDH?.Chat?._resetConversationPanel) {
-          window.SDH.Chat._resetConversationPanel();
-        }
+      // If viewing cleared chat, reset view
+      if (window.SDH?.Chat?._resetConversationPanel) {
+        window.SDH.Chat._resetConversationPanel();
       }
 
+      closeForgotModal();
+      pendingUnlockTarget = null;
       syncLockedItemsInDom();
 
       if (window.SDH?.Chat?.showToast) {
-        SDH.Chat.showToast(data.message, 'success');
+        SDH.Chat.showToast(data.message || 'Chat cleared and unlocked.', 'success');
       }
-    } catch (e) {
-      console.error('[ChatLock] Toggle lock error:', e);
+    } catch (err) {
+      console.error('[ChatLock] confirmDeleteAndUnlock error:', err);
+      if (window.SDH?.Chat?.showToast) {
+        SDH.Chat.showToast('Network error while unlocking chat.', 'error');
+      }
     }
-  }
-
-  // ── Lock from Sidebar Item ──────────────────────────────────────
-  function toggleLockFromItem(chatType, targetId) {
-    if (!hasSecurityPin) {
-      showSetupModal();
-      return;
-    }
-
-    fetch(window.SDH_DATA.chatLockToggleUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': window.SDH_DATA.csrfToken,
-      },
-      body: JSON.stringify({ chat_type: chatType, target_id: targetId }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'ok') {
-          if (chatType === 'saved') isSavedMessagesLocked = data.is_locked;
-          else if (chatType === 'group') {
-            if (data.is_locked) lockedGroupIds.add(String(targetId));
-            else lockedGroupIds.delete(String(targetId));
-          } else {
-            if (data.is_locked) lockedUserIds.add(String(targetId));
-            else lockedUserIds.delete(String(targetId));
-          }
-
-          if (data.is_locked) {
-            isUnlocked = false;
-            folderExpanded = false;
-            _clearAutoLockTimer();
-            const active = window.SDH?.Chat?.getActiveUser?.() || sessionStorage.getItem('ndm_last_chat');
-            if (active && isChatLocked(active, active.startsWith('group_'))) {
-              if (window.SDH?.Chat?._resetConversationPanel) {
-                window.SDH.Chat._resetConversationPanel();
-              }
-            }
-          }
-
-          syncLockedItemsInDom();
-          if (window.SDH?.Chat?.showToast) SDH.Chat.showToast(data.message, 'success');
-        }
-      })
-      .catch(console.error);
   }
 
   // ── Lock Immediately ────────────────────────────────────────────
@@ -867,6 +1037,12 @@ SDH.ChatLock = (() => {
     registerBiometrics,
     toggleCurrentChatLock,
     toggleLockFromItem,
+    showWarningModal,
+    closeWarningModal,
+    confirmLockChat,
+    onForgotPinClicked,
+    closeForgotModal,
+    confirmDeleteAndUnlock,
     lockNow,
     syncLockedItemsInDom,
     isUnlocked: () => isUnlocked,

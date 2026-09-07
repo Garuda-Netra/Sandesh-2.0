@@ -2787,6 +2787,8 @@ def toggle_chat_lock(request):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
     chat_type = data.get('chat_type')  # 'direct', 'group', 'saved'
+    if chat_type == 'user':
+        chat_type = 'direct'
     target_id = data.get('target_id')  # username, user_id, or group_id
     explicit_lock = data.get('locked')  # optional boolean
 
@@ -2884,4 +2886,191 @@ def lock_session_now(request):
     """Manually lock the session immediately."""
     _lock_session(request)
     return JsonResponse({'status': 'ok', 'locked': True})
+
+
+@login_required
+@csrf_protect
+@require_POST
+def unlock_and_clear_chat(request):
+    """
+    Security recovery: Permanently deletes all chat history and files for a locked chat
+    (or all locked chats if target_id == 'all') and removes the ChatLock.
+    This is the only recovery path when a user forgets their chat lock PIN.
+    """
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    target_id = data.get('target_id')
+    chat_type = data.get('chat_type', 'direct')
+    if chat_type == 'user':
+        chat_type = 'direct'
+
+    if not target_id:
+        return JsonResponse({'error': 'Target is required.'}, status=400)
+
+    channel_layer = get_channel_layer()
+
+    # 1. Clear & unlock ALL locked chats if target_id == 'all'
+    if target_id == 'all':
+        locks = ChatLock.objects.filter(user=request.user)
+        for lock in locks:
+            if lock.is_self_chat:
+                messages_qs = Message.objects.filter(sender=request.user, receiver=request.user)
+                for msg in messages_qs.exclude(file='').exclude(file=None):
+                    try:
+                        if os.path.isfile(msg.file.path):
+                            os.remove(msg.file.path)
+                    except Exception:
+                        pass
+                messages_qs.delete()
+            elif lock.locked_user:
+                other_user = lock.locked_user
+                messages_qs = Message.objects.filter(
+                    Q(sender=request.user, receiver=other_user) |
+                    Q(sender=other_user, receiver=request.user)
+                )
+                for msg in messages_qs.exclude(file='').exclude(file=None):
+                    try:
+                        if os.path.isfile(msg.file.path):
+                            os.remove(msg.file.path)
+                    except Exception:
+                        pass
+                messages_qs.delete()
+
+                # Broadcast real-time clear event
+                lo, hi = sorted([request.user.id, other_user.id])
+                room_group = f'chat_{lo}__{hi}'
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        room_group,
+                        {
+                            'type': 'chat_cleared',
+                            'cleared_by': request.user.username,
+                            'other_user': other_user.username,
+                        }
+                    )
+                except Exception:
+                    pass
+
+        locks.delete()
+
+        # Reset PIN & security credentials if all chats are cleared
+        cred = UserSecurityCredential.objects.filter(user=request.user).first()
+        if cred:
+            cred.pin_hash = ''
+            cred.biometric_enabled = False
+            cred.save()
+
+        _unlock_session(request)
+
+        return JsonResponse({
+            'status': 'ok',
+            'cleared_all': True,
+            'message': 'All locked chats data cleared and locks removed.'
+        })
+
+    # 2. Clear & unlock Saved Messages
+    is_saved = (chat_type == 'saved' or target_id == 'saved' or target_id == request.user.username)
+    if is_saved:
+        messages_qs = Message.objects.filter(sender=request.user, receiver=request.user)
+        for msg in messages_qs.exclude(file='').exclude(file=None):
+            try:
+                if os.path.isfile(msg.file.path):
+                    os.remove(msg.file.path)
+            except Exception:
+                pass
+        messages_qs.delete()
+        ChatLock.objects.filter(user=request.user, is_self_chat=True).delete()
+        _unlock_session(request)
+        return JsonResponse({
+            'status': 'ok',
+            'chat_type': 'saved',
+            'target_id': 'saved',
+            'is_locked': False,
+            'message': 'Saved Messages data cleared and unlocked.'
+        })
+
+    # 3. Clear & unlock Group
+    if chat_type == 'group':
+        if str(target_id).isdigit():
+            group = get_object_or_404(Group, id=int(target_id))
+        else:
+            return JsonResponse({'error': 'Invalid group ID.'}, status=400)
+        ChatLock.objects.filter(user=request.user, locked_group=group).delete()
+        _unlock_session(request)
+        return JsonResponse({
+            'status': 'ok',
+            'chat_type': 'group',
+            'target_id': str(group.id),
+            'is_locked': False,
+            'message': f'Group "{group.name}" unlocked.'
+        })
+
+    # 4. Direct user
+    if str(target_id).isdigit():
+        other_user = get_object_or_404(User, id=int(target_id))
+    else:
+        other_user = get_object_or_404(User, username=target_id)
+
+    if other_user == request.user:
+        messages_qs = Message.objects.filter(sender=request.user, receiver=request.user)
+        for msg in messages_qs.exclude(file='').exclude(file=None):
+            try:
+                if os.path.isfile(msg.file.path):
+                    os.remove(msg.file.path)
+            except Exception:
+                pass
+        messages_qs.delete()
+        ChatLock.objects.filter(user=request.user, is_self_chat=True).delete()
+        _unlock_session(request)
+        return JsonResponse({
+            'status': 'ok',
+            'chat_type': 'saved',
+            'target_id': other_user.username,
+            'is_locked': False,
+            'message': 'Chat data cleared and unlocked.'
+        })
+
+    messages_qs = Message.objects.filter(
+        Q(sender=request.user, receiver=other_user) |
+        Q(sender=other_user, receiver=request.user)
+    )
+    for msg in messages_qs.exclude(file='').exclude(file=None):
+        try:
+            if os.path.isfile(msg.file.path):
+                os.remove(msg.file.path)
+        except Exception:
+            pass
+    messages_qs.delete()
+
+    ChatLock.objects.filter(user=request.user, locked_user=other_user).delete()
+
+    # Broadcast real-time clear event
+    lo, hi = sorted([request.user.id, other_user.id])
+    room_group = f'chat_{lo}__{hi}'
+    try:
+        async_to_sync(channel_layer.group_send)(
+            room_group,
+            {
+                'type': 'chat_cleared',
+                'cleared_by': request.user.username,
+                'other_user': other_user.username,
+            }
+        )
+    except Exception:
+        pass
+
+    _unlock_session(request)
+
+    return JsonResponse({
+        'status': 'ok',
+        'chat_type': 'direct',
+        'target_id': other_user.username,
+        'user_id': other_user.id,
+        'is_locked': False,
+        'message': f'Chat history with {other_user.username} permanently deleted and chat unlocked.'
+    })
+
 
