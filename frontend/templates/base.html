@@ -4,8 +4,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Sandesh – Real-time, secure messaging." />
   <title>{% block title %}Sandesh{% endblock %}</title>
+
+  <!-- Progressive Web App (PWA) & Mobile Meta Tags -->
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Sandesh" />
+  <meta name="application-name" content="Sandesh" />
+  <meta name="msapplication-TileColor" content="#7c3aed" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+
+  <!-- App Icons & Favicons -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'icons/favicon-32x32.png' %}" />
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'icons/favicon-16x16.png' %}" />
+  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'icons/apple-touch-icon.png' %}" />
 
   <!-- Tailwind CSS (CDN – swap for compiled build in production) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -196,6 +211,16 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
         </svg>
+      </button>
+
+      <!-- PWA Install Button (Navbar) -->
+      <button id="pwaNavInstallBtn" onclick="SDH.promptPWAInstall()"
+              class="hidden items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 transition-all hover:scale-105"
+              title="Install Sandesh App">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        <span class="hidden md:inline">Install App</span>
       </button>
 
       <button id="sdhBotToggle" class="sdh-liquid-btn btn-ancient !rounded-full !px-4 !py-2 flex items-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all hover:scale-105" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Open Vyasa">
@@ -1001,6 +1026,159 @@
         btn.querySelector('span').textContent = 'Submit Report';
       }
     }
+
+    // ── Progressive Web App (PWA) Manager ────────────────────────
+    (function() {
+      // 1. Register Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(function(reg) {
+              console.log('[Sandesh PWA] Service Worker registered (scope: ' + reg.scope + ')');
+            })
+            .catch(function(err) {
+              console.warn('[Sandesh PWA] Service Worker registration failed:', err);
+            });
+        });
+      }
+
+      // 2. Install Prompt Handling
+      SDH.deferredPWAEvent = null;
+
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        SDH.deferredPWAEvent = e;
+
+        // Show navbar install button
+        const navBtn = document.getElementById('pwaNavInstallBtn');
+        if (navBtn) navBtn.classList.remove('hidden');
+
+        // Show floating banner if not previously dismissed in this session and not standalone
+        if (!isStandalone && !sessionStorage.getItem('sandesh_pwa_dismissed')) {
+          setTimeout(function() {
+            const banner = document.getElementById('pwaInstallBanner');
+            if (banner) {
+              banner.classList.remove('hidden');
+              banner.classList.add('flex');
+            }
+          }, 2000);
+        }
+      });
+
+      // iOS Safari detection
+      if (isIOS && !isStandalone && !sessionStorage.getItem('sandesh_pwa_dismissed')) {
+        const navBtn = document.getElementById('pwaNavInstallBtn');
+        if (navBtn) navBtn.classList.remove('hidden');
+        setTimeout(function() {
+          const banner = document.getElementById('pwaInstallBanner');
+          if (banner) {
+            banner.classList.remove('hidden');
+            banner.classList.add('flex');
+          }
+        }, 3000);
+      }
+
+      SDH.promptPWAInstall = function() {
+        if (SDH.deferredPWAEvent) {
+          SDH.deferredPWAEvent.prompt();
+          SDH.deferredPWAEvent.userChoice.then(function(choice) {
+            if (choice.outcome === 'accepted') {
+              SDH.dismissPWABanner(false);
+            }
+            SDH.deferredPWAEvent = null;
+          });
+        } else if (isIOS) {
+          const iosModal = document.getElementById('pwaIosModal');
+          if (iosModal) iosModal.classList.remove('hidden');
+        } else {
+          alert('To install Sandesh, click the Install icon (📲) in your browser address bar.');
+        }
+      };
+
+      SDH.dismissPWABanner = function(recordDismissal = true) {
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner) {
+          banner.classList.add('hidden');
+          banner.classList.remove('flex');
+        }
+        if (recordDismissal) {
+          try {
+            sessionStorage.setItem('sandesh_pwa_dismissed', '1');
+          } catch(e) {}
+        }
+      };
+
+      SDH.closeIosModal = function() {
+        const iosModal = document.getElementById('pwaIosModal');
+        if (iosModal) iosModal.classList.add('hidden');
+      };
+
+      window.addEventListener('appinstalled', function() {
+        console.log('[Sandesh PWA] App installed successfully');
+        SDH.dismissPWABanner(true);
+        const navBtn = document.getElementById('pwaNavInstallBtn');
+        if (navBtn) navBtn.classList.add('hidden');
+      });
+    })();
   </script>
+
+  <!-- ── Floating PWA Install Banner ──────────────────────────── -->
+  <aside id="pwaInstallBanner" aria-label="Install Sandesh App"
+       class="hidden fixed bottom-5 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-50 items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/95 dark:bg-[#121220]/95 border border-purple-500/30 shadow-[0_15px_40px_rgba(147,51,234,0.25)] backdrop-blur-xl transition-all duration-300 animate-slide-in">
+    <div class="flex items-center gap-3 min-w-0">
+      <img src="{% static 'icons/icon-192x192.png' %}" alt="Sandesh Icon" class="w-11 h-11 rounded-xl shadow-md flex-shrink-0 object-cover border border-purple-500/20" />
+      <div class="min-w-0">
+        <h4 class="text-sm font-semibold text-slate-900 dark:text-white truncate">Install Sandesh</h4>
+        <p class="text-xs text-slate-500 dark:text-zinc-400 truncate">Fullscreen & fast native app</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1.5 flex-shrink-0">
+      <button onclick="SDH.promptPWAInstall()" 
+              class="sdh-liquid-btn btn-ancient !py-1.5 !px-3 text-xs font-semibold rounded-lg shadow-sm">
+        <span>Install</span>
+      </button>
+      <button onclick="SDH.dismissPWABanner(true)" 
+              class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors"
+              title="Dismiss">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── iOS Safari Install Instructions Modal ──────────────────── -->
+  <div id="pwaIosModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="w-full max-w-sm bg-white dark:bg-[#121220] border border-purple-500/30 rounded-3xl p-6 shadow-2xl text-center">
+      <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+        <img src="{% static 'icons/icon-192x192.png' %}" alt="Sandesh" class="w-10 h-10 rounded-xl" />
+      </div>
+      <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Install Sandesh on iOS</h3>
+      <p class="text-xs text-slate-600 dark:text-zinc-300 mb-5 leading-relaxed">
+        Install Sandesh on your iPhone or iPad for the full native app experience:
+      </p>
+      <div class="text-left space-y-3 bg-purple-500/5 dark:bg-purple-950/20 p-3.5 rounded-2xl border border-purple-500/15 mb-6 text-xs text-slate-700 dark:text-zinc-200">
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">1</span>
+          <span>Tap the <strong>Share</strong> button ( <svg class="inline w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg> or <svg class="inline w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg> ) in Safari toolbar.</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">2</span>
+          <span>Scroll down and select <strong>"Add to Home Screen"</strong> ➕.</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">3</span>
+          <span>Tap <strong>Add</strong> in the top right corner.</span>
+        </div>
+      </div>
+      <button onclick="SDH.closeIosModal()" 
+              class="sdh-liquid-btn btn-ancient w-full py-2.5 rounded-xl font-semibold text-xs shadow-md">
+        <span>Got it</span>
+      </button>
+    </div>
+  </div>
 </body>
 </html>

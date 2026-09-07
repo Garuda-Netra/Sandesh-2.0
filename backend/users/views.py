@@ -12,7 +12,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST, require_GET
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse, FileResponse
 from django.contrib import messages
 from django.urls import reverse
 from django.utils import timezone
@@ -1247,4 +1247,48 @@ def terminate_other_sessions_api(request):
         s.delete()
 
     return JsonResponse({'success': True})
+
+
+# ---------------------------------------------------------------------------
+# Progressive Web App (PWA) Views
+# ---------------------------------------------------------------------------
+from django.views.decorators.cache import cache_control
+
+@cache_control(max_age=3600, must_revalidate=True)
+def pwa_manifest_view(request):
+    """Serves the web app manifest."""
+    manifest_path = settings.BASE_DIR.parent / 'frontend' / 'static' / 'manifest.webmanifest'
+    if manifest_path.exists():
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return HttpResponse(content, content_type='application/manifest+json')
+    return JsonResponse({'error': 'Manifest not found'}, status=404)
+
+
+@cache_control(no_cache=True, no_store=True, must_revalidate=True)
+def service_worker_view(request):
+    """Serves the service worker from root scope with Service-Worker-Allowed header."""
+    sw_path = settings.BASE_DIR.parent / 'frontend' / 'static' / 'js' / 'sw.js'
+    if sw_path.exists():
+        with open(sw_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        response = HttpResponse(content, content_type='application/javascript')
+        response['Service-Worker-Allowed'] = '/'
+        return response
+    return HttpResponse('// Service worker not found', content_type='application/javascript', status=404)
+
+
+def offline_view(request):
+    """Renders the offline fallback page."""
+    return render(request, 'offline.html')
+
+
+@cache_control(max_age=86400)
+def favicon_view(request):
+    """Serves favicon.ico from root."""
+    fav_path = settings.BASE_DIR.parent / 'frontend' / 'static' / 'icons' / 'favicon.ico'
+    if fav_path.exists():
+        return FileResponse(open(fav_path, 'rb'), content_type='image/x-icon')
+    return HttpResponse(status=404)
+
 

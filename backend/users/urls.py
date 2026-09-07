@@ -42,4 +42,11 @@ urlpatterns = [
     path('api/sessions/', views.session_list_api, name='session_list'),
     path('api/sessions/<str:session_key>/terminate/', views.terminate_session_api, name='terminate_session'),
     path('api/sessions/terminate-others/', views.terminate_other_sessions_api, name='terminate_other_sessions'),
+
+    # Progressive Web App (PWA) endpoints
+    path('manifest.webmanifest', views.pwa_manifest_view, name='pwa_manifest'),
+    path('manifest.json', views.pwa_manifest_view, name='pwa_manifest_json'),
+    path('sw.js', views.service_worker_view, name='service_worker'),
+    path('offline/', views.offline_view, name='offline'),
+    path('favicon.ico', views.favicon_view, name='favicon'),
 ]
