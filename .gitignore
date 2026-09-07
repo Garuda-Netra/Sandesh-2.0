@@ -79,6 +79,17 @@ powershell.cmd
 *.sublime-workspace
 
 # ===========================================================================
+# Node / Frontend Build Tools
+# ===========================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.parcel-cache/
+.turbo/
+
+# ===========================================================================
 # Packaging & Build
 # ===========================================================================
 *.egg-info/
@@ -145,3 +156,10 @@ firebase-credentials.json
 *.crt
 *.pfx
 *.p12
+
+# ===========================================================================
+# Whitelist Essential Static Brand & Audio Assets
+# ===========================================================================
+!frontend/static/icons/*
+!frontend/static/sounds/*
+

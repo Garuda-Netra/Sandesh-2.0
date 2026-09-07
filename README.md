@@ -13,12 +13,22 @@ Your conversations. Your privacy. Total peace of mind. 🛡️
 ### 🪔 Ancient Aesthetics × Futuristic Glassmorphism
 Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 - 🕉️ **Cinematic Landing Canvas**: Ambient dark matter background with rotating Sanskrit Shlokas celebrating wisdom, truth, and genuine human connection.
-- 🎨 **Adaptive Theme Palette**: High-contrast OLED Deep Dark Mode and Crisp Light Mode with butter-smooth view transitions.
+- 📜 **Sacred Heritage Branding**: The Divine Sandesh Scroll & Golden Quill emblem, representing enlightened communication and ancient Indian messenger tradition.
+- 🎨 **Adaptive Theme Palette**: High-contrast OLED Deep Dark Mode and Crisp Light Mode with butter-smooth view transitions and zero visual glitches.
 - 💫 **Tactile Micro-Interactions**: Glassmorphic cards, luminous gradients, floating particles, and responsive interactive feedback.
 
 ---
 
 ## ✨ Features & Capabilities
+
+### 📲 Progressive Web App (PWA) & Instant Native Install *(New!)*
+- **📱 Full Native Experience**: Install Sandesh on Android, iOS, Windows, macOS, and Linux as a standalone, windowed app with no browser address bar, custom titlebar, and dock/app drawer presence.
+- **💎 Professional "Install App" Action Button**: Modern glassmorphic pill in the top navbar featuring an active emerald status beacon (`ping` animation), subtle hover lift, 25° light-ray shimmer sweep, and micro-chevron cue. Automatically hides when running in standalone mode.
+- **📶 Offline-Ready Resilience**: Fully precached core assets via Service Worker (`sw.js`). If connection is lost, users are greeted by a branded, animated **Offline Fallback Screen** (`/offline/`) with auto-reconnect polling.
+- **🍏 iOS Safari Add-to-Home-Screen Modal**: Automatically guides iPhone and iPad users through installing Sandesh via the Share sheet.
+- **⚡ Instant App Shell Precache**: Near-zero startup latency for cached stylesheets, scripts, sacred conch ringtones, and brand icons.
+
+---
 
 ### 🔐 WhatsApp-Style Chat Lock & Biometric Security *(New!)*
 - **Granular Per-Chat Locking**: Lock any individual direct chat, group conversation, or your private Saved Messages notebook with one click.
@@ -46,7 +56,7 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 
 ### 📸 Moments, Status Privacy & Media
 - **📸 24-Hour Moments (Stories)**: Post temporary visual stories with viewer tracking, emoji reactions, and built-in Spotify music integration.
-- **👁️ WhatsApp-Style Status Privacy *(New!)* **: Granular audience control for every story update:
+- **👁️ WhatsApp-Style Status Privacy**: Granular audience control for every story update:
   - *My Contacts:* Visible to all mutual friends.
   - *My Contacts Except...:* Hide stories from specific individuals with contact exclusion counters.
   - *Only Share With...:* Whitelist specific friends who can view your moment.
@@ -58,8 +68,8 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 
 ### 📞 Crystal-Clear Calling & Professional Ringtones
 - **📞 Peer-to-Peer Voice & Video Calls**: Browser-native high-definition calling using WebRTC with global STUN/TURN fallback.
-- **🎵 Studio-Grade Caller Ringtones *(New!)* **: Replaced basic beeps with 6 high-definition synthesized Web Audio API tones:
-  - *Divine Shankha (Default / Signature):* Sacred acoustic conch shell resonance with natural breath swell, warm horn harmonics, and celestial temple echo.
+- **🎵 Studio-Grade Caller Ringtones**: Replaced basic beeps with 6 high-definition ringtones, featuring authentic acoustic audio and Web Audio synthesis:
+  - *Divine Shankha (Signature / Default):* Authentic original sacred conch shell blast recording (`shankha.mp3` & `.ogg`) decoded via Web Audio API `AudioBufferSourceNode` with graceful 6.8s cadence interval, full preview, and HTML5 fallback.
   - *Celestial Chime:* Luxury multi-note harmonic arpeggio.
   - *Executive Lounge:* Refined corporate Rhodes vibraphone chords.
   - *Modern Marimba:* Crisp acoustic wooden percussion motif.
@@ -92,8 +102,9 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 |---|---|---|
 | **Backend Core** | Python 3.12, Django 5.2 | High-throughput async web framework & API layer |
 | **Real-Time Engine** | Django Channels 4.3, Daphne 4.2 | ASGI server, WebSockets & real-time event pipeline |
+| **PWA & Offline** | Service Worker API, Cache API, Webmanifest | Installable desktop/mobile app shell with offline resilience |
 | **Database & Cache** | PostgreSQL / SQLite, Redis | Relational data persistence & channel layer pub/sub |
-| **Audio/Video Engine** | WebRTC, STUN/TURN | Browser-to-browser encrypted media streaming |
+| **Audio/Video Engine** | WebRTC, STUN/TURN, Web Audio API | Browser-to-browser encrypted media streaming & acoustic audio |
 | **Artificial Intelligence** | Google Gemini (`google-genai`) | Vyasa conversational AI & Auto-Wish engine |
 | **Hardware Biometrics** | WebAuthn Platform Authenticator | Touch ID, Face ID, Windows Hello & Fingerprint auth |
 | **Media Storage** | Cloudinary, WhiteNoise | Scalable asset hosting & compressed static delivery |
@@ -112,8 +123,12 @@ Sandesh-2.0/
 │   ├── sdh/               # ASGI/WSGI entry points, Daphne routing & Django settings
 │   └── manage.py          # Administrative command utility
 ├── frontend/
-│   ├── static/            # Modular JS (chat, chatLock, webrtc, moments, chatbot) & CSS
-│   └── templates/         # Glassmorphic views (chat, calling, profile, auth, landing)
+│   ├── static/
+│   │   ├── js/            # Modular JS (chat, chatLock, webrtc, sw.js, moments, chatbot)
+│   │   ├── css/           # Glassmorphic custom CSS design system
+│   │   ├── icons/         # PWA multi-resolution ancient scroll app icons & favicons
+│   │   └── sounds/        # Authentic Divine Shankha acoustic audio assets (.mp3, .ogg)
+│   └── templates/         # Glassmorphic views (chat, calling, profile, auth, offline, landing)
 ├── Procfile               # Cloud deployment descriptor (Daphne ASGI + Migrations)
 └── requirements.txt       # Python production dependencies
 ```
