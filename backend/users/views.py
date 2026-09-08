@@ -11,7 +11,7 @@ from django.contrib.auth import login, logout, alogout
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_POST, require_GET, require_http_methods
 from django.http import JsonResponse, HttpResponse, FileResponse
 from django.contrib import messages
 from django.urls import reverse
@@ -22,7 +22,7 @@ from django.core.exceptions import ValidationError
 from asgiref.sync import sync_to_async
 
 from .forms import SDHRegistrationForm, SDHLoginForm, ProfileUpdateForm
-from .models import UserProfile, FriendRequest, Friendship
+from .models import UserProfile, FriendRequest, Friendship, UserSettings
 
 
 # ---------------------------------------------------------------------------
@@ -1283,6 +1283,191 @@ def terminate_other_sessions_api(request):
         s.delete()
 
     return JsonResponse({'success': True})
+
+
+# ---------------------------------------------------------------------------
+# User Settings & Preferences (WhatsApp-Style)
+# ---------------------------------------------------------------------------
+def _format_bytes(bytes_count):
+    if bytes_count < 1024:
+        return f"{bytes_count} B"
+    elif bytes_count < 1024 * 1024:
+        return f"{bytes_count / 1024:.1f} KB"
+    elif bytes_count < 1024 * 1024 * 1024:
+        return f"{bytes_count / (1024 * 1024):.1f} MB"
+    else:
+        return f"{bytes_count / (1024 * 1024 * 1024):.2f} GB"
+
+
+def _serialize_settings(s):
+    return {
+        'last_seen_visibility': s.last_seen_visibility,
+        'online_visibility': s.online_visibility,
+        'read_receipts_enabled': s.read_receipts_enabled,
+        'media_upload_quality': s.media_upload_quality,
+        'media_auto_download': s.media_auto_download,
+        'message_sound_enabled': s.message_sound_enabled,
+        'enter_is_send': s.enter_is_send,
+    }
+
+
+@login_required
+def settings_view(request):
+    """Renders the settings dashboard page."""
+    user_settings = UserSettings.get_for_user(request.user)
+    my_profile = request.user.profile
+    blocked_count = my_profile.blocked_users.count()
+    return render(request, 'users/settings.html', {
+        'settings': user_settings,
+        'settings_json': _serialize_settings(user_settings),
+        'blocked_count': blocked_count,
+    })
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def settings_api(request):
+    """GET or POST to retrieve and update UserSettings in real time."""
+    user_settings = UserSettings.get_for_user(request.user)
+
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+        if 'last_seen_visibility' in data:
+            val = str(data['last_seen_visibility']).strip()
+            if val in [UserSettings.LAST_SEEN_EVERYONE, UserSettings.LAST_SEEN_CONTACTS, UserSettings.LAST_SEEN_NOBODY]:
+                user_settings.last_seen_visibility = val
+
+        if 'online_visibility' in data:
+            val = str(data['online_visibility']).strip()
+            if val in [UserSettings.ONLINE_EVERYONE, UserSettings.ONLINE_SAME_AS_LAST_SEEN]:
+                user_settings.online_visibility = val
+
+        if 'read_receipts_enabled' in data:
+            user_settings.read_receipts_enabled = bool(data['read_receipts_enabled'])
+
+        if 'media_upload_quality' in data:
+            val = str(data['media_upload_quality']).strip()
+            if val in [UserSettings.QUALITY_STANDARD, UserSettings.QUALITY_HD]:
+                user_settings.media_upload_quality = val
+
+        if 'media_auto_download' in data:
+            val = str(data['media_auto_download']).strip()
+            if val in [UserSettings.DOWNLOAD_ALL, UserSettings.DOWNLOAD_WIFI, UserSettings.DOWNLOAD_NEVER]:
+                user_settings.media_auto_download = val
+
+        if 'message_sound_enabled' in data:
+            user_settings.message_sound_enabled = bool(data['message_sound_enabled'])
+
+        if 'enter_is_send' in data:
+            user_settings.enter_is_send = bool(data['enter_is_send'])
+
+        user_settings.save()
+
+        # Real-time WebSocket notify
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f"user_chat_{request.user.id}",
+                {
+                    'type': 'user_settings_updated',
+                    'settings': _serialize_settings(user_settings),
+                }
+            )
+
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'Settings updated successfully.',
+            'settings': _serialize_settings(user_settings),
+        })
+
+    return JsonResponse({
+        'status': 'ok',
+        'settings': _serialize_settings(user_settings),
+    })
+
+
+@login_required
+@require_GET
+def blocked_contacts_api(request):
+    """Returns list of contacts blocked by the current user."""
+    my_profile = request.user.profile
+    blocked = my_profile.blocked_users.select_related('user').all()
+    contacts = []
+    for p in blocked:
+        avatar_url = p.avatar.url if p.avatar and p.avatar.name else ''
+        contacts.append({
+            'user_id': p.user.id,
+            'username': p.user.username,
+            'display_name': p.display_name,
+            'avatar_url': avatar_url,
+        })
+    return JsonResponse({'blocked_contacts': contacts, 'count': len(contacts)})
+
+
+@login_required
+@require_GET
+def storage_usage_api(request):
+    """Computes real-time data storage analytics across media and conversations."""
+    from messaging.models import Message, GroupMessage, GroupMembership
+
+    user_msgs = Message.objects.filter(Q(sender=request.user) | Q(receiver=request.user))
+    total_messages_count = user_msgs.count()
+
+    my_group_ids = GroupMembership.objects.filter(user=request.user).values_list('group_id', flat=True)
+    group_msgs = GroupMessage.objects.filter(group_id__in=my_group_ids)
+    total_messages_count += group_msgs.count()
+
+    def get_type_stats(msg_type):
+        count = 0
+        total_size = 0
+        for m in user_msgs.filter(message_type=msg_type).only('file'):
+            if m.file:
+                count += 1
+                try:
+                    total_size += m.file.size
+                except Exception:
+                    pass
+        for gm in group_msgs.filter(message_type=msg_type).only('file'):
+            if gm.file:
+                count += 1
+                try:
+                    total_size += gm.file.size
+                except Exception:
+                    pass
+        return count, total_size
+
+    img_count, img_size = get_type_stats('image')
+    video_count, video_size = get_type_stats('video')
+    file_count, file_size = get_type_stats('file')
+
+    total_bytes = img_size + video_size + file_size
+
+    return JsonResponse({
+        'total_size': _format_bytes(total_bytes),
+        'total_bytes': total_bytes,
+        'messages_count': total_messages_count,
+        'images': {
+            'count': img_count,
+            'size': _format_bytes(img_size),
+            'bytes': img_size,
+        },
+        'videos': {
+            'count': video_count,
+            'size': _format_bytes(video_size),
+            'bytes': video_size,
+        },
+        'files': {
+            'count': file_count,
+            'size': _format_bytes(file_size),
+            'bytes': file_size,
+        },
+    })
 
 
 # ---------------------------------------------------------------------------

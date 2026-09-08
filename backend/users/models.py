@@ -232,3 +232,113 @@ def auto_delete_userprofile_avatar_on_delete(sender, instance, **kwargs):
     """Deletes the avatar file from storage when the UserProfile is deleted."""
     if instance.avatar:
         instance.avatar.delete(save=False)
+
+
+# ---------------------------------------------------------------------------
+# User Settings & Preferences (WhatsApp-Style)
+# ---------------------------------------------------------------------------
+class UserSettings(models.Model):
+    """
+    Stores customizable user privacy, storage, and notification preferences.
+    """
+    LAST_SEEN_EVERYONE = 'everyone'
+    LAST_SEEN_CONTACTS = 'contacts'
+    LAST_SEEN_NOBODY = 'nobody'
+    LAST_SEEN_CHOICES = [
+        (LAST_SEEN_EVERYONE, 'Everyone'),
+        (LAST_SEEN_CONTACTS, 'My Contacts'),
+        (LAST_SEEN_NOBODY, 'Nobody'),
+    ]
+
+    ONLINE_EVERYONE = 'everyone'
+    ONLINE_SAME_AS_LAST_SEEN = 'same_as_last_seen'
+    ONLINE_CHOICES = [
+        (ONLINE_EVERYONE, 'Everyone'),
+        (ONLINE_SAME_AS_LAST_SEEN, 'Same as Last Seen'),
+    ]
+
+    QUALITY_STANDARD = 'standard'
+    QUALITY_HD = 'hd'
+    QUALITY_CHOICES = [
+        (QUALITY_STANDARD, 'Standard Quality'),
+        (QUALITY_HD, 'High Definition (HD)'),
+    ]
+
+    DOWNLOAD_ALL = 'all'
+    DOWNLOAD_WIFI = 'wifi'
+    DOWNLOAD_NEVER = 'never'
+    DOWNLOAD_CHOICES = [
+        (DOWNLOAD_ALL, 'Wi-Fi & Cellular'),
+        (DOWNLOAD_WIFI, 'Wi-Fi Only'),
+        (DOWNLOAD_NEVER, 'Never'),
+    ]
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='settings'
+    )
+
+    # Privacy Settings
+    last_seen_visibility = models.CharField(
+        max_length=20,
+        choices=LAST_SEEN_CHOICES,
+        default=LAST_SEEN_EVERYONE,
+        help_text='Controls who can view your last seen timestamp.'
+    )
+    online_visibility = models.CharField(
+        max_length=20,
+        choices=ONLINE_CHOICES,
+        default=ONLINE_EVERYONE,
+        help_text='Controls who can view when you are actively online.'
+    )
+    read_receipts_enabled = models.BooleanField(
+        default=True,
+        help_text='Send and receive read receipts in 1-on-1 chats.'
+    )
+
+    # Storage & Data Settings
+    media_upload_quality = models.CharField(
+        max_length=20,
+        choices=QUALITY_CHOICES,
+        default=QUALITY_STANDARD,
+        help_text='Quality of media uploaded in conversations.'
+    )
+    media_auto_download = models.CharField(
+        max_length=20,
+        choices=DOWNLOAD_CHOICES,
+        default=DOWNLOAD_ALL,
+        help_text='Network conditions under which media is automatically downloaded.'
+    )
+
+    # Chat & Notification Preferences
+    message_sound_enabled = models.BooleanField(
+        default=True,
+        help_text='Play audio chimes for incoming and sent messages.'
+    )
+    enter_is_send = models.BooleanField(
+        default=True,
+        help_text='Pressing Enter key sends the message immediately.'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Settings'
+        verbose_name_plural = 'User Settings'
+
+    def __str__(self):
+        return f'Settings of {self.user.username}'
+
+    @classmethod
+    def get_for_user(cls, user):
+        """Helper to get or create UserSettings instance safely."""
+        settings_obj, _ = cls.objects.get_or_create(user=user)
+        return settings_obj
+
+
+@receiver(post_save, sender=User)
+def create_user_settings(sender, instance, created, **kwargs):
+    if created:
+        UserSettings.objects.get_or_create(user=instance)

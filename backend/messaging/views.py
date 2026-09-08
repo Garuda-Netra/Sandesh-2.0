@@ -30,7 +30,7 @@ from django.contrib.auth.hashers import make_password, check_password
 from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead, ChatLock, UserSecurityCredential, Moment, MomentPrivacySetting
 from .chatbot import generate_chatbot_reply
 from .file_security import validate_uploaded_file
-from users.models import UserProfile, Friendship
+from users.models import UserProfile, Friendship, UserSettings
 
 # Maximum file size accepted (5 MB)
 _MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB
@@ -234,6 +234,9 @@ def chat_view(request):
         'is_locked': is_saved_messages_locked,
     })
 
+    my_settings = UserSettings.get_for_user(request.user)
+    my_profile = getattr(request.user, 'profile', None)
+
     for u in users:
         is_chat_blocked, _ = _is_chat_blocked(request.user, u)
         try:
@@ -241,13 +244,38 @@ def chat_view(request):
             is_online = profile.is_online
             last_seen = profile.last_seen  # datetime object for template filters
         except UserProfile.DoesNotExist:
+            profile = None
             is_online = False
             last_seen = None
-            
+
+        if is_chat_blocked:
+            show_online = False
+            show_last_seen = None
+        else:
+            u_settings = UserSettings.get_for_user(u)
+
+            # Last seen visibility
+            can_see_last_seen = True
+            if u_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY or my_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY:
+                can_see_last_seen = False
+            elif u_settings.last_seen_visibility == UserSettings.LAST_SEEN_CONTACTS:
+                if my_profile and profile:
+                    can_see_last_seen = Friendship.are_friends(my_profile, profile)
+                else:
+                    can_see_last_seen = False
+
+            # Online visibility
+            can_see_online = True
+            if u_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN:
+                can_see_online = can_see_last_seen
+
+            show_online = is_online if can_see_online else False
+            show_last_seen = last_seen if can_see_last_seen else None
+
         user_data.append({
             'user': u,
-            'is_online': False if is_chat_blocked else is_online,
-            'last_seen': None if is_chat_blocked else last_seen,
+            'is_online': show_online,
+            'last_seen': show_last_seen,
             'is_self_chat': False,
             'is_blocked': u.id in blocked_user_ids,
             'is_chat_blocked': is_chat_blocked,
@@ -265,9 +293,9 @@ def chat_view(request):
             continue
         u = contact['user']
         avatar_url = ''
-        
-        is_blocked, _ = _is_chat_blocked(request.user, u)
-        
+
+        is_blocked = contact.get('is_chat_blocked', False)
+
         if not is_blocked:
             try:
                 profile = u.profile
@@ -275,13 +303,13 @@ def chat_view(request):
                     avatar_url = profile.avatar.url
             except Exception:
                 pass
-                
+
         serializable_users.append({
             'id': u.id,
             'username': u.username,
             'avatar_url': avatar_url if not is_blocked else '',
-            'is_online': False if is_blocked else contact.get('is_online', False),
-            'last_seen': None if is_blocked else (contact.get('last_seen').isoformat() if contact.get('last_seen') else None),
+            'is_online': contact.get('is_online', False),
+            'last_seen': (contact.get('last_seen').isoformat() if contact.get('last_seen') else None),
             'is_friend': contact.get('is_friend', False),
             'is_locked': u.id in locked_user_ids,
         })
@@ -305,6 +333,16 @@ def chat_view(request):
             'is_locked': m.group.id in locked_group_ids,
         })
 
+    user_settings_data = {
+        'last_seen_visibility': my_settings.last_seen_visibility,
+        'online_visibility': my_settings.online_visibility,
+        'read_receipts_enabled': my_settings.read_receipts_enabled,
+        'media_upload_quality': my_settings.media_upload_quality,
+        'media_auto_download': my_settings.media_auto_download,
+        'message_sound_enabled': my_settings.message_sound_enabled,
+        'enter_is_send': my_settings.enter_is_send,
+    }
+
     context = {
         'users': user_data,
         'users_json': serializable_users,
@@ -320,8 +358,11 @@ def chat_view(request):
         'locked_group_ids': list(locked_group_ids),
         'is_saved_messages_locked': is_saved_messages_locked,
         'locked_chats_count': len(locked_user_ids) + len(locked_group_ids) + (1 if is_saved_messages_locked else 0),
+        'user_settings': my_settings,
+        'user_settings_json': user_settings_data,
     }
     return render(request, 'messaging/chat.html', context)
+
 
 
 # ---------------------------------------------------------------------------

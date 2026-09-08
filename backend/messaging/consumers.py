@@ -197,15 +197,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
         await self.close(code=4003)
 
+    async def user_settings_updated(self, event: dict):
+        """Relay user settings updates to frontend over WebSocket."""
+        await self.send(text_data=json.dumps({
+            'type': 'user_settings_updated',
+            'settings': event.get('settings', {})
+        }))
+
     async def broadcast_presence(self, event: dict):
         if event.get('user_id') == getattr(self, 'me', None).id:
             return
+        sender_id = event.get('user_id')
+        privacy = await self._check_presence_privacy(sender_id)
+
         await self.send(text_data=json.dumps({
             'type': 'presence',
             'user_id': event.get('user_id'),
             'username': event.get('username'),
-            'status': 'active' if event.get('is_online') else 'inactive',
-            'last_seen': event.get('last_seen')
+            'status': ('active' if event.get('is_online') else 'inactive') if privacy['can_see_online'] else 'inactive',
+            'last_seen': event.get('last_seen') if privacy['can_see_last_seen'] else None
         }))
 
     # ---- Chat message handler ----------------------------------------------
@@ -331,6 +341,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
     async def handle_read_receipt(self, data: dict):
+        can_send_receipt = await self._check_read_receipts_enabled()
+        if not can_send_receipt:
+            return
+
         read_ids = await self.mark_messages_read_get_ids()
         target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
         for msg_id in read_ids:
@@ -626,19 +640,81 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_user_presence(self, user) -> dict:
-        """Returns the current presence state for a given user."""
-        from users.models import UserProfile
+        """Returns the current presence state for a given user, respecting privacy settings."""
+        from users.models import UserProfile, UserSettings, Friendship
         try:
             profile = UserProfile.objects.get(user=user)
+            settings_obj = UserSettings.get_for_user(user)
+            my_settings = UserSettings.get_for_user(self.me)
+
+            can_see_last_seen = True
+            if settings_obj.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY or my_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY:
+                can_see_last_seen = False
+            elif settings_obj.last_seen_visibility == UserSettings.LAST_SEEN_CONTACTS:
+                my_p = UserProfile.objects.filter(user=self.me).first()
+                if my_p:
+                    can_see_last_seen = Friendship.are_friends(my_p, profile)
+                else:
+                    can_see_last_seen = False
+
+            can_see_online = True
+            if settings_obj.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN:
+                can_see_online = can_see_last_seen
+
             return {
-                'is_online': profile.is_online,
-                'last_seen': profile.last_seen.isoformat() if profile.last_seen else None,
+                'is_online': profile.is_online if can_see_online else False,
+                'last_seen': (profile.last_seen.isoformat() if profile.last_seen else None) if can_see_last_seen else None,
             }
         except UserProfile.DoesNotExist:
             return {'is_online': False, 'last_seen': None}
         except Exception as exc:
             logger.warning(f'[WS] get_user_presence error: {exc}')
             return {'is_online': False, 'last_seen': None}
+
+    @database_sync_to_async
+    def _check_presence_privacy(self, sender_user_id: int) -> dict:
+        from users.models import UserProfile, UserSettings, Friendship
+        try:
+            if not sender_user_id:
+                return {'can_see_online': True, 'can_see_last_seen': True}
+            sender_settings = UserSettings.objects.filter(user_id=sender_user_id).first()
+            my_settings = UserSettings.get_for_user(self.me)
+            if not sender_settings:
+                return {'can_see_online': True, 'can_see_last_seen': True}
+
+            can_see_last_seen = True
+            if sender_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY or my_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY:
+                can_see_last_seen = False
+            elif sender_settings.last_seen_visibility == UserSettings.LAST_SEEN_CONTACTS:
+                my_p = UserProfile.objects.filter(user=self.me).first()
+                sender_p = UserProfile.objects.filter(user_id=sender_user_id).first()
+                if my_p and sender_p:
+                    can_see_last_seen = Friendship.are_friends(my_p, sender_p)
+                else:
+                    can_see_last_seen = False
+
+            can_see_online = True
+            if sender_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN:
+                can_see_online = can_see_last_seen
+
+            return {'can_see_online': can_see_online, 'can_see_last_seen': can_see_last_seen}
+        except Exception:
+            return {'can_see_online': True, 'can_see_last_seen': True}
+
+    @database_sync_to_async
+    def _check_read_receipts_enabled(self) -> bool:
+        from users.models import UserSettings
+        try:
+            my_settings = UserSettings.get_for_user(self.me)
+            if not my_settings.read_receipts_enabled:
+                return False
+            if hasattr(self, 'other_user') and self.other_user:
+                other_settings = UserSettings.get_for_user(self.other_user)
+                if not other_settings.read_receipts_enabled:
+                    return False
+            return True
+        except Exception:
+            return True
 
     @database_sync_to_async
     def set_online(self, status: bool) -> str | None:

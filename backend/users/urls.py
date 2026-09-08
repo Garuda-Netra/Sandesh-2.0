@@ -17,8 +17,12 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('auth/clerk/login/', views.clerk_login_view, name='clerk_login'),
 
-    # Profile
+    # Profile & Settings
     path('profile/', views.profile_view, name='profile'),
+    path('settings/', views.settings_view, name='settings'),
+    path('api/settings/', views.settings_api, name='settings_api'),
+    path('api/storage-usage/', views.storage_usage_api, name='storage_usage_api'),
+    path('api/blocked-contacts/', views.blocked_contacts_api, name='blocked_contacts_api'),
 
     # Account deletion
     path('account/delete/', views.delete_account_view, name='delete_account'),

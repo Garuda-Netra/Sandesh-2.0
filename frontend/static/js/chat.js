@@ -45,6 +45,9 @@ SDH.Chat = (() => {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // ── Audio & Title Notifications ─────────────────────────────
   function playNotificationSound() {
+    if (window.SDH_SETTINGS && window.SDH_SETTINGS.message_sound_enabled === false) {
+      return;
+    }
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
@@ -132,6 +135,7 @@ SDH.Chat = (() => {
       case 'group_member_update': handleGroupMemberUpdate(data); break;
       case 'user_blocked': handleUserBlocked(data); break;
       case 'user_unblocked': handleUserUnblocked(data); break;
+      case 'user_settings_updated': handleUserSettingsUpdated(data); break;
       case 'new_moment': SDH.Moments?.handleNewMomentEvent?.(data.moment); break;
       case 'delete_moment': SDH.Moments?.handleDeleteMomentEvent?.(data.user_id, data.moment_id); break;
       case 'moment_viewed': SDH.Moments?.handleMomentViewedEvent?.(data.moment_id, data.viewer); break;
@@ -141,6 +145,15 @@ SDH.Chat = (() => {
         console.error('[Chat] Server error:', data.message);
         if (data?.message) showToast(data.message, 'error');
         break;
+    }
+  }
+
+  function handleUserSettingsUpdated(data) {
+    if (data.settings) {
+      window.SDH_SETTINGS = Object.assign(window.SDH_SETTINGS || {}, data.settings);
+      if (window.SDH_DATA) {
+        window.SDH_DATA.userSettings = window.SDH_SETTINGS;
+      }
     }
   }
 
@@ -321,7 +334,9 @@ SDH.Chat = (() => {
     fetchPendingGroupInvites();
     // Immediately notify the sender that we've read all messages in this chat
     if (activeUser && SDH.WS.isOpen() && !activeUser.startsWith('group_')) {
-      SDH.WS.sendMessage({ type: 'read_receipt' });
+      if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+        SDH.WS.sendMessage({ type: 'read_receipt' });
+      }
     }
   }
 
@@ -654,7 +669,9 @@ SDH.Chat = (() => {
     if (SDH.WS.isOpen()) {
       if (!activeUser.startsWith('group_')) {
         SDH.WS.sendMessage({ type: 'delivered_receipt', message_id: data.message_id });
-        SDH.WS.sendMessage({ type: 'read_receipt' });
+        if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+          SDH.WS.sendMessage({ type: 'read_receipt' });
+        }
       } else {
         SDH.WS.sendMessage({ type: 'mark_read', message_id: data.message_id });
       }
@@ -760,7 +777,9 @@ SDH.Chat = (() => {
     if (SDH.WS.isOpen()) {
       if (!activeUser.startsWith('group_')) {
         SDH.WS.sendMessage({ type: 'delivered_receipt', message_id: data.message_id });
-        SDH.WS.sendMessage({ type: 'read_receipt' });
+        if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+          SDH.WS.sendMessage({ type: 'read_receipt' });
+        }
       } else {
         SDH.WS.sendMessage({ type: 'mark_read', message_id: data.message_id });
       }
@@ -2674,7 +2693,13 @@ SDH.Chat = (() => {
   }
 
   function onKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      if (window.SDH_SETTINGS && window.SDH_SETTINGS.enter_is_send === false) {
+        return;
+      }
+      e.preventDefault();
+      sendMessage();
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
