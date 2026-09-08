@@ -234,11 +234,26 @@ def clerk_login_view(request):
                 final_username = f"{base_username}{counter}"
                 counter += 1
 
-            user = User.objects.create(username=final_username, email=email)
+            first_name = user_data.get('first_name') or ''
+            last_name = user_data.get('last_name') or ''
+            user = User.objects.create(
+                username=final_username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+            )
             user.set_unusable_password()
             user.save()
         else:
-            pass
+            updated_fields = []
+            if not user.first_name and user_data.get('first_name'):
+                user.first_name = user_data.get('first_name')
+                updated_fields.append('first_name')
+            if not user.last_name and user_data.get('last_name'):
+                user.last_name = user_data.get('last_name')
+                updated_fields.append('last_name')
+            if updated_fields:
+                user.save(update_fields=updated_fields)
 
         # Update profile if needed
         profile, _ = UserProfile.objects.get_or_create(user=user)
@@ -347,6 +362,35 @@ def _get_friend_user_ids(user):
         return []
 
 
+def _resolve_target_user(body):
+    """
+    Helper to extract target User from request JSON body.
+    Supports 'target_user_id' (<int>), 'target_username' (<str>), or 'username' (<str>).
+    Returns (User, error_response). If User is found, error_response is None.
+    """
+    target_user_id = body.get('target_user_id')
+    target_username = body.get('target_username') or body.get('username')
+
+    if not target_user_id and not target_username:
+        return None, JsonResponse({'error': 'target_user_id is required'}, status=400)
+
+    target_user = None
+    if target_user_id:
+        try:
+            uid = int(target_user_id)
+            target_user = User.objects.filter(id=uid).first()
+        except (ValueError, TypeError):
+            pass
+
+    if not target_user and target_username:
+        target_user = User.objects.filter(username=str(target_username)).first()
+
+    if not target_user:
+        return None, JsonResponse({'error': 'Target user not found'}, status=404)
+
+    return target_user, None
+
+
 # ---------------------------------------------------------------------------
 # Remove User from My List
 # ---------------------------------------------------------------------------
@@ -358,7 +402,7 @@ def remove_user_view(request):
     """
     POST /users/api/remove-user/
 
-    Body: { "target_user_id": <int>, "block": bool }
+    Body: { "target_user_id": <int>, "target_username": <str>, "block": bool }
 
     When block=false: adds target to hidden_users (cosmetic removal).
     When block=true: adds target to blocked_users ONLY (user stays visible
@@ -369,11 +413,9 @@ def remove_user_view(request):
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    target_user_id = body.get('target_user_id')
-    if not target_user_id:
-        return JsonResponse({'error': 'target_user_id is required'}, status=400)
-
-    target_user = get_object_or_404(User, id=target_user_id)
+    target_user, err_resp = _resolve_target_user(body)
+    if err_resp:
+        return err_resp
 
     # Never allow hiding yourself
     if target_user.id == request.user.id:
@@ -431,7 +473,7 @@ def unblock_user_view(request):
     """
     POST /users/api/unblock-user/
 
-    Body: { "target_user_id": <int> }
+    Body: { "target_user_id": <int>, "target_username": <str> }
 
     Removes the target from blocked_users.
     """
@@ -440,11 +482,9 @@ def unblock_user_view(request):
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    target_user_id = body.get('target_user_id')
-    if not target_user_id:
-        return JsonResponse({'error': 'target_user_id is required'}, status=400)
-
-    target_user = get_object_or_404(User, id=target_user_id)
+    target_user, err_resp = _resolve_target_user(body)
+    if err_resp:
+        return err_resp
 
     try:
         my_profile = request.user.profile
@@ -487,7 +527,7 @@ def unfriend_view(request):
     """
     POST /users/api/unfriend/
 
-    Body: { "target_user_id": <int> }
+    Body: { "target_user_id": <int>, "target_username": <str> }
 
     Deletes the Friendship record between the current user and the target.
     Also resets any accepted FriendRequest rows so users can re-add each
@@ -499,14 +539,12 @@ def unfriend_view(request):
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    target_user_id = body.get('target_user_id')
-    if not target_user_id:
-        return JsonResponse({'error': 'target_user_id is required'}, status=400)
+    target_user, err_resp = _resolve_target_user(body)
+    if err_resp:
+        return err_resp
 
-    if int(target_user_id) == request.user.id:
+    if target_user.id == request.user.id:
         return JsonResponse({'error': 'Cannot unfriend yourself'}, status=400)
-
-    target_user = get_object_or_404(User, id=target_user_id)
 
     try:
         my_profile = request.user.profile
@@ -747,18 +785,16 @@ def send_friend_request_view(request):
     """
     POST /users/api/send-friend-request/
 
-    Body: { "target_user_id": <int> }
+    Body: { "target_user_id": <int>, "target_username": <str> }
     """
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    target_user_id = body.get('target_user_id')
-    if not target_user_id:
-        return JsonResponse({'error': 'target_user_id is required'}, status=400)
-
-    target_user = get_object_or_404(User, id=target_user_id)
+    target_user, err_resp = _resolve_target_user(body)
+    if err_resp:
+        return err_resp
 
     if target_user.id == request.user.id:
         return JsonResponse({'error': 'Cannot send request to yourself'}, status=400)

@@ -241,7 +241,7 @@
     // ── Capture URL params BEFORE Clerk.load() strips them ─────
     const rawSearch = window.location.search || '';
     const rawHash   = window.location.hash || '';
-    const isOAuthCallback = rawSearch.includes('__clerk') || rawHash.includes('__clerk');
+    const isOAuthCallback = rawSearch.includes('__clerk') || rawHash.includes('__clerk') || sessionStorage.getItem('clerk_signing_in') === '1';
 
     if (isOAuthCallback) {
       showAuthOverlay('Authenticating with Google', 'Verifying your credentials with Google...', 'Connecting to Sandesh...');
@@ -320,16 +320,12 @@
         if (syncWasPending) {
           console.warn('[Sandesh] Previous Clerk sync failed (redirect loop detected). Destroying Clerk session.');
           sessionStorage.removeItem('clerk_sync_pending');
+          sessionStorage.removeItem('clerk_signing_in');
           hideAuthOverlay();
           try { await Clerk.signOut(); } catch(e) { console.error('[Sandesh] signOut error:', e); }
-        } else if (isOAuthCallback) {
-          // Returning from Google OAuth redirect — sync immediately with Django
-          await syncWithDjango();
-          return;
         } else {
-          // A Clerk session exists without callback & no sync pending: clean up
-          hideAuthOverlay();
-          try { await Clerk.signOut(); } catch(e) { console.error('[Sandesh] signOut error:', e); }
+          // Returning from Google OAuth redirect or valid active Clerk session — sync immediately with Django
+          await syncWithDjango();
           return;
         }
       } else {
@@ -370,8 +366,17 @@
       `;
 
       try {
-        // Show Clerk sign-in UI
-        Clerk.openSignIn();
+        // Pass explicit redirect URL so Clerk returns to login page for both sign-in & first-time sign-up
+        const loginRedirect = window.location.origin + '{% url "users:login" %}';
+        Clerk.openSignIn({
+          fallbackRedirectUrl: loginRedirect,
+          forceRedirectUrl: loginRedirect,
+          signUpFallbackRedirectUrl: loginRedirect,
+          signUpForceRedirectUrl: loginRedirect,
+          afterSignInUrl: loginRedirect,
+          afterSignUpUrl: loginRedirect,
+          redirectUrl: loginRedirect,
+        });
 
         // Responsive polling (150ms) for snappy feedback when session is authenticated
         const checkSession = setInterval(async () => {

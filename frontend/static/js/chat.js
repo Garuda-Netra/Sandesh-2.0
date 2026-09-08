@@ -948,32 +948,38 @@ SDH.Chat = (() => {
       el.classList.remove('active-chat-item'));
   }
 
-  /** Opens the "Remove User" confirmation modal for a sidebar contact. */
+  /** Opens the "Remove User" confirmation modal for a sidebar contact or active user. */
   function _confirmRemoveUser(userId, username) {
     // Close any open dropdown
     _closeAllUserMenus();
+    const targetId = userId || activeUserId;
+    const targetName = username || activeUser;
+    if (!targetName) return;
+
     const modal = document.getElementById('removeUserModal');
     if (!modal) return;
-    modal.dataset.targetUserId = userId;
-    modal.dataset.targetUsername = username;
+    modal.dataset.targetUserId = targetId ? String(targetId) : '';
+    modal.dataset.targetUsername = String(targetName);
     const nameEl = document.getElementById('removeUserModalName');
-    if (nameEl) nameEl.textContent = username;
+    if (nameEl) nameEl.textContent = _displayNameFor(targetName);
     modal.classList.remove('hidden');
   }
 
-  /** Opens the "Block Contact" confirmation modal for the active conversation. */
-  function _confirmBlockUser() {
-    if (!activeUser || !activeUserId) return;
-    if (_isSelfChat(activeUser)) return;
+  /** Opens the "Block Contact" confirmation modal for the active conversation or sidebar contact. */
+  function _confirmBlockUser(userId, username) {
+    const targetId = userId || activeUserId;
+    const targetName = username || activeUser;
+    if (!targetName) return;
+    if (_isSelfChat(targetName)) return;
 
     const modal = document.getElementById('blockUserModal');
     if (!modal) return;
 
-    modal.dataset.targetUserId = String(activeUserId);
-    modal.dataset.targetUsername = String(activeUser);
+    modal.dataset.targetUserId = targetId ? String(targetId) : '';
+    modal.dataset.targetUsername = String(targetName);
 
     const nameEl = document.getElementById('blockUserModalName');
-    if (nameEl) nameEl.textContent = activeUser;
+    if (nameEl) nameEl.textContent = _displayNameFor(targetName);
 
     modal.classList.remove('hidden');
   }
@@ -982,10 +988,16 @@ SDH.Chat = (() => {
   async function executeRemoveUser() {
     const modal = document.getElementById('removeUserModal');
     if (!modal) return;
-    const userId = modal.dataset.targetUserId;
-    const username = modal.dataset.targetUsername;
+    const rawUserId = modal.dataset.targetUserId;
+    const rawUsername = modal.dataset.targetUsername;
     modal.classList.add('hidden');
-    if (!userId) return;
+
+    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
+      ? parseInt(rawUserId, 10)
+      : null;
+    const cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+
+    if (!cleanUserId && !cleanUsername) return;
 
     try {
       const res = await fetch(window.SDH_DATA.removeUserUrl, {
@@ -994,19 +1006,24 @@ SDH.Chat = (() => {
           'X-CSRFToken': window.SDH_DATA.csrfToken,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ target_user_id: parseInt(userId, 10) }),
+        body: JSON.stringify({
+          target_user_id: cleanUserId,
+          target_username: cleanUsername,
+        }),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
         throw new Error(b.error || res.statusText);
       }
       // Remove the user item from sidebar immediately
-      _removeUserFromSidebar(username);
+      if (cleanUsername) {
+        _removeUserFromSidebar(cleanUsername);
+      }
       // If this was the active conversation, reset panel
-      if (activeUser === username) {
+      if (activeUser === cleanUsername) {
         _resetConversationPanel();
       }
-      showToast(`${username} removed from your list.`, 'success');
+      showToast(`${cleanUsername || 'Contact'} removed from your list.`, 'success');
     } catch (err) {
       showToast('Could not remove user: ' + err.message, 'error');
     }
@@ -1018,10 +1035,16 @@ SDH.Chat = (() => {
   async function executeBlockUser() {
     const modal = document.getElementById('blockUserModal');
     if (!modal) return;
-    const userId = modal.dataset.targetUserId;
-    const username = modal.dataset.targetUsername;
+    const rawUserId = modal.dataset.targetUserId;
+    const rawUsername = modal.dataset.targetUsername;
     modal.classList.add('hidden');
-    if (!userId || !username) return;
+
+    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
+      ? parseInt(rawUserId, 10)
+      : null;
+    const cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+
+    if (!cleanUserId && !cleanUsername) return;
 
     try {
       const res = await fetch(window.SDH_DATA.removeUserUrl, {
@@ -1030,7 +1053,11 @@ SDH.Chat = (() => {
           'X-CSRFToken': window.SDH_DATA.csrfToken,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ target_user_id: parseInt(userId, 10), block: true }),
+        body: JSON.stringify({
+          target_user_id: cleanUserId,
+          target_username: cleanUsername,
+          block: true,
+        }),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
@@ -1038,44 +1065,48 @@ SDH.Chat = (() => {
       }
 
       // Mark user item as blocked in sidebar (keep visible)
-      const item = document.getElementById(`user-item-${username}`);
-      if (item) {
-        item.dataset.blocked = '1';
-        // Add blocked badge if not already present
-        const nameEl = item.querySelector('.sdh-user-name');
-        if (nameEl && !item.querySelector('.sdh-blocked-badge')) {
-          const badge = document.createElement('span');
-          badge.className = 'sdh-blocked-badge text-[10px] font-semibold px-1.5 py-0.5 rounded-full';
-          badge.style.cssText = 'background:rgba(239,68,68,0.15);color:rgba(239,68,68,0.7);';
-          badge.textContent = 'Blocked';
-          nameEl.insertAdjacentElement('afterend', badge);
+      if (cleanUsername) {
+        const item = document.getElementById(`user-item-${cleanUsername}`);
+        if (item) {
+          item.dataset.blocked = '1';
+          // Add blocked badge if not already present
+          const nameEl = item.querySelector('.sdh-user-name');
+          if (nameEl && !item.querySelector('.sdh-blocked-badge')) {
+            const badge = document.createElement('span');
+            badge.className = 'sdh-blocked-badge text-[10px] font-semibold px-1.5 py-0.5 rounded-full';
+            badge.style.cssText = 'background:rgba(239,68,68,0.15);color:rgba(239,68,68,0.7);';
+            badge.textContent = 'Blocked';
+            nameEl.insertAdjacentElement('afterend', badge);
+          }
         }
       }
 
       // If this is the active conversation, update UI to blocked state
-      if (activeUser === username) {
+      if (activeUser === cleanUsername) {
         _updateBlockUI(true);
       }
 
-      showToast(`Blocked ${username}. Messages are disabled.`, 'success');
+      showToast(`Blocked ${cleanUsername || 'contact'}. Messages are disabled.`, 'success');
     } catch (err) {
       showToast('Could not block contact: ' + err.message, 'error');
     }
   }
 
   /** Opens the "Unblock Contact" confirmation modal. */
-  function _confirmUnblockUser() {
-    if (!activeUser || !activeUserId) return;
-    if (_isSelfChat(activeUser)) return;
+  function _confirmUnblockUser(userId, username) {
+    const targetId = userId || activeUserId;
+    const targetName = username || activeUser;
+    if (!targetName) return;
+    if (_isSelfChat(targetName)) return;
 
     const modal = document.getElementById('unblockUserModal');
     if (!modal) return;
 
-    modal.dataset.targetUserId = String(activeUserId);
-    modal.dataset.targetUsername = String(activeUser);
+    modal.dataset.targetUserId = targetId ? String(targetId) : '';
+    modal.dataset.targetUsername = String(targetName);
 
     const nameEl = document.getElementById('unblockUserModalName');
-    if (nameEl) nameEl.textContent = activeUser;
+    if (nameEl) nameEl.textContent = _displayNameFor(targetName);
 
     modal.classList.remove('hidden');
   }
@@ -1084,10 +1115,16 @@ SDH.Chat = (() => {
   async function executeUnblockUser() {
     const modal = document.getElementById('unblockUserModal');
     if (!modal) return;
-    const userId = modal.dataset.targetUserId;
-    const username = modal.dataset.targetUsername;
+    const rawUserId = modal.dataset.targetUserId;
+    const rawUsername = modal.dataset.targetUsername;
     modal.classList.add('hidden');
-    if (!userId || !username) return;
+
+    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
+      ? parseInt(rawUserId, 10)
+      : null;
+    const cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+
+    if (!cleanUserId && !cleanUsername) return;
 
     try {
       const res = await fetch(window.SDH_DATA.unblockUserUrl, {
@@ -1096,7 +1133,10 @@ SDH.Chat = (() => {
           'X-CSRFToken': window.SDH_DATA.csrfToken,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ target_user_id: parseInt(userId, 10) }),
+        body: JSON.stringify({
+          target_user_id: cleanUserId,
+          target_username: cleanUsername,
+        }),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
@@ -1104,18 +1144,20 @@ SDH.Chat = (() => {
       }
 
       // Remove blocked state from sidebar
-      const item = document.getElementById(`user-item-${username}`);
-      if (item) {
-        delete item.dataset.blocked;
-        item.querySelector('.sdh-blocked-badge')?.remove();
+      if (cleanUsername) {
+        const item = document.getElementById(`user-item-${cleanUsername}`);
+        if (item) {
+          delete item.dataset.blocked;
+          item.querySelector('.sdh-blocked-badge')?.remove();
+        }
       }
 
       // If this is the active conversation, restore normal UI
-      if (activeUser === username) {
+      if (activeUser === cleanUsername) {
         _updateBlockUI(false);
       }
 
-      showToast(`Unblocked ${username}. You can now exchange messages.`, 'success');
+      showToast(`Unblocked ${cleanUsername || 'contact'}. You can now exchange messages.`, 'success');
     } catch (err) {
       showToast('Could not unblock contact: ' + err.message, 'error');
     }
@@ -1125,15 +1167,19 @@ SDH.Chat = (() => {
   //  Unfriend Contact
   // ═════════════════════════════════════════════════════════════════════
 
-  /** Opens the "Unfriend" confirmation modal for a sidebar contact. */
+  /** Opens the "Unfriend" confirmation modal for a sidebar contact or active user. */
   function _confirmUnfriend(userId, username) {
     _closeAllUserMenus();
+    const targetId = userId || activeUserId;
+    const targetName = username || activeUser;
+    if (!targetName) return;
+
     const modal = document.getElementById('unfriendUserModal');
     if (!modal) return;
-    modal.dataset.targetUserId = String(userId);
-    modal.dataset.targetUsername = String(username);
+    modal.dataset.targetUserId = targetId ? String(targetId) : '';
+    modal.dataset.targetUsername = String(targetName);
     const nameEl = document.getElementById('unfriendUserModalName');
-    if (nameEl) nameEl.textContent = username;
+    if (nameEl) nameEl.textContent = _displayNameFor(targetName);
     modal.classList.remove('hidden');
   }
 
@@ -1141,10 +1187,16 @@ SDH.Chat = (() => {
   async function executeUnfriend() {
     const modal = document.getElementById('unfriendUserModal');
     if (!modal) return;
-    const userId = modal.dataset.targetUserId;
-    const username = modal.dataset.targetUsername;
+    const rawUserId = modal.dataset.targetUserId;
+    const rawUsername = modal.dataset.targetUsername;
     modal.classList.add('hidden');
-    if (!userId || !username) return;
+
+    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
+      ? parseInt(rawUserId, 10)
+      : null;
+    const cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+
+    if (!cleanUserId && !cleanUsername) return;
 
     try {
       const res = await fetch(window.SDH_DATA.unfriendUrl || '/users/api/unfriend/', {
@@ -1153,7 +1205,10 @@ SDH.Chat = (() => {
           'X-CSRFToken': window.SDH_DATA.csrfToken,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ target_user_id: parseInt(userId, 10) }),
+        body: JSON.stringify({
+          target_user_id: cleanUserId,
+          target_username: cleanUsername,
+        }),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
@@ -1161,14 +1216,16 @@ SDH.Chat = (() => {
       }
 
       // Remove the user entirely from the sidebar
-      _removeUserFromSidebar(username);
+      if (cleanUsername) {
+        _removeUserFromSidebar(cleanUsername);
+      }
 
       // If this was the active conversation, reset the panel
-      if (activeUser === username) {
+      if (activeUser === cleanUsername) {
         _resetConversationPanel();
       }
 
-      showToast(`You are no longer friends with ${username}.`, 'success');
+      showToast(`You are no longer friends with ${cleanUsername || 'this user'}.`, 'success');
     } catch (err) {
       showToast('Could not unfriend: ' + err.message, 'error');
     }

@@ -177,9 +177,41 @@
   }
   @keyframes blink { 50% { opacity: 0; } }
 </style>
+<!-- ══════════════════════════════════════════════════════════════
+     INSTANT AUTHENTICATING OVERLAY (Google SSO / Clerk)
+     Renders immediately at 0ms if returning from OAuth callback or active sync
+══════════════════════════════════════════════════════════════ -->
+<div id="authLoadingOverlay" class="fixed inset-0 z-[100] flex flex-col items-center justify-center transition-all duration-300 bg-slate-900/40 dark:bg-black/85 backdrop-blur-md" style="display: none;">
+  <div class="sdh-auth-overlay-card flex flex-col items-center p-8 rounded-3xl bg-white dark:bg-[#121220] border border-purple-200/80 dark:border-purple-500/30 shadow-[0_25px_60px_-15px_rgba(168,85,247,0.25)] dark:shadow-[0_0_50px_rgba(168,85,247,0.3)] max-w-sm w-[90%] text-center animate-fade-in">
+    <div class="relative w-16 h-16 mb-5">
+      <div class="sdh-auth-spinner-outer absolute inset-0 rounded-full border-4 border-purple-400/25 dark:border-purple-500/20 animate-ping"></div>
+      <div class="sdh-auth-spinner-inner w-16 h-16 rounded-full border-4 border-purple-100 dark:border-purple-500/30 border-t-purple-600 dark:border-t-purple-400 animate-spin"></div>
+    </div>
+    <h3 id="authOverlayTitle" class="text-xl font-bold text-slate-900 dark:text-white mb-2">Authenticating with Google</h3>
+    <p id="authOverlaySubtitle" class="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">Securing your session and signing you into Sandesh...</p>
+    <div class="sdh-auth-overlay-badge mt-5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50/90 dark:bg-white/5 border border-purple-200/80 dark:border-white/10 text-[11px] text-purple-900 dark:text-zinc-300">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
+      <span id="authOverlayStatus">Verifying credentials...</span>
+    </div>
+  </div>
+</div>
+
 <script>
-  // Shloka Typing Effect
-  document.addEventListener('DOMContentLoaded', () => {
+  // ── Synchronous Instant Check (0ms execution before DOMContentLoaded) ──
+  (function() {
+    try {
+      var s = window.location.search || '';
+      var h = window.location.hash || '';
+      var isOAuth = s.indexOf('__clerk') !== -1 || h.indexOf('__clerk') !== -1 || sessionStorage.getItem('clerk_signing_in') === '1';
+      if (isOAuth) {
+        var ov = document.getElementById('authLoadingOverlay');
+        if (ov) ov.style.display = 'flex';
+      }
+    } catch(e) {}
+  })();
+
+  // Shloka Typing Effect & Clerk OAuth sync
+  document.addEventListener('DOMContentLoaded', async () => {
     const shloka = "वसुधैव कुटुम्बकम्";
     const meaning = '"The world is one family"';
     const shlokaEl = document.getElementById('shloka-text');
@@ -206,7 +238,105 @@
         }, 120); // typing speed
       }, 800); // initial delay
     }
+
+    // ── Handle Google OAuth / Clerk redirect if arriving on landing page ──
+    const rawSearch = window.location.search || '';
+    const rawHash   = window.location.hash || '';
+    const isOAuthCallback = rawSearch.includes('__clerk') || rawHash.includes('__clerk') || sessionStorage.getItem('clerk_signing_in') === '1';
+
+    function showAuthOverlay(title, subtitle, status) {
+      const ov = document.getElementById('authLoadingOverlay');
+      if (ov) {
+        if (title) document.getElementById('authOverlayTitle').textContent = title;
+        if (subtitle) document.getElementById('authOverlaySubtitle').textContent = subtitle;
+        if (status) document.getElementById('authOverlayStatus').textContent = status;
+        ov.style.display = 'flex';
+      }
+    }
+
+    function hideAuthOverlay() {
+      const ov = document.getElementById('authLoadingOverlay');
+      if (ov) ov.style.display = 'none';
+      sessionStorage.removeItem('clerk_signing_in');
+    }
+
+    async function syncWithDjango() {
+      showAuthOverlay('Authenticating with Google', 'Securing your session and signing you into Sandesh...', 'Synchronizing account...');
+
+      const idToken = await window.Clerk.session.getToken();
+      if (!idToken) {
+        console.error('[Sandesh] Landing page syncWithDjango: Clerk returned null token.');
+        hideAuthOverlay();
+        return false;
+      }
+
+      sessionStorage.removeItem('ndm_last_chat');
+      sessionStorage.removeItem('ndm_last_chat_id');
+      sessionStorage.removeItem('ndm_last_chat_name');
+      sessionStorage.removeItem('ndm_last_chat_user');
+      sessionStorage.setItem('ndm_just_logged_in', '1');
+      sessionStorage.setItem('clerk_sync_pending', '1');
+
+      showAuthOverlay('Authenticating with Google', 'Redirecting to your messages...', 'Finishing up...');
+
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "users:clerk_login" %}';
+
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrfmiddlewaretoken';
+      csrfInput.value = '{{ csrf_token }}';
+
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'token';
+      tokenInput.value = idToken;
+
+      form.appendChild(csrfInput);
+      form.appendChild(tokenInput);
+      document.body.appendChild(form);
+      form.submit();
+
+      return new Promise(() => {});
+    }
+
+    function waitForClerk() {
+      return new Promise((resolve) => {
+        if (window.Clerk) { resolve(window.Clerk); return; }
+        const iv = setInterval(() => {
+          if (window.Clerk) { clearInterval(iv); resolve(window.Clerk); }
+        }, 100);
+        setTimeout(() => { clearInterval(iv); resolve(null); }, 10000);
+      });
+    }
+
+    if (isOAuthCallback || sessionStorage.getItem('clerk_signing_in') === '1') {
+      showAuthOverlay('Authenticating with Google', 'Verifying your credentials with Google...', 'Connecting to Sandesh...');
+      const Clerk = await waitForClerk();
+      if (Clerk) {
+        await Clerk.load();
+        if (Clerk.session) {
+          const syncWasPending = sessionStorage.getItem('clerk_sync_pending');
+          if (syncWasPending) {
+            console.warn('[Sandesh] Previous Clerk sync failed. Destroying Clerk session.');
+            sessionStorage.removeItem('clerk_sync_pending');
+            sessionStorage.removeItem('clerk_signing_in');
+            hideAuthOverlay();
+            try { await Clerk.signOut(); } catch (e) {}
+          } else {
+            await syncWithDjango();
+            return;
+          }
+        } else {
+          hideAuthOverlay();
+        }
+      } else {
+        hideAuthOverlay();
+      }
+    }
   });
+
   // Enforce dark mode for the landing page
   document.documentElement.setAttribute('data-theme', 'dark');
   localStorage.setItem('theme', 'dark');

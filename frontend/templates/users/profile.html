@@ -317,7 +317,7 @@ async function loadSessions() {
               Terminate
             </button>
           ` : `
-            <a href="{% url 'users:logout' %}" onclick="try{sessionStorage.clear();}catch(e){}" class="text-xs font-semibold px-4 py-2 rounded-lg text-red-500 bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:!text-white hover:border-red-500 shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:-translate-y-0.5 transition-all w-full sm:w-auto text-center cursor-pointer block">
+            <a href="{% url 'users:logout' %}" onclick="try{sessionStorage.clear();if(window.Clerk&&window.Clerk.signOut){Clerk.signOut();}}catch(e){}" class="text-xs font-semibold px-4 py-2 rounded-lg text-red-500 bg-red-500/10 border border-red-500/30 hover:bg-red-500 hover:!text-white hover:border-red-500 shadow-sm hover:shadow-[0_0_15px_rgba(239,68,68,0.4)] hover:-translate-y-0.5 transition-all w-full sm:w-auto text-center cursor-pointer block">
               End Session
             </a>
           `}
