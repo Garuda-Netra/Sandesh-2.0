@@ -1380,6 +1380,25 @@ def settings_api(request):
                 }
             )
 
+            # If last seen or online visibility updated, notify presence_all immediately
+            if 'last_seen_visibility' in data or 'online_visibility' in data:
+                try:
+                    profile = getattr(request.user, 'profile', None)
+                    is_online = profile.is_online if profile else False
+                    last_seen_iso = profile.last_seen.isoformat() if (profile and profile.last_seen) else None
+                    async_to_sync(channel_layer.group_send)(
+                        'presence_all',
+                        {
+                            'type': 'broadcast_presence',
+                            'user_id': request.user.id,
+                            'username': request.user.username,
+                            'is_online': is_online,
+                            'last_seen': last_seen_iso,
+                        }
+                    )
+                except Exception:
+                    pass
+
         return JsonResponse({
             'status': 'ok',
             'message': 'Settings updated successfully.',

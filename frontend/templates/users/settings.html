@@ -15,9 +15,9 @@
         </svg>
         <span>Back to Chat</span>
       </a>
-      <h1 class="text-2xl sm:text-3xl font-bold text-divine-text tracking-wide carved-stone-heading">Settings</h1>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-divine-text tracking-wide carved-stone-heading">Settings</h1>
     </div>
-    <div id="saveIndicator" class="opacity-0 transition-opacity duration-300 flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+    <div id="saveIndicator" class="opacity-0 transition-opacity duration-300 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-3 py-1.5 rounded-full shadow-xs">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
       <span>Saved</span>
     </div>
@@ -27,48 +27,48 @@
   <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
 
     <!-- Left Navigation Tabs -->
-    <div class="md:col-span-4 bg-divine-card border border-divine-border rounded-2xl p-2.5 shadow-xl space-y-1">
+    <div class="md:col-span-4 bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-2.5 shadow-sm dark:shadow-xl space-y-1">
       <button onclick="switchTab('privacy')" id="tab-btn-privacy"
               class="settings-tab-btn active w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/15 text-purple-400 shrink-0">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/15 text-purple-600 dark:text-purple-400 shrink-0">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
         </div>
         <div class="flex-1 min-w-0">
-          <span class="block text-divine-text truncate">Privacy & Security</span>
-          <span class="block text-[11px] text-divine-muted/70 truncate">Last seen, read receipts, blocks</span>
+          <span class="tab-title block text-slate-800 dark:text-divine-text truncate">Privacy & Security</span>
+          <span class="tab-desc block text-[11px] text-slate-500 dark:text-divine-muted/70 truncate">Last seen, read receipts, blocks</span>
         </div>
       </button>
 
       <button onclick="switchTab('storage')" id="tab-btn-storage"
               class="settings-tab-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-500/15 text-indigo-400 shrink-0">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 shrink-0">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7M4 7c0-2 1.5-3 3.5-3h9c2 0 3.5 1 3.5 3M4 7h16m-8 4v6m-3-3h6"/></svg>
         </div>
         <div class="flex-1 min-w-0">
-          <span class="block text-divine-text truncate">Storage & Data</span>
-          <span class="block text-[11px] text-divine-muted/70 truncate">Media quality, usage breakdown</span>
+          <span class="tab-title block text-slate-800 dark:text-divine-text truncate">Storage & Data</span>
+          <span class="tab-desc block text-[11px] text-slate-500 dark:text-divine-muted/70 truncate">Media quality, usage breakdown</span>
         </div>
       </button>
 
       <button onclick="switchTab('chats')" id="tab-btn-chats"
               class="settings-tab-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/15 text-blue-400 shrink-0">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/15 text-blue-600 dark:text-blue-400 shrink-0">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
         </div>
         <div class="flex-1 min-w-0">
-          <span class="block text-divine-text truncate">Chats & Input</span>
-          <span class="block text-[11px] text-divine-muted/70 truncate">Keyboard enter, chat lock</span>
+          <span class="tab-title block text-slate-800 dark:text-divine-text truncate">Chats & Input</span>
+          <span class="tab-desc block text-[11px] text-slate-500 dark:text-divine-muted/70 truncate">Keyboard enter, chat lock</span>
         </div>
       </button>
 
       <button onclick="switchTab('notifications')" id="tab-btn-notifications"
               class="settings-tab-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all text-left">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-500/15 text-amber-400 shrink-0">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
         </div>
         <div class="flex-1 min-w-0">
-          <span class="block text-divine-text truncate">Notifications & Sounds</span>
-          <span class="block text-[11px] text-divine-muted/70 truncate">Message chimes, audio tones</span>
+          <span class="tab-title block text-slate-800 dark:text-divine-text truncate">Notifications & Sounds</span>
+          <span class="tab-desc block text-[11px] text-slate-500 dark:text-divine-muted/70 truncate">Message chimes, audio tones</span>
         </div>
       </button>
     </div>
@@ -82,34 +82,34 @@
       <div id="panel-privacy" class="settings-panel space-y-6">
 
         <!-- Last Seen & Online Section -->
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-5">
-          <div class="flex items-center gap-3 pb-3 border-b border-divine-border/60">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/15 text-purple-400">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-5">
+          <div class="flex items-center gap-3 pb-3 border-b border-slate-200/80 dark:border-divine-border/60">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-500/15 text-purple-600 dark:text-purple-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
             <div>
-              <h2 class="text-base font-bold text-divine-text">Last Seen & Online</h2>
-              <p class="text-xs text-divine-muted">Control your active status visibility across conversations</p>
+              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Last Seen & Online</h2>
+              <p class="text-xs text-slate-500 dark:text-divine-muted">Control your active status visibility across conversations</p>
             </div>
           </div>
 
           <!-- Who can see my Last Seen -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-divine-gold/90 mb-3">Who can see my Last Seen</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-divine-gold/90 mb-3">Who can see my Last Seen</label>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <label class="setting-option-card flex items-center justify-between p-3 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
-                <span class="text-sm font-medium text-divine-text">Everyone</span>
-                <input type="radio" name="last_seen_visibility" value="everyone" class="accent-purple-500 w-4 h-4"
+              <label class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+                <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Everyone</span>
+                <input type="radio" name="last_seen_visibility" value="everyone" class="accent-purple-600 dark:accent-purple-500 w-4 h-4"
                        {% if settings.last_seen_visibility == 'everyone' %}checked{% endif %} onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
-              <label class="setting-option-card flex items-center justify-between p-3 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
-                <span class="text-sm font-medium text-divine-text">My Contacts</span>
-                <input type="radio" name="last_seen_visibility" value="contacts" class="accent-purple-500 w-4 h-4"
+              <label class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+                <span class="text-sm font-medium text-slate-800 dark:text-divine-text">My Contacts</span>
+                <input type="radio" name="last_seen_visibility" value="contacts" class="accent-purple-600 dark:accent-purple-500 w-4 h-4"
                        {% if settings.last_seen_visibility == 'contacts' %}checked{% endif %} onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
-              <label class="setting-option-card flex items-center justify-between p-3 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
-                <span class="text-sm font-medium text-divine-text">Nobody</span>
-                <input type="radio" name="last_seen_visibility" value="nobody" class="accent-purple-500 w-4 h-4"
+              <label class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+                <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Nobody</span>
+                <input type="radio" name="last_seen_visibility" value="nobody" class="accent-purple-600 dark:accent-purple-500 w-4 h-4"
                        {% if settings.last_seen_visibility == 'nobody' %}checked{% endif %} onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
             </div>
@@ -117,68 +117,72 @@
 
           <!-- Who can see when I'm Online -->
           <div class="pt-2">
-            <label class="block text-xs font-bold uppercase tracking-wider text-divine-gold/90 mb-3">Who can see when I'm Online</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-divine-gold/90 mb-3">Who can see when I'm Online</label>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <label class="setting-option-card flex items-center justify-between p-3 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
-                <span class="text-sm font-medium text-divine-text">Everyone</span>
-                <input type="radio" name="online_visibility" value="everyone" class="accent-purple-500 w-4 h-4"
+              <label class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+                <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Everyone</span>
+                <input type="radio" name="online_visibility" value="everyone" class="accent-purple-600 dark:accent-purple-500 w-4 h-4"
                        {% if settings.online_visibility == 'everyone' %}checked{% endif %} onchange="updateSetting('online_visibility', this.value)">
               </label>
-              <label class="setting-option-card flex items-center justify-between p-3 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
-                <span class="text-sm font-medium text-divine-text">Same as Last Seen</span>
-                <input type="radio" name="online_visibility" value="same_as_last_seen" class="accent-purple-500 w-4 h-4"
+              <label class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+                <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Same as Last Seen</span>
+                <input type="radio" name="online_visibility" value="same_as_last_seen" class="accent-purple-600 dark:accent-purple-500 w-4 h-4"
                        {% if settings.online_visibility == 'same_as_last_seen' %}checked{% endif %} onchange="updateSetting('online_visibility', this.value)">
               </label>
             </div>
           </div>
 
-          <div class="bg-divine-surface/40 border border-divine-border/40 rounded-xl p-3.5 text-xs text-divine-muted leading-relaxed">
-            <span class="font-semibold text-purple-400">Note:</span> If you hide your Last Seen or Online status, you won't be able to see other people's status either.
+          <!-- Note info banner (crystal clear in both light & dark mode) -->
+          <div class="settings-info-box flex items-start gap-3 p-3.5 rounded-xl bg-purple-50/85 dark:bg-purple-950/20 border border-purple-200/90 dark:border-purple-800/30 text-xs text-slate-700 dark:text-purple-200/80 leading-relaxed shadow-xs">
+            <span class="w-5 h-5 rounded-full bg-purple-600/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5">ℹ</span>
+            <div>
+              <span class="font-bold text-purple-700 dark:text-purple-300">Note:</span> If you hide your Last Seen or Online status, you won't be able to see other people's status either.
+            </div>
           </div>
         </div>
 
         <!-- Read Receipts Section -->
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="space-y-1">
-              <h2 class="text-base font-bold text-divine-text flex items-center gap-2">
+              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text flex items-center gap-2">
                 <span>Read Receipts</span>
-                <span class="text-blue-400 inline-flex items-center">
+                <span class="text-blue-600 dark:text-blue-400 inline-flex items-center">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7m-5 4l4 4L23 7"/></svg>
                 </span>
               </h2>
-              <p class="text-xs text-divine-muted leading-relaxed max-w-lg">
-                Turn off to hide read ticks. Neither you nor others will see when messages are read.
+              <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed max-w-lg">
+                Turn off to hide read ticks. Neither you nor others will see when messages are read in 1-on-1 chats.
               </p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
               <input type="checkbox" id="readReceiptsToggle" class="sr-only peer"
                      {% if settings.read_receipts_enabled %}checked{% endif %}
                      onchange="updateSetting('read_receipts_enabled', this.checked)">
-              <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              <div class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600"></div>
             </label>
           </div>
-          <p class="text-[11px] text-divine-muted/70 italic">
+          <p class="text-[11px] text-slate-500 dark:text-divine-muted/70 italic">
             * Read receipts are always active in group chats.
           </p>
         </div>
 
         <!-- Blocked Contacts Section -->
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-4">
-          <div class="flex items-center justify-between gap-4 pb-3 border-b border-divine-border/60">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
+          <div class="flex items-center justify-between gap-4 pb-3 border-b border-slate-200/80 dark:border-divine-border/60">
             <div>
-              <h2 class="text-base font-bold text-divine-text">Blocked Contacts</h2>
-              <p class="text-xs text-divine-muted">Blocked contacts cannot message or call you</p>
+              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Blocked Contacts</h2>
+              <p class="text-xs text-slate-500 dark:text-divine-muted">Blocked contacts cannot message or call you</p>
             </div>
-            <span id="blockedBadgeCount" class="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400">
+            <span id="blockedBadgeCount" class="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400">
               {{ blocked_count }} blocked
             </span>
           </div>
 
           <!-- Dynamic Blocked Contacts List -->
           <div id="blockedContactsList" class="space-y-2.5">
-            <div class="text-center py-6 text-xs text-divine-muted flex flex-col items-center gap-2">
-              <div class="w-8 h-8 rounded-full border border-divine-border flex items-center justify-center animate-spin text-purple-400">
+            <div class="text-center py-6 text-xs text-slate-500 dark:text-divine-muted flex flex-col items-center gap-2">
+              <div class="w-8 h-8 rounded-full border border-slate-200 dark:border-divine-border flex items-center justify-center animate-spin text-purple-600 dark:text-purple-400">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
               </div>
               <span>Loading blocked contacts...</span>
@@ -194,116 +198,116 @@
       <div id="panel-storage" class="settings-panel hidden space-y-6">
 
         <!-- Storage Analytics Card -->
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-5">
-          <div class="flex items-center justify-between gap-4 pb-3 border-b border-divine-border/60">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-5">
+          <div class="flex items-center justify-between gap-4 pb-3 border-b border-slate-200/80 dark:border-divine-border/60">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-500/15 text-indigo-400">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
               </div>
               <div>
-                <h2 class="text-base font-bold text-divine-text">Storage Usage</h2>
-                <p class="text-xs text-divine-muted">Real-time breakdown of media and files stored on your account</p>
+                <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Storage Usage</h2>
+                <p class="text-xs text-slate-500 dark:text-divine-muted">Real-time breakdown of media and files stored on your account</p>
               </div>
             </div>
-            <span id="storageTotalBadge" class="text-sm font-bold font-mono text-purple-400 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full">
+            <span id="storageTotalBadge" class="text-sm font-bold font-mono text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 px-3 py-1 rounded-full">
               Calculating...
             </span>
           </div>
 
           <!-- Segmented Visual Storage Bar -->
           <div>
-            <div class="h-3 w-full bg-black/20 rounded-full overflow-hidden flex gap-0.5 p-0.5 border border-divine-border/40">
+            <div class="h-3 w-full bg-slate-100 dark:bg-black/30 rounded-full overflow-hidden flex gap-0.5 p-0.5 border border-slate-200/90 dark:border-divine-border/40">
               <div id="barImages" class="bg-purple-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
               <div id="barVideos" class="bg-blue-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
               <div id="barFiles" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
             </div>
           </div>
 
-          <!-- Breakdown Grid -->
+          <!-- Breakdown Grid (Flawless Light + Dark Mode) -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-            <div class="p-3 rounded-xl bg-divine-surface/40 border border-divine-border/40">
-              <span class="flex items-center gap-1.5 text-xs font-semibold text-purple-400 mb-1">
-                <span class="w-2 h-2 rounded-full bg-purple-500"></span> Photos
+            <div class="settings-stat-card p-3.5 rounded-xl bg-slate-50/90 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-xs transition-all">
+              <span class="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-400 mb-1">
+                <span class="w-2 h-2 rounded-full bg-purple-600 dark:bg-purple-500"></span> Photos
               </span>
-              <p id="statImagesSize" class="text-base font-bold text-divine-text font-mono">0 B</p>
-              <p id="statImagesCount" class="text-[11px] text-divine-muted">0 items</p>
+              <p id="statImagesSize" class="text-base font-extrabold text-slate-900 dark:text-divine-text font-mono">0 B</p>
+              <p id="statImagesCount" class="text-[11px] font-medium text-slate-500 dark:text-divine-muted">0 items</p>
             </div>
 
-            <div class="p-3 rounded-xl bg-divine-surface/40 border border-divine-border/40">
-              <span class="flex items-center gap-1.5 text-xs font-semibold text-blue-400 mb-1">
-                <span class="w-2 h-2 rounded-full bg-blue-500"></span> Videos
+            <div class="settings-stat-card p-3.5 rounded-xl bg-slate-50/90 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-xs transition-all">
+              <span class="flex items-center gap-1.5 text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">
+                <span class="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-500"></span> Videos
               </span>
-              <p id="statVideosSize" class="text-base font-bold text-divine-text font-mono">0 B</p>
-              <p id="statVideosCount" class="text-[11px] text-divine-muted">0 items</p>
+              <p id="statVideosSize" class="text-base font-extrabold text-slate-900 dark:text-divine-text font-mono">0 B</p>
+              <p id="statVideosCount" class="text-[11px] font-medium text-slate-500 dark:text-divine-muted">0 items</p>
             </div>
 
-            <div class="p-3 rounded-xl bg-divine-surface/40 border border-divine-border/40">
-              <span class="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-1">
-                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Documents
+            <div class="settings-stat-card p-3.5 rounded-xl bg-slate-50/90 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-xs transition-all">
+              <span class="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-600 dark:bg-emerald-500"></span> Documents
               </span>
-              <p id="statFilesSize" class="text-base font-bold text-divine-text font-mono">0 B</p>
-              <p id="statFilesCount" class="text-[11px] text-divine-muted">0 items</p>
+              <p id="statFilesSize" class="text-base font-extrabold text-slate-900 dark:text-divine-text font-mono">0 B</p>
+              <p id="statFilesCount" class="text-[11px] font-medium text-slate-500 dark:text-divine-muted">0 items</p>
             </div>
 
-            <div class="p-3 rounded-xl bg-divine-surface/40 border border-divine-border/40">
-              <span class="flex items-center gap-1.5 text-xs font-semibold text-divine-gold mb-1">
-                <span class="w-2 h-2 rounded-full bg-divine-gold"></span> Messages
+            <div class="settings-stat-card p-3.5 rounded-xl bg-slate-50/90 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/10 shadow-xs transition-all">
+              <span class="flex items-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-400 mb-1">
+                <span class="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-500"></span> Messages
               </span>
-              <p id="statMessagesCount" class="text-base font-bold text-divine-text font-mono">0</p>
-              <p class="text-[11px] text-divine-muted">Total sent & recvd</p>
+              <p id="statMessagesCount" class="text-base font-extrabold text-slate-900 dark:text-divine-text font-mono">0</p>
+              <p class="text-[11px] font-medium text-slate-500 dark:text-divine-muted">Total sent & recvd</p>
             </div>
           </div>
         </div>
 
         <!-- Media Upload Quality -->
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div>
-            <h2 class="text-base font-bold text-divine-text">Media Upload Quality</h2>
-            <p class="text-xs text-divine-muted mt-0.5">Select the resolution quality for uploaded photos and media</p>
+            <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Media Upload Quality</h2>
+            <p class="text-xs text-slate-500 dark:text-divine-muted mt-0.5">Select the resolution quality for uploaded photos and media</p>
           </div>
 
           <div class="space-y-2.5">
-            <label class="setting-option-card flex items-start justify-between p-3.5 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
+            <label class="setting-option-card flex items-start justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
               <div class="pr-3">
-                <span class="text-sm font-semibold text-divine-text block">Standard Quality (Data Saver)</span>
-                <span class="text-xs text-divine-muted leading-relaxed block mt-0.5">Sends photos and videos faster using less data. Best for everyday chatting.</span>
+                <span class="text-sm font-semibold text-slate-900 dark:text-divine-text block">Standard Quality (Data Saver)</span>
+                <span class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed block mt-0.5">Compresses media files for rapid transmission and minimal data usage. Recommended for daily messaging.</span>
               </div>
-              <input type="radio" name="media_upload_quality" value="standard" class="accent-purple-500 w-4 h-4 mt-1"
+              <input type="radio" name="media_upload_quality" value="standard" class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1"
                      {% if settings.media_upload_quality == 'standard' %}checked{% endif %} onchange="updateSetting('media_upload_quality', this.value)">
             </label>
 
-            <label class="setting-option-card flex items-start justify-between p-3.5 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
+            <label class="setting-option-card flex items-start justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
               <div class="pr-3">
-                <span class="text-sm font-semibold text-divine-text block">High Definition (HD)</span>
-                <span class="text-xs text-divine-muted leading-relaxed block mt-0.5">Sends photos and videos in full clarity. Uses more data and storage.</span>
+                <span class="text-sm font-semibold text-slate-900 dark:text-divine-text block">High Definition (HD)</span>
+                <span class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed block mt-0.5">Sends media in crystal-clear high resolution. Preserves full detail but consumes more storage and bandwidth.</span>
               </div>
-              <input type="radio" name="media_upload_quality" value="hd" class="accent-purple-500 w-4 h-4 mt-1"
+              <input type="radio" name="media_upload_quality" value="hd" class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1"
                      {% if settings.media_upload_quality == 'hd' %}checked{% endif %} onchange="updateSetting('media_upload_quality', this.value)">
             </label>
           </div>
         </div>
 
         <!-- Media Auto-Download -->
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div>
-            <h2 class="text-base font-bold text-divine-text">Media Auto-Download</h2>
-            <p class="text-xs text-divine-muted mt-0.5">Configure network behavior for incoming media downloads</p>
+            <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Media Auto-Download</h2>
+            <p class="text-xs text-slate-500 dark:text-divine-muted mt-0.5">Configure network behavior for incoming media downloads</p>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <label class="setting-option-card flex items-center justify-between p-3 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
-              <span class="text-sm font-medium text-divine-text">Wi-Fi & Cellular</span>
-              <input type="radio" name="media_auto_download" value="all" class="accent-purple-500 w-4 h-4"
+            <label class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+              <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Wi-Fi & Cellular</span>
+              <input type="radio" name="media_auto_download" value="all" class="accent-purple-600 dark:accent-purple-500 w-4 h-4"
                      {% if settings.media_auto_download == 'all' %}checked{% endif %} onchange="updateSetting('media_auto_download', this.value)">
             </label>
-            <label class="setting-option-card flex items-center justify-between p-3 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
-              <span class="text-sm font-medium text-divine-text">Wi-Fi Only</span>
-              <input type="radio" name="media_auto_download" value="wifi" class="accent-purple-500 w-4 h-4"
+            <label class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+              <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Wi-Fi Only</span>
+              <input type="radio" name="media_auto_download" value="wifi" class="accent-purple-600 dark:accent-purple-500 w-4 h-4"
                      {% if settings.media_auto_download == 'wifi' %}checked{% endif %} onchange="updateSetting('media_auto_download', this.value)">
             </label>
-            <label class="setting-option-card flex items-center justify-between p-3 rounded-xl border border-divine-border cursor-pointer hover:bg-white/5 transition-all">
-              <span class="text-sm font-medium text-divine-text">Never</span>
-              <input type="radio" name="media_auto_download" value="never" class="accent-purple-500 w-4 h-4"
+            <label class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
+              <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Never</span>
+              <input type="radio" name="media_auto_download" value="never" class="accent-purple-600 dark:accent-purple-500 w-4 h-4"
                      {% if settings.media_auto_download == 'never' %}checked{% endif %} onchange="updateSetting('media_auto_download', this.value)">
             </label>
           </div>
@@ -316,34 +320,34 @@
       <!-- ══════════════════════════════════════════════════════════ -->
       <div id="panel-chats" class="settings-panel hidden space-y-6">
 
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="space-y-1">
-              <h2 class="text-base font-bold text-divine-text">Enter is Send</h2>
-              <p class="text-xs text-divine-muted leading-relaxed max-w-lg">
-                Pressing the <span class="font-mono bg-white/10 px-1.5 py-0.5 rounded text-divine-text">Enter</span> key will immediately send your message. Use <span class="font-mono bg-white/10 px-1.5 py-0.5 rounded text-divine-text">Shift + Enter</span> to insert a new line.
+              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Enter is Send</h2>
+              <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed max-w-lg">
+                Pressing the <span class="font-mono bg-slate-100 dark:bg-white/10 border border-slate-300 dark:border-white/15 px-2 py-0.5 rounded text-slate-800 dark:text-divine-text text-xs font-semibold shadow-xs">Enter</span> key will immediately send your message. Use <span class="font-mono bg-slate-100 dark:bg-white/10 border border-slate-300 dark:border-white/15 px-2 py-0.5 rounded text-slate-800 dark:text-divine-text text-xs font-semibold shadow-xs">Shift + Enter</span> to insert a new line.
               </p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
               <input type="checkbox" id="enterIsSendToggle" class="sr-only peer"
                      {% if settings.enter_is_send %}checked{% endif %}
                      onchange="updateSetting('enter_is_send', this.checked)">
-              <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              <div class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600"></div>
             </label>
           </div>
         </div>
 
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div>
-              <h2 class="text-base font-bold text-divine-text">Chat Lock & Biometrics</h2>
-              <p class="text-xs text-divine-muted mt-0.5">Protect confidential conversations with PIN or device fingerprint</p>
+              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Chat Lock & Biometrics</h2>
+              <p class="text-xs text-slate-500 dark:text-divine-muted mt-0.5">Protect confidential conversations with PIN or device fingerprint</p>
             </div>
             <a href="{% url 'messaging:chat' %}" class="sdh-liquid-btn btn-secondary btn-sm !py-2 !px-3 shrink-0">
               <span>Manage in Chat</span>
             </a>
           </div>
-          <p class="text-xs text-divine-muted leading-relaxed">
+          <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed">
             Locked conversations are secured with PIN or WebAuthn biometrics and kept in a hidden folder inside your chat interface.
           </p>
         </div>
@@ -355,14 +359,14 @@
       <!-- ══════════════════════════════════════════════════════════ -->
       <div id="panel-notifications" class="settings-panel hidden space-y-6">
 
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="space-y-1">
-              <h2 class="text-base font-bold text-divine-text flex items-center gap-2">
+              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text flex items-center gap-2">
                 <span>Conversation Tones</span>
-                <span class="text-amber-400">🔔</span>
+                <span class="text-amber-500">🔔</span>
               </h2>
-              <p class="text-xs text-divine-muted leading-relaxed max-w-lg">
+              <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed max-w-lg">
                 Play harmonic sound effects for incoming and sent messages while inside active conversations.
               </p>
             </div>
@@ -370,16 +374,16 @@
               <input type="checkbox" id="messageSoundToggle" class="sr-only peer"
                      {% if settings.message_sound_enabled %}checked{% endif %}
                      onchange="updateSetting('message_sound_enabled', this.checked)">
-              <div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              <div class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600"></div>
             </label>
           </div>
         </div>
 
-        <div class="bg-divine-card border border-divine-border rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div>
-              <h2 class="text-base font-bold text-divine-text">System Push Notifications</h2>
-              <p class="text-xs text-divine-muted mt-0.5">Receive alert banners when the app is in background</p>
+              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">System Push Notifications</h2>
+              <p class="text-xs text-slate-500 dark:text-divine-muted mt-0.5">Receive alert banners when the app is in background</p>
             </div>
             <button type="button" onclick="requestBrowserNotifications()" class="sdh-liquid-btn btn-secondary btn-sm !py-2 !px-4">
               <span>Enable Browser Alerts</span>
@@ -394,18 +398,65 @@
 
 </div>
 
-<!-- Styles for Tabs & Options -->
+<!-- Styles for Tabs & Options (Flawless Light & Dark mode support) -->
 <style>
+  /* Tabs */
   .settings-tab-btn.active {
-    background: rgba(139, 92, 246, 0.15) !important;
-    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    background: rgba(139, 92, 246, 0.12) !important;
+    border: 1px solid rgba(139, 92, 246, 0.35) !important;
+  }
+  .settings-tab-btn.active .tab-title {
+    color: #7c3aed !important;
+    font-weight: 700 !important;
+  }
+  .settings-tab-btn.active .tab-desc {
+    color: #6d28d9 !important;
+  }
+  .dark .settings-tab-btn.active .tab-title,
+  [data-theme="dark"] .settings-tab-btn.active .tab-title {
+    color: #e9d5ff !important;
+  }
+  .dark .settings-tab-btn.active .tab-desc,
+  [data-theme="dark"] .settings-tab-btn.active .tab-desc {
+    color: #c084fc !important;
   }
   .settings-tab-btn:hover:not(.active) {
+    background: rgba(0, 0, 0, 0.03);
+  }
+  .dark .settings-tab-btn:hover:not(.active),
+  [data-theme="dark"] .settings-tab-btn:hover:not(.active) {
     background: rgba(255, 255, 255, 0.04);
   }
+
+  /* Option Radio Cards */
   .setting-option-card:has(input:checked) {
-    background: rgba(139, 92, 246, 0.12) !important;
-    border-color: rgba(139, 92, 246, 0.5) !important;
+    background: rgba(139, 92, 246, 0.09) !important;
+    border-color: rgba(139, 92, 246, 0.6) !important;
+  }
+  .setting-option-card:has(input:checked) span {
+    color: #6d28d9 !important;
+    font-weight: 600 !important;
+  }
+  .dark .setting-option-card:has(input:checked),
+  [data-theme="dark"] .setting-option-card:has(input:checked) {
+    background: rgba(139, 92, 246, 0.16) !important;
+    border-color: rgba(168, 85, 247, 0.6) !important;
+  }
+  .dark .setting-option-card:has(input:checked) span,
+  [data-theme="dark"] .setting-option-card:has(input:checked) span {
+    color: #f8fafc !important;
+  }
+
+  /* Light mode safety fallback to prevent any unstyled opacity bugs */
+  [data-theme="light"] .bg-divine-surface\/40,
+  [data-theme="light"] .bg-divine-surface\/50,
+  [data-theme="light"] .bg-divine-surface\/60 {
+    background-color: #f8fafc !important;
+  }
+  [data-theme="light"] .border-divine-border\/40,
+  [data-theme="light"] .border-divine-border\/50,
+  [data-theme="light"] .border-divine-border\/60 {
+    border-color: #e2e8f0 !important;
   }
 </style>
 
@@ -496,7 +547,7 @@
 
       if (!data.blocked_contacts || data.blocked_contacts.length === 0) {
         listEl.innerHTML = `
-          <div class="text-center py-6 text-xs text-divine-muted">
+          <div class="text-center py-6 text-xs text-slate-500 dark:text-divine-muted">
             <span class="text-2xl mb-1 block">🛡️</span>
             No contacts currently blocked.
           </div>
@@ -505,25 +556,25 @@
       }
 
       listEl.innerHTML = data.blocked_contacts.map(c => `
-        <div id="blocked-user-row-${c.user_id}" class="flex items-center justify-between p-3 rounded-xl bg-divine-surface/50 border border-divine-border/50 hover:bg-white/5 transition-all">
+        <div id="blocked-user-row-${c.user_id}" class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50/90 dark:bg-divine-surface/50 border border-slate-200/90 dark:border-divine-border/50 hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
           <div class="flex items-center gap-3 min-w-0">
             ${c.avatar_url ?
               `<img src="${c.avatar_url}" alt="${c.username}" class="w-9 h-9 rounded-full object-cover shrink-0" />` :
-              `<div class="w-9 h-9 rounded-full bg-divine-surface border border-divine-border flex items-center justify-center font-bold text-xs text-purple-400 shrink-0 uppercase">${c.username[0]}</div>`
+              `<div class="w-9 h-9 rounded-full bg-purple-100 dark:bg-divine-surface border border-purple-200 dark:border-divine-border flex items-center justify-center font-bold text-xs text-purple-700 dark:text-purple-400 shrink-0 uppercase">${c.username[0]}</div>`
             }
             <div class="min-w-0">
-              <p class="text-sm font-semibold text-divine-text truncate">${c.display_name || c.username}</p>
-              <p class="text-[11px] text-divine-muted truncate">@${c.username}</p>
+              <p class="text-sm font-semibold text-slate-900 dark:text-divine-text truncate">${c.display_name || c.username}</p>
+              <p class="text-[11px] text-slate-500 dark:text-divine-muted truncate">@${c.username}</p>
             </div>
           </div>
           <button type="button" onclick="unblockContact(${c.user_id}, '${c.username}')"
-                  class="sdh-liquid-btn btn-secondary btn-sm !py-1.5 !px-3 text-xs text-red-400 hover:text-red-300">
+                  class="sdh-liquid-btn btn-secondary btn-sm !py-1.5 !px-3 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">
             <span>Unblock</span>
           </button>
         </div>
       `).join('');
     } catch (err) {
-      listEl.innerHTML = `<p class="text-xs text-red-400 py-3 text-center">Failed to load blocked contacts.</p>`;
+      listEl.innerHTML = `<p class="text-xs text-red-600 dark:text-red-400 py-3 text-center">Failed to load blocked contacts.</p>`;
     }
   }
 

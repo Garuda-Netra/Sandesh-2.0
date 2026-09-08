@@ -1840,11 +1840,25 @@ SDH.Chat = (() => {
     if (messageType === 'image') {
       if (hasServerFile && fileId) {
         const fid = Number(fileId);
-        setTimeout(() => {
-          const imgEl = document.querySelector(`img[data-file-id="${fid}"][data-sdh-loaded=""]`);
-          if (imgEl) SDH.FileUpload.downloadImage({ messageId: fid, mimeType, imgEl })
-            .catch(e => console.error('[Chat] img load:', e));
-        }, 120);
+        const autoDl = window.SDH_SETTINGS?.media_auto_download || 'all';
+        let shouldAutoDownload = true;
+        if (autoDl === 'never') {
+          shouldAutoDownload = false;
+        } else if (autoDl === 'wifi') {
+          const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+          if (conn && conn.type && conn.type !== 'wifi' && conn.type !== 'ethernet') {
+            shouldAutoDownload = false;
+          }
+        }
+
+        if (shouldAutoDownload) {
+          setTimeout(() => {
+            const imgEl = document.querySelector(`img[data-file-id="${fid}"][data-sdh-loaded=""]`);
+            if (imgEl) SDH.FileUpload.downloadImage({ messageId: fid, mimeType, imgEl })
+              .catch(e => console.error('[Chat] img load:', e));
+          }, 120);
+        }
+
         return `
             <div class="file-msg media-msg w-[260px] sm:w-[310px] max-w-full flex flex-col box-border">
               <div class="relative group/img overflow-hidden rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm w-full box-border cursor-pointer select-none"
@@ -1854,6 +1868,14 @@ SDH.Chat = (() => {
                     alt="${escapeHtml(originalFilename)}"
                     class="w-full max-h-80 object-cover rounded-xl hover:opacity-95 transition-all block"
                     loading="lazy" style="min-height:120px;" />
+                ${!shouldAutoDownload ? `
+                <div class="sdh-tap-download absolute inset-0 bg-black/55 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-center cursor-pointer hover:bg-black/65 transition-all z-10"
+                     onclick="event.stopPropagation(); this.remove(); const img=document.querySelector('img[data-file-id=\\'${fid}\\']'); if (img) SDH.FileUpload.downloadImage({messageId:${fid},mimeType:'${_esc(mimeType || 'image/jpeg')}',imgEl:img});">
+                  <span class="w-10 h-10 rounded-full bg-purple-600/90 text-white flex items-center justify-center mb-1.5 shadow-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  </span>
+                  <span class="text-xs font-semibold text-white/95">Tap to download</span>
+                </div>` : ''}
                 <!-- Hover Expand Overlay Indicator -->
                 <div class="absolute inset-0 bg-black/25 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
                   <span class="p-2.5 rounded-full bg-black/60 text-white backdrop-blur-md border border-white/25 shadow-xl scale-90 group-hover/img:scale-100 transition-transform">

@@ -415,6 +415,10 @@ def message_history(request, username):
         is_read=False
     ).update(is_read=True)
 
+    my_settings = UserSettings.get_for_user(request.user)
+    other_settings = UserSettings.get_for_user(other_user) if not is_self else my_settings
+    can_show_read_receipts = my_settings.read_receipts_enabled and other_settings.read_receipts_enabled
+
     def _display_name(u):
         """Return username; append '(Account Deleted)' for soft-deleted accounts."""
         try:
@@ -435,7 +439,7 @@ def message_history(request, username):
             'mime_type': m.mime_type,
             'timestamp': m.timestamp.isoformat(),
             'is_delivered': m.is_delivered,
-            'is_read': m.is_read,
+            'is_read': (m.is_read and can_show_read_receipts) if not is_self else True,
             'is_mine': m.sender == request.user,
             'has_file': bool(m.file),
             'file_id': m.id if m.file else None,
@@ -827,6 +831,62 @@ def get_pending_wishes(request):
     return JsonResponse({'status': 'ok', 'wishes': pending})
 
 
+def _process_image_for_upload(uploaded_file, quality_setting):
+    """
+    If quality_setting == 'standard', optimize image (max 1280px dimension, JPEG/PNG compression)
+    to save storage and bandwidth. If 'hd', preserves full original resolution.
+    """
+    if quality_setting != UserSettings.QUALITY_STANDARD:
+        return uploaded_file
+
+    try:
+        from PIL import Image, ImageOps
+        import io
+        from django.core.files.uploadedfile import InMemoryUploadedFile
+
+        uploaded_file.seek(0)
+        img = Image.open(uploaded_file)
+        orig_format = (img.format or 'JPEG').upper()
+        if orig_format not in ('JPEG', 'JPG', 'PNG', 'WEBP'):
+            uploaded_file.seek(0)
+            return uploaded_file
+
+        try:
+            img = ImageOps.exif_transpose(img)
+        except Exception:
+            pass
+
+        max_dim = 1280
+        if img.width > max_dim or img.height > max_dim:
+            img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
+        out_io = io.BytesIO()
+        if orig_format == 'PNG' and img.mode in ('RGBA', 'LA'):
+            img.save(out_io, format='PNG', optimize=True)
+            out_mime = 'image/png'
+        else:
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.save(out_io, format='JPEG', quality=82, optimize=True)
+            out_mime = 'image/jpeg'
+
+        out_io.seek(0)
+        return InMemoryUploadedFile(
+            file=out_io,
+            field_name='file',
+            name=uploaded_file.name,
+            content_type=out_mime,
+            size=out_io.getbuffer().nbytes,
+            charset=None
+        )
+    except Exception:
+        try:
+            uploaded_file.seek(0)
+        except Exception:
+            pass
+        return uploaded_file
+
+
 # ---------------------------------------------------------------------------
 # File Upload
 # ---------------------------------------------------------------------------
@@ -874,6 +934,11 @@ def upload_file(request):
     file_name    = file_info['safe_filename']
     mime_type    = file_info['mime_type']
     message_type = file_info['message_type']
+
+    # Apply media upload quality setting
+    my_settings = UserSettings.get_for_user(request.user)
+    if message_type == 'image':
+        uploaded = _process_image_for_upload(uploaded, my_settings.media_upload_quality)
 
     is_group = receiver_username.startswith('group_')
     
