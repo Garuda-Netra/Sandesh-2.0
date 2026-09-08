@@ -1971,17 +1971,40 @@ def group_create(request):
         group=group, user=request.user, role=GroupMembership.ROLE_OWNER
     )
 
-    # Add initial members
-    added = []
+    from .models import GroupInvite
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+
+    # Send real-time invites for selected members so they can allow or deny joining
+    invited = []
     for uid in member_ids:
         try:
             user = User.objects.get(id=int(uid))
             if user.id != request.user.id:
-                GroupMembership.objects.get_or_create(
-                    group=group, user=user,
-                    defaults={'role': GroupMembership.ROLE_MEMBER}
+                invite, created = GroupInvite.objects.get_or_create(
+                    group=group,
+                    invitee=user,
+                    defaults={'inviter': request.user, 'status': GroupInvite.STATUS_PENDING}
                 )
-                added.append(user.username)
+                if not created and invite.status != GroupInvite.STATUS_PENDING:
+                    invite.status = GroupInvite.STATUS_PENDING
+                    invite.inviter = request.user
+                    invite.save()
+
+                invited.append(user.username)
+
+                # Send real-time WebSocket notification to the invitee
+                async_to_sync(channel_layer.group_send)(
+                    f'user_chat_{user.id}',
+                    {
+                        'type': 'group_invite',
+                        'invite_id': invite.id,
+                        'group_id': group.id,
+                        'group_name': group.name,
+                        'inviter': request.user.username,
+                    }
+                )
         except (User.DoesNotExist, ValueError):
             continue
 
@@ -1992,17 +2015,11 @@ def group_create(request):
         message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
         is_system_message=True,
     )
-    for username in added:
-        GroupMessage.objects.create(
-            group=group, sender=request.user,
-            message=f'{username} was welcomed to the group.',
-            message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
-            is_system_message=True,
-        )
 
     return JsonResponse({
         'status': 'ok',
         'group': _serialize_group(group, request.user),
+        'invited': invited,
     })
 
 
@@ -2279,18 +2296,45 @@ def group_invite_respond(request, invite_id):
                 {
                     'type': 'group_member_update',
                     'action': 'joined',
+                    'group_id': invite.group.id,
+                    'group_name': invite.group.name,
                     'user_id': request.user.id,
                     'username': request.user.username,
                     'role': GroupMembership.ROLE_MEMBER,
                 }
             )
 
-        return JsonResponse({'status': 'ok', 'message': 'Joined group successfully.'})
+            # Also notify the inviter in real-time so their sidebar and notifications update
+            if invite.inviter and invite.inviter.id != request.user.id:
+                async_to_sync(channel_layer.group_send)(
+                    f'user_chat_{invite.inviter.id}',
+                    {
+                        'type': 'group_member_update',
+                        'action': 'joined',
+                        'group_id': invite.group.id,
+                        'group_name': invite.group.name,
+                        'user_id': request.user.id,
+                        'username': request.user.username,
+                        'role': GroupMembership.ROLE_MEMBER,
+                    }
+                )
+
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'Joined group successfully.',
+            'group_id': invite.group.id,
+            'group_name': invite.group.name,
+        })
 
     elif action == 'decline':
         invite.status = GroupInvite.STATUS_DECLINED
         invite.save()
-        return JsonResponse({'status': 'ok', 'message': 'Invite declined.'})
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'Invite declined.',
+            'group_id': invite.group.id,
+            'group_name': invite.group.name,
+        })
 
     return JsonResponse({'error': 'Invalid action.'}, status=400)
 

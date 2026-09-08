@@ -247,6 +247,14 @@ SDH.Chat = (() => {
         } catch (e) {}
       }
 
+      // Update embedded SDH_DATA.groups if available
+      const groupsDataScript = doc.getElementById('sdh-groups-data');
+      if (groupsDataScript && window.SDH_DATA) {
+        try {
+          window.SDH_DATA.groups = JSON.parse(groupsDataScript.textContent || '[]');
+        } catch (e) {}
+      }
+
       // Re-apply any existing unread badges
       if (unreadCounts) {
         Object.keys(unreadCounts).forEach(u => updateUnreadBadge(u));
@@ -310,6 +318,7 @@ SDH.Chat = (() => {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   function _onWsOpen() {
     _setDefaultHeaderStatus();
+    fetchPendingGroupInvites();
     // Immediately notify the sender that we've read all messages in this chat
     if (activeUser && SDH.WS.isOpen() && !activeUser.startsWith('group_')) {
       SDH.WS.sendMessage({ type: 'read_receipt' });
@@ -663,6 +672,12 @@ SDH.Chat = (() => {
   }
 
   function handleGroupMemberUpdate(data) {
+    if (data.action === 'joined') {
+      if (data.username && data.username !== window.SDH_DATA?.currentUser) {
+        showToast(`${data.username} joined ${data.group_name || 'the group'}!`, 'info');
+      }
+      _refreshSidebar();
+    }
     if (activeUser && activeUser.startsWith('group_')) {
       const gid = activeUser.split('_')[1];
       if (data.group_id == gid || (data.group_id === undefined)) {
@@ -2553,18 +2568,6 @@ SDH.Chat = (() => {
     Notif.requestPermission();
   }
 
-  function handleGroupMemberUpdate(data) {
-    if (activeUser && activeUser.startsWith('group_')) {
-      const gid = activeUser.split('_')[1];
-      if (data.group_id == gid || (data.group_id === undefined)) {
-        const modal = document.getElementById('userProfileModal');
-        if (modal && !modal.classList.contains('hidden')) {
-          SDH.Chat.showGroupProfile(gid);
-        }
-      }
-    }
-  }
-
   function handleChatSettingUpdate(data) {
     if (data.sender === activeUser && data.retention_days) {
       appendSystemMessage(`Retention set to ${data.retention_days} days.`);
@@ -3118,31 +3121,44 @@ SDH.Chat = (() => {
   }
 
   function showGroupInviteModal(invite) {
+    if (!invite || !invite.invite_id) return;
     // Check if already open
     if (document.getElementById(`group-invite-modal-${invite.invite_id}`)) return;
 
+    const initial = (invite.group_name && invite.group_name[0]) ? invite.group_name[0].toUpperCase() : 'G';
+    const inviterName = escapeHtml(invite.inviter || 'Someone');
+    const groupName = escapeHtml(invite.group_name || 'Group');
+
     const modalHtml = `
-        <div id="group-invite-modal-${invite.invite_id}" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div class="bg-divine-card border border-divine-border rounded-2xl p-6 w-full max-w-sm shadow-2xl transform transition-all relative overflow-hidden" style="box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);">
-            <!-- Decorative accent -->
-            <div class="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl" style="background:rgba(139,92,246,0.1);"></div>
-            
-            <div class="flex items-center gap-4 mb-5">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-xl font-bold" style="background:rgba(139,92,246,0.15); color:rgba(139,92,246,0.9);">
-                ${(invite.group_name && invite.group_name[0]) ? invite.group_name[0].toUpperCase() : 'G'}
-              </div>
-              <div>
-                <h3 class="text-lg font-bold text-divine-text leading-tight">Group Invitation</h3>
-                <p class="text-sm text-divine-muted mt-1"><span class="font-medium" style="color:rgba(139,92,246,0.9);">${invite.inviter}</span> invited you to join <span class="text-divine-text font-medium">${invite.group_name}</span></p>
-              </div>
+        <div id="group-invite-modal-${invite.invite_id}" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 transition-all duration-300 animate-fade-in">
+          <div class="bg-divine-card border border-divine-border/80 rounded-2xl p-6 w-full max-w-sm shadow-2xl transform transition-all relative overflow-hidden text-center" style="box-shadow: 0 20px 50px -10px rgba(0,0,0,0.35);">
+            <!-- Decorative accent ambient glow -->
+            <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full blur-3xl pointer-events-none" style="background: rgba(139, 92, 246, 0.2);"></div>
+            <div class="absolute -bottom-12 -left-12 w-36 h-36 rounded-full blur-3xl pointer-events-none" style="background: rgba(99, 102, 241, 0.15);"></div>
+
+            <!-- Group Avatar Icon with Glow -->
+            <div class="mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg relative" style="background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(99,102,241,0.15)); border: 1px solid rgba(139,92,246,0.4); color: #c084fc;">
+              ${initial}
+              <span class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-divine-card flex items-center justify-center text-[10px] text-white">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+              </span>
             </div>
-            
-            <div class="flex gap-3 mt-6">
-              <button onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'decline')" class="flex-1 py-2.5 rounded-xl border border-divine-border text-divine-muted hover:bg-divine-border/50 hover:text-divine-text font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-divine-border">
-                Decline Invite
+
+            <!-- Title & Cool Professional Sentence -->
+            <h3 class="text-base font-bold text-divine-text tracking-tight mb-2">Group Invitation</h3>
+            <p class="text-sm text-divine-muted leading-relaxed px-1">
+              <span class="font-semibold text-purple-400">@${inviterName}</span> wants to add you to the group <span class="font-bold text-divine-text">"${groupName}"</span>. Connect, collaborate, and chat together.
+            </p>
+
+            <!-- Action Buttons: Deny & Allow -->
+            <div class="flex items-center gap-3 mt-6">
+              <button type="button" onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'decline')"
+                class="flex-1 py-2.5 px-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-semibold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-red-500/30 active:scale-[0.98]">
+                Deny
               </button>
-              <button onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'accept')" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500/50">
-                Join Group
+              <button type="button" onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'accept')"
+                class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500/50 active:scale-[0.98]">
+                Allow
               </button>
             </div>
           </div>
@@ -3155,7 +3171,7 @@ SDH.Chat = (() => {
     const modal = document.getElementById(`group-invite-modal-${inviteId}`);
     if (modal) {
       modal.classList.add('opacity-0', 'scale-95');
-      setTimeout(() => modal.remove(), 200);
+      setTimeout(() => modal.remove(), 250);
     }
 
     try {
@@ -3167,10 +3183,16 @@ SDH.Chat = (() => {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(action === 'accept' ? 'Joined group successfully!' : 'Invite declined.', 'success');
         if (action === 'accept') {
-          // Soft refresh sidebar instead of full reload
-          _refreshSidebar();
+          showToast(`Joined ${data.group_name || 'the group'} successfully!`, 'success');
+          // Soft refresh sidebar in real-time so the new group appears under GROUPS immediately
+          await _refreshSidebar();
+          // Automatically navigate into the group
+          if (data.group_id) {
+            selectGroup(data.group_id, data.group_name || 'Group');
+          }
+        } else {
+          showToast('Group invitation denied.', 'info');
         }
       } else {
         showToast(data.error || 'Failed to respond to invite', 'error');
@@ -3893,10 +3915,17 @@ SDH.Chat = (() => {
         },
         body: JSON.stringify({ name: name, description: desc, member_ids: memberIds })
       });
-      if (!res.ok) throw new Error(await res.text());
-      showToast('Group created successfully!', 'success');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to create group');
+      }
+      const resData = await res.json();
+      showToast('Group created! Invitations sent.', 'success');
       closeCreateGroupModal();
-      _refreshSidebar();
+      await _refreshSidebar();
+      if (resData.group && resData.group.id) {
+        selectGroup(resData.group.id, resData.group.name);
+      }
     } catch (err) {
       showToast('Failed to create group: ' + err.message, 'error');
     }
