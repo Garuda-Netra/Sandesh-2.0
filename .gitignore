@@ -24,8 +24,10 @@ venv.bak/
 # ===========================================================================
 .env
 .env.*
-!.env.example
 *.env
+*.env.local
+*.env.production
+*.env.development
 
 # ===========================================================================
 # Django Runtime Data & Databases

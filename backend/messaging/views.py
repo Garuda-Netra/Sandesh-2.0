@@ -1928,7 +1928,7 @@ def chat_setting_api(request, username):
         try:
             data = json.loads(request.body)
             new_days = int(data.get('retention_days', 2))
-            if new_days in [2, 7, 30, 180]:
+            if new_days in [2, 7, 30]:
                 setting.retention_days = new_days
                 setting.save()
                 return JsonResponse({'status': 'ok', 'retention_days': new_days})

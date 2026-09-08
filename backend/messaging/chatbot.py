@@ -45,7 +45,7 @@ _DEFAULT_SYSTEM_PROMPT = (
     "- Moments (24-Hour Stories):\n"
     "  Located at the top of the sidebar under 'Moments'. Click your avatar with the '+' icon to share a photo or video story with optional captions and Spotify music tracks. Moments expire after 24 hours.\n"
     "- Privacy & Message Controls:\n"
-    "  Click the retention clock icon in chat options to set disappearing messages (2 days, 1 week, 1 month, or 6 months). Hover over any message and click the three dots (⋯) for 'Remove from My View' (hide for yourself) or 'Delete for All' (delete for everyone).\n"
+    "  Click the retention clock icon in chat options to set disappearing messages (2 days, 1 week, or 1 month). Hover over any message and click the three dots (⋯) for 'Remove from My View' (hide for yourself) or 'Delete for All' (delete for everyone).\n"
     "- Saved Messages:\n"
     "  Available in the left sidebar as your personal cloud notepad to save links, text, and files.\n"
     "- Themes:\n"

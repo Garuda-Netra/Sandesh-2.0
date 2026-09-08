@@ -45,7 +45,7 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 - **⚡ Real-Time WebSockets**: Instant bidirectional message delivery powered by Django Channels (`/ws/chat/`) with zero page reloading.
 - **✔️ Live Delivery & Read Receipts**: Visual status tracking from sent (`✓`) to delivered (`✓✓` grey) to read (`✓✓` gold/purple).
 - **🟢 Live Presence & Typing Signals**: Anti-flicker online presence indicators and real-time typing bubbles.
-- **🔒 Disappearing Messages**: Set chats to self-destruct automatically after 2 days, 1 week, 1 month, or 6 months.
+- **🔒 Disappearing Messages**: Set chats to self-destruct automatically after 2 days, 1 week, or 1 month.
 - **🗑️ Dual-Tier Message Deletion**:
   - *Remove from My View:* Cleans up messages solely on your device.
   - *Delete for Everyone:* Sender-authorized deletion broadcasted across all participants in real time.

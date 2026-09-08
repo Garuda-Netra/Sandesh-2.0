@@ -301,7 +301,6 @@ class ChatSetting(models.Model):
         (2, '2 Days'),
         (7, '1 Week'),
         (30, '1 Month'),
-        (180, '6 Months'),
     ]
 
     user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='+')

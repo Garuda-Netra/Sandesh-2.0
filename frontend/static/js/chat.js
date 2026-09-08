@@ -557,7 +557,7 @@ SDH.Chat = (() => {
 
   function handleChatSettingUpdate(data) {
     if (data.updated_by === activeUser || data.updated_by === window.SDH_DATA.currentUser) {
-      const labels = { 2: '2 Days', 7: '1 Week', 30: '1 Month', 180: '6 Months' };
+      const labels = { 2: '2 Days', 7: '1 Week', 30: '1 Month' };
       const label = labels[data.retention_days] || (data.retention_days + ' days');
 
       appendSystemMessage(`${data.updated_by === window.SDH_DATA.currentUser ? 'You' : data.updated_by} set the message retention period to ${label}.`);
