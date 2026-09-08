@@ -49,4 +49,8 @@ urlpatterns = [
     path('sw.js', views.service_worker_view, name='service_worker'),
     path('offline/', views.offline_view, name='offline'),
     path('favicon.ico', views.favicon_view, name='favicon'),
+
+    # Keep-Alive & Health Check endpoints (for Render / Uptime monitors)
+    path('health/', views.health_check_view, name='health_check'),
+    path('ping/', views.health_check_view, name='ping'),
 ]

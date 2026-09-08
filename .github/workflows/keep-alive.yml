@@ -1,0 +1,22 @@
+name: Keep Sandesh Live on Render
+
+on:
+  schedule:
+    # Runs every 12 minutes (Render free tier spins down after 15 minutes of inactivity)
+    - cron: '*/12 * * * *'
+  workflow_dispatch: # Allows manual run from GitHub Actions tab
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Sandesh Health Check
+        run: |
+          echo "Pinging Sandesh 2.0 on Render..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://sandesh-2-0.onrender.com/health/)
+          echo "Render HTTP Status: $STATUS"
+          if [ "$STATUS" -eq 200 ]; then
+            echo "Sandesh is active and running!"
+          else
+            echo "Notice: Endpoint returned HTTP $STATUS (service might be waking up)"
+          fi

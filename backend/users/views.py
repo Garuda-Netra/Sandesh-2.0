@@ -1292,3 +1292,17 @@ def favicon_view(request):
     return HttpResponse(status=404)
 
 
+@require_GET
+def health_check_view(request):
+    """
+    Lightweight health-check endpoint for uptime monitors and keep-alive pingers.
+    Prevents Render free tier from sleeping without loading templates or DB queries.
+    """
+    return JsonResponse({
+        'status': 'healthy',
+        'service': 'Sandesh 2.0',
+        'timestamp': timezone.now().isoformat()
+    }, status=200)
+
+
+
