@@ -579,12 +579,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
             # Automatically unhide users when messaging resumes
-            if not is_self_chat:
+            if not is_self_chat and hasattr(self, 'other_user') and self.other_user:
                 try:
-                    self.me.profile.hidden_users.remove(self.other_user.profile)
-                    self.other_user.profile.hidden_users.remove(self.me.profile)
-                except Exception:
-                    pass
+                    from users.models import UserProfile
+                    p_me, _ = UserProfile.objects.get_or_create(user=self.me)
+                    p_other, _ = UserProfile.objects.get_or_create(user=self.other_user)
+                    p_me.hidden_users.remove(p_other)
+                    p_other.hidden_users.remove(p_me)
+                except Exception as exc:
+                    logger.warning(f'[WS] Failed to unhide users: {exc}')
 
             result = {'id': msg.id, 'timestamp': msg.timestamp.isoformat()}
             if replied_moment:

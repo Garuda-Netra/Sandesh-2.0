@@ -258,6 +258,14 @@ SDH.UserSearch = (() => {
     const list = document.getElementById('userList');
     if (!list || originalHTML === null) return;
     list.innerHTML = originalHTML;
+
+    // Keep active chat highlighted if a conversation is currently open
+    if (window.SDH?.Chat?.getActiveUser) {
+      const active = window.SDH.Chat.getActiveUser();
+      if (active) {
+        document.getElementById(`user-item-${active}`)?.classList.add('active-chat-item');
+      }
+    }
   }
 
   /** Update the cached server-rendered user list so future restores use updated DOM. */
@@ -269,6 +277,12 @@ SDH.UserSearch = (() => {
       const list = document.getElementById('userList');
       if (list) {
         list.innerHTML = newHTML;
+        if (window.SDH?.Chat?.getActiveUser) {
+          const active = window.SDH.Chat.getActiveUser();
+          if (active) {
+            document.getElementById(`user-item-${active}`)?.classList.add('active-chat-item');
+          }
+        }
       }
     }
   }
@@ -308,6 +322,59 @@ SDH.UserSearch = (() => {
       template.innerHTML = originalHTML;
       if (removeUserNode(template.content, username)) {
         originalHTML = template.innerHTML;
+      }
+    }
+  }
+
+  /** Add or restore a user to originalHTML and live sidebar */
+  function addUser(username, userId, itemHTML) {
+    if (!username) return;
+
+    // 1. Update originalHTML template so when search is cleared, this user is present
+    if (originalHTML !== null) {
+      const template = document.createElement('template');
+      template.innerHTML = originalHTML;
+      const existingInTemplate = findUserNode(template.content, username);
+      if (!existingInTemplate) {
+        const dms = template.content.getElementById('dmsContainer') || template.content.getElementById('userList');
+        if (dms) {
+          const savedMsg = dms.querySelector('[data-self="1"]');
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = itemHTML;
+          const newEl = tempDiv.firstElementChild;
+          if (newEl) {
+            if (savedMsg && savedMsg.nextSibling) {
+              dms.insertBefore(newEl, savedMsg.nextSibling);
+            } else if (savedMsg) {
+              dms.appendChild(newEl);
+            } else {
+              dms.prepend(newEl);
+            }
+            originalHTML = template.innerHTML;
+          }
+        }
+      }
+    }
+
+    // 2. Also update live DOM if not actively searching
+    const input = document.getElementById('searchUsers');
+    const isSearching = !!(input && input.value.trim().length > 0);
+    if (!isSearching) {
+      const dms = document.getElementById('dmsContainer') || document.getElementById('userList');
+      if (dms && !findUserNode(dms, username)) {
+        const savedMsg = dms.querySelector('[data-self="1"]');
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = itemHTML;
+        const newEl = tempDiv.firstElementChild;
+        if (newEl) {
+          if (savedMsg && savedMsg.nextSibling) {
+            dms.insertBefore(newEl, savedMsg.nextSibling);
+          } else if (savedMsg) {
+            dms.appendChild(newEl);
+          } else {
+            dms.prepend(newEl);
+          }
+        }
       }
     }
   }
@@ -420,6 +487,6 @@ SDH.UserSearch = (() => {
     init();
   }
 
-  return { init, forgetUser, updateOriginal };
+  return { init, forgetUser, updateOriginal, addUser };
 
 })();

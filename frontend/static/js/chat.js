@@ -223,8 +223,14 @@ SDH.Chat = (() => {
       if (newUserList) {
         const newUserListHTML = newUserList.innerHTML;
         const currentList = document.getElementById('userList');
-        if (currentList) {
+        const searchInput = document.getElementById('searchUsers');
+        const isSearching = !!(searchInput && searchInput.value.trim().length > 0);
+
+        if (currentList && !isSearching) {
           currentList.innerHTML = newUserListHTML;
+          if (activeUser) {
+            document.getElementById(`user-item-${activeUser}`)?.classList.add('active-chat-item');
+          }
         }
 
         // Keep SDH.UserSearch originalHTML in sync so future searches or clears don't revert to stale HTML
@@ -365,11 +371,132 @@ SDH.Chat = (() => {
           </div>
         </div>
 
-        <div class="sdh-empty-divider mb-5"></div>
+        <div class="sdh-empty-divider"></div>
         <span class="sdh-empty-badge mb-3">SANDESH</span>
         <p class="sdh-empty-title mb-2">Select a contact to begin</p>
         <p class="sdh-empty-sub">Pick a conversation from the sidebar to start chatting</p>
       `;
+  }
+
+  // ── Contact Sidebar Helpers ─────────────────────────────────────────
+  function _moveContactToTop(targetUsername) {
+    if (!targetUsername || _isSelfChat(targetUsername) || targetUsername.startsWith('group_')) return;
+    const isLocked = window.SDH?.ChatLock?.isChatLocked?.(targetUsername, false);
+    if (isLocked) return;
+
+    const targetItem = document.getElementById(`user-item-${targetUsername}`);
+    if (!targetItem) return;
+
+    const container = targetItem.parentNode || document.getElementById('dmsContainer') || document.getElementById('userList');
+    if (!container) return;
+
+    const savedMsgItem = container.querySelector('[data-self="1"]');
+    if (savedMsgItem && savedMsgItem !== targetItem) {
+      if (savedMsgItem.nextSibling !== targetItem) {
+        container.insertBefore(targetItem, savedMsgItem.nextSibling);
+      }
+    } else if (!savedMsgItem) {
+      container.prepend(targetItem);
+    }
+  }
+
+  function _ensureUserInSidebar(username, userId) {
+    if (!username || _isSelfChat(username) || username.startsWith('group_')) return;
+
+    const dms = document.getElementById('dmsContainer') || document.getElementById('userList');
+    const existing = dms?.querySelector(`#user-item-${username}`);
+    if (existing) {
+      _moveContactToTop(username);
+      return existing;
+    }
+
+    if (!userId) {
+      const uObj = window.SDH_DATA?.users?.find(u => u.username === username);
+      if (uObj?.id) userId = uObj.id;
+      else if (sessionStorage.getItem('ndm_last_chat') === username) {
+        userId = sessionStorage.getItem('ndm_last_chat_id');
+      }
+    }
+
+    const initial = (username[0] || '?').toUpperCase();
+    const displayName = _displayNameFor(username);
+    const itemHTML = `
+      <div id="user-item-${username}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5 group/usr"
+           data-username="${username}" data-userid="${userId || ''}" data-friendship="friend">
+        <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
+             onclick="SDH.Chat.selectUser('${username}', '${userId || ''}')">
+          <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showUserProfile('${username}', '${userId || ''}')">
+            <div class="sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none">
+              ${initial}
+            </div>
+            <span id="online-dot-${username}" class="sdh-online-dot absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 flex-shrink-0 sdh-online-dot--off"></span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <span class="sdh-user-name text-sm font-semibold truncate" style="color:var(--c-text)">${displayName}</span>
+              <span id="unread-${username}" class="sdh-unread-badge hidden flex-shrink-0 text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full"></span>
+            </div>
+            <p id="last-seen-${username}" class="text-[11px] truncate mt-0.5 sdh-status-offline">Ready to chat</p>
+          </div>
+        </div>
+        <div class="user-ctx-wrap relative flex-shrink-0 z-10 opacity-100 sm:opacity-0 sm:group-hover/usr:opacity-100 transition-opacity duration-150" onclick="event.stopPropagation()">
+          <button onclick="SDH.Chat._toggleUserMenu(this)" class="w-7 h-7 flex items-center justify-center rounded-full text-divine-muted/50 hover:text-divine-gold hover:bg-divine-card/80 border border-transparent hover:border-divine-border/60 transition-all leading-none select-none" title="User options">⋯</button>
+          <div class="user-ctx-dropdown hidden z-[9999] w-52 bg-divine-card border border-divine-border/80 rounded-xl shadow-2xl overflow-hidden py-1">
+            <button onclick="SDH.Chat.showUserProfile('${username}', '${userId || ''}')" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              View Profile
+            </button>
+            <button onclick="SDH.ChatLock.toggleLockFromItem('direct', '${userId || ''}', '${username}'); SDH.Chat._closeAllUserMenus();" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-400/90 hover:text-purple-300 hover:bg-divine-surface transition-colors text-left">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              Lock / Unlock Chat
+            </button>
+            <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
+            <button onclick="SDH.Chat._confirmUnfriend('${userId || ''}', '${username}')" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400/80 hover:text-red-400 hover:bg-divine-surface transition-colors text-left">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11c1.657 0 3-1.343 3-3S17.657 5 16 5M21 21v-2a4 4 0 00-3-3.874M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" /></svg>
+              Unfriend
+            </button>
+            <button onclick="SDH.Chat._confirmRemoveUser('${userId || ''}', '${username}')" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" /></svg>
+              Remove from My List
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (window.SDH?.UserSearch?.addUser) {
+      window.SDH.UserSearch.addUser(username, userId, itemHTML);
+    } else if (dms) {
+      const savedMsg = dms.querySelector('[data-self="1"]');
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = itemHTML;
+      const newEl = tempDiv.firstElementChild;
+      if (newEl) {
+        if (savedMsg && savedMsg.nextSibling) {
+          dms.insertBefore(newEl, savedMsg.nextSibling);
+        } else if (savedMsg) {
+          dms.appendChild(newEl);
+        } else {
+          dms.prepend(newEl);
+        }
+      }
+    }
+
+    if (activeUser === username) {
+      document.getElementById(`user-item-${username}`)?.classList.add('active-chat-item');
+    }
+
+    if (window.SDH_DATA?.users && !window.SDH_DATA.users.some(u => u.username === username)) {
+      window.SDH_DATA.users.push({
+        id: userId ? (parseInt(userId, 10) || userId) : null,
+        username: username,
+        is_friend: true,
+        is_online: false,
+        is_blocked: false,
+        is_chat_blocked: false
+      });
+    }
+    _updateOnlineCount();
   }
 
   function _setDefaultHeaderStatus() {
@@ -414,9 +541,9 @@ SDH.Chat = (() => {
     el.className = `text-xs truncate transition-colors ${classes[state] || classes.default}`;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═════════════════════════════════════════════════════════════════════
   //  Incoming message handlers
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ═════════════════════════════════════════════════════════════════════
   async function handleIncomingMessage(data) {
     const isFromMe = data.sender === window.SDH_DATA.currentUser;
 
@@ -430,6 +557,12 @@ SDH.Chat = (() => {
           _setMsgStatus(data.message_id, 'sent');
         }
         renderedIds.add(String(data.message_id));
+
+        // Make sure direct chat partner is in sidebar & moved to top!
+        if (data.receiver && !_isSelfChat(data.receiver)) {
+          _ensureUserInSidebar(data.receiver, data.receiver_id);
+          _moveContactToTop(data.receiver);
+        }
         return;
       }
       // If not upgraded, it was sent via REST (e.g., from moments.js)
@@ -441,12 +574,11 @@ SDH.Chat = (() => {
     const isGroupMsg = data.type === 'group_message' || !!data.group_id;
     const chatTarget = isGroupMsg ? `group_${data.group_id}` : (isFromMe ? data.receiver : data.sender);
 
-    // If direct message partner is not in sidebar, refresh sidebar to show them
+    // If direct message partner is not in sidebar, ensure they are in sidebar
     if (!isGroupMsg && chatTarget && chatTarget !== window.SDH_DATA.currentUser) {
-      const existingItem = document.getElementById(`user-item-${chatTarget}`);
-      if (!existingItem) {
-        _refreshSidebar();
-      }
+      const targetUserId = isFromMe ? data.receiver_id : data.sender_id;
+      _ensureUserInSidebar(chatTarget, targetUserId);
+      _moveContactToTop(chatTarget);
     }
 
     if (activeUser !== chatTarget) {
@@ -485,20 +617,7 @@ SDH.Chat = (() => {
 
         // Move contact to top under Saved Messages only if not locked
         if (!isLocked) {
-          const targetItem = document.getElementById(`user-item-${chatTarget}`);
-          if (targetItem) {
-            const userList = document.getElementById('userList');
-            if (userList) {
-              const savedMsgItem = userList.querySelector('[data-self="1"]');
-              if (savedMsgItem && savedMsgItem.nextSibling) {
-                userList.insertBefore(targetItem, savedMsgItem.nextSibling);
-              } else {
-                userList.prepend(targetItem);
-              }
-            }
-          } else {
-            _refreshSidebar();
-          }
+          _moveContactToTop(chatTarget);
         }
       }
       return;
@@ -948,12 +1067,42 @@ SDH.Chat = (() => {
       el.classList.remove('active-chat-item'));
   }
 
+  function _resolveTargetUser(userId, username) {
+    let targetName = username || activeUser;
+    if (!targetName) {
+      targetName = sessionStorage.getItem('ndm_last_chat');
+    }
+    if (!targetName) {
+      const uEl = document.getElementById('chatUsername');
+      if (uEl && uEl.textContent && uEl.textContent.trim() !== 'Select a contact') {
+        targetName = uEl.textContent.trim();
+      }
+    }
+
+    let targetId = userId || activeUserId;
+    if (!targetId && targetName) {
+      const uObj = window.SDH_DATA?.users?.find(u => u.username === targetName);
+      if (uObj?.id) {
+        targetId = uObj.id;
+      } else {
+        const itemEl = document.getElementById(`user-item-${targetName}`);
+        targetId = itemEl?.dataset?.userid || itemEl?.getAttribute('data-userid');
+      }
+      if (!targetId && sessionStorage.getItem('ndm_last_chat') === targetName) {
+        targetId = sessionStorage.getItem('ndm_last_chat_id');
+      }
+    }
+    return {
+      targetId: targetId ? (parseInt(targetId, 10) || targetId) : null,
+      targetName: targetName ? String(targetName).trim() : null
+    };
+  }
+
   /** Opens the "Remove User" confirmation modal for a sidebar contact or active user. */
   function _confirmRemoveUser(userId, username) {
     // Close any open dropdown
     _closeAllUserMenus();
-    const targetId = userId || activeUserId;
-    const targetName = username || activeUser;
+    const { targetId, targetName } = _resolveTargetUser(userId, username);
     if (!targetName) return;
 
     const modal = document.getElementById('removeUserModal');
@@ -967,10 +1116,8 @@ SDH.Chat = (() => {
 
   /** Opens the "Block Contact" confirmation modal for the active conversation or sidebar contact. */
   function _confirmBlockUser(userId, username) {
-    const targetId = userId || activeUserId;
-    const targetName = username || activeUser;
-    if (!targetName) return;
-    if (_isSelfChat(targetName)) return;
+    const { targetId, targetName } = _resolveTargetUser(userId, username);
+    if (!targetName || _isSelfChat(targetName)) return;
 
     const modal = document.getElementById('blockUserModal');
     if (!modal) return;
@@ -992,10 +1139,15 @@ SDH.Chat = (() => {
     const rawUsername = modal.dataset.targetUsername;
     modal.classList.add('hidden');
 
-    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
+    let cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
       ? parseInt(rawUserId, 10)
       : null;
-    const cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+    let cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+
+    if (!cleanUserId && cleanUsername) {
+      const resolved = _resolveTargetUser(null, cleanUsername);
+      if (resolved.targetId) cleanUserId = resolved.targetId;
+    }
 
     if (!cleanUserId && !cleanUsername) return;
 
@@ -1039,10 +1191,15 @@ SDH.Chat = (() => {
     const rawUsername = modal.dataset.targetUsername;
     modal.classList.add('hidden');
 
-    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
+    let cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
       ? parseInt(rawUserId, 10)
       : null;
-    const cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+    let cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+
+    if (!cleanUserId && cleanUsername) {
+      const resolved = _resolveTargetUser(null, cleanUsername);
+      if (resolved.targetId) cleanUserId = resolved.targetId;
+    }
 
     if (!cleanUserId && !cleanUsername) return;
 
@@ -1094,10 +1251,8 @@ SDH.Chat = (() => {
 
   /** Opens the "Unblock Contact" confirmation modal. */
   function _confirmUnblockUser(userId, username) {
-    const targetId = userId || activeUserId;
-    const targetName = username || activeUser;
-    if (!targetName) return;
-    if (_isSelfChat(targetName)) return;
+    const { targetId, targetName } = _resolveTargetUser(userId, username);
+    if (!targetName || _isSelfChat(targetName)) return;
 
     const modal = document.getElementById('unblockUserModal');
     if (!modal) return;
@@ -1119,10 +1274,15 @@ SDH.Chat = (() => {
     const rawUsername = modal.dataset.targetUsername;
     modal.classList.add('hidden');
 
-    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
+    let cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
       ? parseInt(rawUserId, 10)
       : null;
-    const cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+    let cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+
+    if (!cleanUserId && cleanUsername) {
+      const resolved = _resolveTargetUser(null, cleanUsername);
+      if (resolved.targetId) cleanUserId = resolved.targetId;
+    }
 
     if (!cleanUserId && !cleanUsername) return;
 
@@ -1170,8 +1330,7 @@ SDH.Chat = (() => {
   /** Opens the "Unfriend" confirmation modal for a sidebar contact or active user. */
   function _confirmUnfriend(userId, username) {
     _closeAllUserMenus();
-    const targetId = userId || activeUserId;
-    const targetName = username || activeUser;
+    const { targetId, targetName } = _resolveTargetUser(userId, username);
     if (!targetName) return;
 
     const modal = document.getElementById('unfriendUserModal');
@@ -1191,12 +1350,20 @@ SDH.Chat = (() => {
     const rawUsername = modal.dataset.targetUsername;
     modal.classList.add('hidden');
 
-    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
+    let cleanUserId = (rawUserId && rawUserId !== 'undefined' && !isNaN(parseInt(rawUserId, 10)))
       ? parseInt(rawUserId, 10)
       : null;
-    const cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
+    let cleanUsername = (rawUsername && rawUsername !== 'undefined') ? rawUsername : null;
 
-    if (!cleanUserId && !cleanUsername) return;
+    if (!cleanUserId && cleanUsername) {
+      const resolved = _resolveTargetUser(null, cleanUsername);
+      if (resolved.targetId) cleanUserId = resolved.targetId;
+    }
+
+    if (!cleanUserId && !cleanUsername) {
+      showToast('Could not find user to unfriend', 'error');
+      return;
+    }
 
     try {
       const res = await fetch(window.SDH_DATA.unfriendUrl || '/users/api/unfriend/', {
@@ -1210,9 +1377,9 @@ SDH.Chat = (() => {
           target_username: cleanUsername,
         }),
       });
-      if (!res.ok) {
-        const b = await res.json().catch(() => ({}));
-        throw new Error(b.error || res.statusText);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        throw new Error(data.error || res.statusText || 'Failed to unfriend contact');
       }
 
       // Remove the user entirely from the sidebar
@@ -1921,10 +2088,9 @@ SDH.Chat = (() => {
           SDH.WS.sendMessage(payload);
 
           if (!activeUser.startsWith('group_') && !_isSelfChat(activeUser)) {
-            const existingItem = document.getElementById(`user-item-${activeUser}`);
-            if (!existingItem) {
-              _refreshSidebar();
-            }
+            _ensureUserInSidebar(activeUser, activeUserId);
+            _moveContactToTop(activeUser);
+            setTimeout(_refreshSidebar, 350);
           }
         }
 
@@ -1953,10 +2119,9 @@ SDH.Chat = (() => {
       SDH.WS.sendMessage(payload);
 
       if (!activeUser.startsWith('group_') && !_isSelfChat(activeUser)) {
-        const existingItem = document.getElementById(`user-item-${activeUser}`);
-        if (!existingItem) {
-          _refreshSidebar();
-        }
+        _ensureUserInSidebar(activeUser, activeUserId);
+        _moveContactToTop(activeUser);
+        setTimeout(_refreshSidebar, 350);
       }
 
     } catch (err) {
@@ -2253,8 +2418,16 @@ SDH.Chat = (() => {
       if (uObj?.id) userId = uObj.id;
       else {
         const itemEl = document.getElementById(`user-item-${username}`);
-        if (itemEl?.dataset?.userId) userId = itemEl.dataset.userId;
+        userId = itemEl?.dataset?.userid || itemEl?.getAttribute('data-userid');
       }
+      if (!userId && sessionStorage.getItem('ndm_last_chat') === username) {
+        userId = sessionStorage.getItem('ndm_last_chat_id');
+      }
+    }
+
+    if (userId) {
+      userId = parseInt(userId, 10) || userId;
+      sessionStorage.setItem('ndm_last_chat_id', String(userId));
     }
 
     // Chat Lock Verification
@@ -2267,12 +2440,22 @@ SDH.Chat = (() => {
       }
     }
 
-    if (activeUser === username) return;
+    if (activeUser === username) {
+      if (userId && (!activeUserId || activeUserId !== userId)) {
+        activeUserId = userId;
+      }
+      return;
+    }
     clearFiles();
     activeUser = username; activeUserId = userId;
     sessionStorage.setItem('ndm_last_chat', username);
     if (userId) sessionStorage.setItem('ndm_last_chat_id', String(userId));
     sessionStorage.setItem('ndm_last_chat_user', window.SDH_DATA?.currentUser || '');
+
+    // Ensure user exists in sidebar list & originalHTML
+    if (!_isSelfChat(username) && !username.startsWith('group_')) {
+      _ensureUserInSidebar(username, userId);
+    }
 
     if (SDH.WS && userId) {
       SDH.WS.connectWebSocket(userId, false);
