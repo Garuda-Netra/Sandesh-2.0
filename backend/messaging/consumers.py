@@ -27,8 +27,8 @@ def room_name_for(user_a: str, user_b: str) -> str:
 
 def room_name_for_ids(user_a_id: int, user_b_id: int) -> str:
     lo, hi = sorted([int(user_a_id), int(user_b_id)])
-    return f'{lo}__{hi}'
 
+_presence_tasks = set()
 
 # ---------------------------------------------------------------------------
 # 1. ChatConsumer
@@ -49,7 +49,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         self.me = self.scope['user']
-        self._presence_debounce_seconds = 30.0
+        self._presence_debounce_seconds = 3.0
 
         # Reject soft-deleted accounts
         if await self.is_account_deleted(self.me):
@@ -75,7 +75,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.personal_group, self.channel_name)
 
         # Join session-specific group for force logout
-        self.session_key = self.scope.get('session', {}).session_key
+        session_obj = self.scope.get('session')
+        self.session_key = getattr(session_obj, 'session_key', None)
         if self.session_key:
             self.session_group = f"session_{self.session_key}"
             await self.channel_layer.group_add(self.session_group, self.channel_name)
@@ -116,10 +117,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         other_presence = await self.get_user_presence(self.other_user)
         await self.send(text_data=json.dumps({
             'type': 'presence',
+            'user_id': self.other_user_id,
             'username': self.other_username,
             'status': 'active' if other_presence['is_online'] else 'inactive',
             'last_seen': other_presence['last_seen'],
         }))
+
+        # Also push current online snapshot of other contacts to this user
+        online_users = await self.get_all_online_users_presence()
+        for pres in online_users:
+            if pres.get('username') != self.other_username:
+                await self.send(text_data=json.dumps(pres))
 
     async def disconnect(self, code):
         if hasattr(self, 'room_group'):
@@ -139,7 +147,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Do it with a short debounce so rapid chat switching doesn't flicker.
             became_offline = await self._decr_active_connections()
             if became_offline:
-                asyncio.create_task(self._debounced_offline())
+                task = asyncio.create_task(self._debounced_offline())
+                _presence_tasks.add(task)
+                task.add_done_callback(_presence_tasks.discard)
 
     async def _debounced_offline(self):
         try:
@@ -672,6 +682,45 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return {'is_online': False, 'last_seen': None}
 
     @database_sync_to_async
+    def get_all_online_users_presence(self) -> list:
+        """Returns presence states of all currently online users respecting privacy."""
+        from users.models import UserProfile, UserSettings, Friendship
+        results = []
+        try:
+            my_settings = UserSettings.get_for_user(self.me)
+            my_p = UserProfile.objects.filter(user=self.me).first()
+            friend_ids = set()
+            if my_p:
+                friend_ids = Friendship.get_friend_profile_ids(my_p)
+
+            online_profiles = UserProfile.objects.filter(is_online=True).exclude(user=self.me).select_related('user')
+            for prof in online_profiles:
+                u = prof.user
+                u_settings = UserSettings.get_for_user(u)
+
+                can_see_last_seen = True
+                if u_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY or my_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY:
+                    can_see_last_seen = False
+                elif u_settings.last_seen_visibility == UserSettings.LAST_SEEN_CONTACTS:
+                    can_see_last_seen = prof.id in friend_ids
+
+                can_see_online = True
+                if u_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN:
+                    can_see_online = can_see_last_seen
+
+                if can_see_online:
+                    results.append({
+                        'type': 'presence',
+                        'user_id': u.id,
+                        'username': u.username,
+                        'status': 'active',
+                        'last_seen': (prof.last_seen.isoformat() if prof.last_seen else None) if can_see_last_seen else None
+                    })
+        except Exception as exc:
+            logger.warning(f'[WS] get_all_online_users_presence error: {exc}')
+        return results
+
+    @database_sync_to_async
     def _check_presence_privacy(self, sender_user_id: int) -> dict:
         from users.models import UserProfile, UserSettings, Friendship
         try:
@@ -1083,7 +1132,7 @@ class GroupChatConsumer(ChatConsumer):
         self.personal_group = f'user_chat_{self.me.id}'
         await self.channel_layer.group_add(self.personal_group, self.channel_name)
         
-        self._presence_debounce_seconds = 30.0
+        self._presence_debounce_seconds = 3.0
         became_online = await self._incr_active_connections()
         
         # Always update DB and broadcast presence to override cache desyncs
@@ -1113,7 +1162,9 @@ class GroupChatConsumer(ChatConsumer):
         if hasattr(self, 'me'):
             became_offline = await self._decr_active_connections()
             if became_offline:
-                asyncio.create_task(self._debounced_offline())
+                task = asyncio.create_task(self._debounced_offline())
+                _presence_tasks.add(task)
+                task.add_done_callback(_presence_tasks.discard)
 
     async def receive(self, text_data=None, bytes_data=None):
         try:
@@ -1318,7 +1369,7 @@ class NotificationConsumer(ChatConsumer):
             return
 
         self.me = self.scope['user']
-        self._presence_debounce_seconds = 30.0
+        self._presence_debounce_seconds = 3.0
 
         # No specific room or other_user. Only personal and presence groups.
         self.personal_group = f"user_chat_{self.me.id}"
@@ -1326,7 +1377,8 @@ class NotificationConsumer(ChatConsumer):
         await self.channel_layer.group_add('presence_all', self.channel_name)
 
         # Session group
-        self.session_key = self.scope.get('session', {}).session_key if hasattr(self.scope, 'get') else getattr(self.scope.get('session', object()), 'session_key', None)
+        session_obj = self.scope.get('session')
+        self.session_key = getattr(session_obj, 'session_key', None)
         if self.session_key:
             self.session_group = f"session_{self.session_key}"
             await self.channel_layer.group_add(self.session_group, self.channel_name)
@@ -1338,17 +1390,22 @@ class NotificationConsumer(ChatConsumer):
         await self.accept()
         logger.info(f'[WS-Notify] {self.me.username} connected to global notifications')
 
-        if became_online:
-            await self.channel_layer.group_send(
-                'presence_all',
-                {
-                    'type': 'broadcast_presence',
-                    'user_id': self.me.id,
-                    'username': self.me.username,
-                    'is_online': True,
-                    'last_seen': None
-                }
-            )
+        # Broadcast active presence to all connected peers
+        await self.channel_layer.group_send(
+            'presence_all',
+            {
+                'type': 'broadcast_presence',
+                'user_id': self.me.id,
+                'username': self.me.username,
+                'is_online': True,
+                'last_seen': None
+            }
+        )
+
+        # Send current online presence snapshot to self
+        online_users = await self.get_all_online_users_presence()
+        for pres in online_users:
+            await self.send(text_data=json.dumps(pres))
 
     async def disconnect(self, code):
         await self.channel_layer.group_discard('presence_all', self.channel_name)
@@ -1362,7 +1419,9 @@ class NotificationConsumer(ChatConsumer):
         if hasattr(self, 'me'):
             became_offline = await self._decr_active_connections()
             if became_offline:
-                asyncio.create_task(self._debounced_offline())
+                task = asyncio.create_task(self._debounced_offline())
+                _presence_tasks.add(task)
+                task.add_done_callback(_presence_tasks.discard)
 
     async def receive(self, text_data=None, bytes_data=None):
         try:

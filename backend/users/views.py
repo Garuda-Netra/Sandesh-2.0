@@ -301,14 +301,34 @@ def logout_view(request):
 
 
 def _mark_offline(user):
-    """Sync helper: mark user offline in DB and stamp last_seen."""
+    """Sync helper: mark user offline in DB and stamp last_seen, and notify presence_all."""
+    from asgiref.sync import async_to_sync
+    from channels.layers import get_channel_layer
+    from django.core.cache import cache
     try:
         profile = user.profile
         profile.is_online = False
         profile.last_seen = timezone.now()
         profile.save(update_fields=['is_online', 'last_seen'])
-    except Exception:
-        pass
+        
+        # Clear presence cache count
+        cache.delete(f'sdh_ws_conn_count_user_{user.id}')
+        
+        # Broadcast offline status to presence_all
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                'presence_all',
+                {
+                    'type': 'broadcast_presence',
+                    'user_id': user.id,
+                    'username': user.username,
+                    'is_online': False,
+                    'last_seen': profile.last_seen.isoformat()
+                }
+            )
+    except Exception as exc:
+        logger.warning(f'[_mark_offline] Error: {exc}')
 
 
 # ---------------------------------------------------------------------------

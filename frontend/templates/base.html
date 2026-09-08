@@ -1194,5 +1194,18 @@
       </button>
     </div>
   </div>
+  {% if user.is_authenticated %}
+  <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var p = window.location.pathname;
+      if (!p.startsWith('/chat/') && !p.startsWith('/call/') && !p.startsWith('/webrtc/')) {
+        if (window.SDH && window.SDH.WS) {
+          window.SDH.WS.connectWebSocket('global');
+        }
+      }
+    });
+  </script>
+  {% endif %}
 </body>
 </html>

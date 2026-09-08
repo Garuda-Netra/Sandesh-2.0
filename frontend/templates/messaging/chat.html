@@ -586,7 +586,7 @@
               {{ item.user.username|slice:":1"|upper }}
             </div>
             {% endif %}
-            {% if item.is_friend or item.is_self_chat %}
+            {% if not item.is_self_chat %}
             <!-- Online indicator -->
             <span id="online-dot-{{ item.user.username }}" class="sdh-online-dot absolute bottom-0 right-0 w-3 h-3 rounded-full
                          border-2 flex-shrink-0
@@ -610,12 +610,14 @@
                            px-1.5 py-0.5 rounded-full">
               </span>
             </div>
-            {% if item.is_friend or item.is_self_chat %}
+            {% if item.is_self_chat %}
+            <p id="last-seen-{{ item.user.username }}" class="text-[11px] truncate mt-0.5 sdh-status-online">
+              Personal notes · Only you
+            </p>
+            {% else %}
             <p id="last-seen-{{ item.user.username }}" class="text-[11px] truncate mt-0.5
                       {% if item.is_online %}sdh-status-online{% else %}sdh-status-offline{% endif %}">
-              {% if item.is_self_chat %}
-              Personal notes · Only you
-              {% elif item.is_chat_blocked %}
+              {% if item.is_chat_blocked %}
               &nbsp;
               {% elif item.is_online %}
               &#9679; Active
@@ -625,8 +627,6 @@
               Ready to chat
               {% endif %}
             </p>
-            {% else %}
-            <p id="last-seen-{{ item.user.username }}" class="text-[11px] truncate mt-0.5 sdh-status-offline">Chat</p>
             {% endif %}
           </div>
 

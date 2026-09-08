@@ -532,12 +532,11 @@ SDH.Chat = (() => {
       const userObj = window.SDH_DATA?.users?.find(u => u.username === activeUser);
       const userItem = document.getElementById(`user-item-${activeUser}`);
       const isBlocked = userItem?.dataset?.blocked === '1' || userItem?.dataset?.chatBlocked === '1';
-      const isFriend = (userItem?.dataset?.friendship === 'friend') || (userObj ? userObj.is_friend : false);
 
-      if (isBlocked || !isFriend) {
+      if (isBlocked) {
         _setHeaderStatus('', 'default');
       } else if (userObj && userObj.is_online) {
-        _setHeaderStatus('Active', 'connected');
+        _setHeaderStatus('Active now', 'connected');
       } else if (userObj && userObj.last_seen) {
         _setHeaderStatus('Last seen ' + _relativeTime(userObj.last_seen), 'default');
       } else {
@@ -2356,22 +2355,17 @@ SDH.Chat = (() => {
   //  Presence (online / offline + last seen)
   // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
   function handlePresence(data) {
+    if (!data || !data.username) return;
     // Keep self-chat label/status stable in the UI.
     if (_isSelfChat(data.username)) return;
 
-    const u = window.SDH_DATA?.users?.find(x => x.username === data.username);
-    if (u && !u.is_friend) return; // Ignore presence updates for non-friends
-
     const userItem = document.getElementById(`user-item-${data.username}`);
     const isBlocked = userItem?.dataset?.blocked === '1' || userItem?.dataset?.chatBlocked === '1';
-    const userObj = window.SDH_DATA?.users?.find(u => u.username === data.username);
-    const isFriend = userItem?.dataset?.friendship === 'friend' || (userObj && userObj.is_friend);
-    
-    const isActive = data.status === 'active' && !isBlocked && isFriend;
+    const isActive = (data.status === 'active') && !isBlocked;
 
     // Update sidebar status dot using CSS module classes (sdh-online-dot--on/off)
     const dot = document.getElementById(`online-dot-${data.username}`);
-    if (dot && isFriend) {
+    if (dot) {
       dot.classList.remove('sdh-online-dot--on', 'sdh-online-dot--off');
       dot.classList.add(isActive ? 'sdh-online-dot--on' : 'sdh-online-dot--off');
     }
@@ -2379,7 +2373,7 @@ SDH.Chat = (() => {
     // Update last-seen sub-label in sidebar
     const lsEl = document.getElementById(`last-seen-${data.username}`);
     if (lsEl) {
-      if (isBlocked || !isFriend) {
+      if (isBlocked) {
         lsEl.innerHTML = '&nbsp;';
         lsEl.className = 'text-[11px] sdh-status-inactive truncate mt-0.5';
       } else if (isActive) {
@@ -2389,12 +2383,13 @@ SDH.Chat = (() => {
         lsEl.textContent = 'Last seen ' + _relativeTime(data.last_seen);
         lsEl.className = 'text-[11px] sdh-status-inactive truncate mt-0.5';
       } else {
-        lsEl.textContent = 'Inactive';
+        lsEl.textContent = 'Offline';
         lsEl.className = 'text-[11px] sdh-status-inactive truncate mt-0.5';
       }
     }
 
     // Update internal user cache so if we select them later, it's correct
+    const u = window.SDH_DATA?.users?.find(x => x.username === data.username);
     if (u) {
       u.is_online = isActive;
       if (data.last_seen) u.last_seen = data.last_seen;
@@ -2406,13 +2401,14 @@ SDH.Chat = (() => {
       if (isBlocked) {
         _setHeaderStatus('', 'default');
       } else if (isActive) {
-        _setHeaderStatus('Active', 'connected');
+        _setHeaderStatus('Active now', 'connected');
       } else {
         const rel = data.last_seen ? 'Last seen ' + _relativeTime(data.last_seen) : 'Offline';
         _setHeaderStatus(rel, 'disconnected');
       }
     }
 
+    _updateOnlineCount();
     _reorderSidebar();
   }
 

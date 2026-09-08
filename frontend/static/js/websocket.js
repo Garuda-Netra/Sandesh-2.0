@@ -235,6 +235,16 @@ SDH.WS = (() => {
     if (reconnectTimer) { clearTimeout(reconnectTimer);  reconnectTimer = null; }
   }
 
+  // ── Auto disconnect on page leave ───────────────────────────
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+      disconnect();
+    });
+    window.addEventListener('pagehide', () => {
+      disconnect();
+    });
+  }
+
   // ── Expose public API ─────────────────────────────────────────
   return {
     connectWebSocket,
