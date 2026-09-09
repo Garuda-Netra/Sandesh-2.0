@@ -456,10 +456,11 @@ SDH.Chat = (() => {
   function _ensureUserInSidebar(username, userId) {
     if (!username || _isSelfChat(username) || username.startsWith('group_')) return;
 
-    const dms = document.getElementById('dmsContainer') || document.getElementById('userList');
-    const existing = dms?.querySelector(`#user-item-${username}`);
+    const existing = document.getElementById(`user-item-${username}`);
     if (existing) {
-      _moveContactToTop(username);
+      if (!window.SDH?.ChatLock?.isChatLocked?.(username, false)) {
+        _moveContactToTop(username);
+      }
       return existing;
     }
 
@@ -499,7 +500,7 @@ SDH.Chat = (() => {
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               View Profile
             </button>
-            <button onclick="SDH.ChatLock.toggleLockFromItem('direct', '${userId || ''}', '${username}'); SDH.Chat._closeAllUserMenus();" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-400/90 hover:text-purple-300 hover:bg-divine-surface transition-colors text-left">
+            <button onclick="SDH.ChatLock.toggleLockFromItem('direct', '${userId || username}', '${username}'); SDH.Chat._closeAllUserMenus();" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-400/90 hover:text-purple-300 hover:bg-divine-surface transition-colors text-left">
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
               Lock / Unlock Chat
             </button>

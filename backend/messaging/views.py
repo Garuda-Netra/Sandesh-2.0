@@ -217,6 +217,7 @@ def chat_view(request):
 
     locked_chat_records = ChatLock.objects.filter(user=request.user)
     locked_user_ids = set(locked_chat_records.filter(locked_user__isnull=False).values_list('locked_user_id', flat=True))
+    locked_usernames = list(locked_chat_records.filter(locked_user__isnull=False).values_list('locked_user__username', flat=True))
     locked_group_ids = set(locked_chat_records.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True))
     is_saved_messages_locked = locked_chat_records.filter(is_self_chat=True).exists()
 
@@ -355,6 +356,7 @@ def chat_view(request):
         'biometric_enabled': biometric_enabled,
         'is_session_unlocked': is_session_unlocked,
         'locked_user_ids': list(locked_user_ids),
+        'locked_users': locked_usernames,
         'locked_group_ids': list(locked_group_ids),
         'is_saved_messages_locked': is_saved_messages_locked,
         'locked_chats_count': len(locked_user_ids) + len(locked_group_ids) + (1 if is_saved_messages_locked else 0),
@@ -3003,13 +3005,30 @@ def toggle_chat_lock(request):
     else:
         _unlock_session(request)
 
-    return JsonResponse({
+    locks = ChatLock.objects.filter(user=request.user)
+    locked_user_ids = list(locks.filter(locked_user__isnull=False).values_list('locked_user_id', flat=True))
+    locked_usernames = list(locks.filter(locked_user__isnull=False).values_list('locked_user__username', flat=True))
+    locked_group_ids = list(locks.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True))
+    is_saved_messages_locked = locks.filter(is_self_chat=True).exists()
+
+    resp = {
         'status': 'ok',
         'is_locked': is_currently_locked,
         'chat_type': chat_type,
         'target_id': target_id,
+        'locked_user_ids': locked_user_ids,
+        'locked_users': locked_usernames,
+        'locked_group_ids': locked_group_ids,
+        'is_saved_messages_locked': is_saved_messages_locked,
         'message': f"Chat {'locked' if is_currently_locked else 'unlocked'} successfully"
-    })
+    }
+    if chat_type == 'direct' and 'target_user' in locals():
+        resp['target_user_id'] = target_user.id
+        resp['target_username'] = target_user.username
+    elif chat_type == 'group' and 'group' in locals():
+        resp['group_id'] = group.id
+
+    return JsonResponse(resp)
 
 
 @login_required
@@ -3118,6 +3137,10 @@ def unlock_and_clear_chat(request):
         return JsonResponse({
             'status': 'ok',
             'cleared_all': True,
+            'locked_user_ids': [],
+            'locked_users': [],
+            'locked_group_ids': [],
+            'is_saved_messages_locked': False,
             'message': 'All locked chats data cleared and locks removed.'
         })
 
@@ -3134,11 +3157,16 @@ def unlock_and_clear_chat(request):
         messages_qs.delete()
         ChatLock.objects.filter(user=request.user, is_self_chat=True).delete()
         _unlock_session(request)
+        locks = ChatLock.objects.filter(user=request.user)
         return JsonResponse({
             'status': 'ok',
             'chat_type': 'saved',
             'target_id': 'saved',
             'is_locked': False,
+            'locked_user_ids': list(locks.filter(locked_user__isnull=False).values_list('locked_user_id', flat=True)),
+            'locked_users': list(locks.filter(locked_user__isnull=False).values_list('locked_user__username', flat=True)),
+            'locked_group_ids': list(locks.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True)),
+            'is_saved_messages_locked': locks.filter(is_self_chat=True).exists(),
             'message': 'Saved Messages data cleared and unlocked.'
         })
 
@@ -3150,11 +3178,17 @@ def unlock_and_clear_chat(request):
             return JsonResponse({'error': 'Invalid group ID.'}, status=400)
         ChatLock.objects.filter(user=request.user, locked_group=group).delete()
         _unlock_session(request)
+        locks = ChatLock.objects.filter(user=request.user)
         return JsonResponse({
             'status': 'ok',
             'chat_type': 'group',
             'target_id': str(group.id),
+            'group_id': group.id,
             'is_locked': False,
+            'locked_user_ids': list(locks.filter(locked_user__isnull=False).values_list('locked_user_id', flat=True)),
+            'locked_users': list(locks.filter(locked_user__isnull=False).values_list('locked_user__username', flat=True)),
+            'locked_group_ids': list(locks.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True)),
+            'is_saved_messages_locked': locks.filter(is_self_chat=True).exists(),
             'message': f'Group "{group.name}" unlocked.'
         })
 
@@ -3175,11 +3209,18 @@ def unlock_and_clear_chat(request):
         messages_qs.delete()
         ChatLock.objects.filter(user=request.user, is_self_chat=True).delete()
         _unlock_session(request)
+        locks = ChatLock.objects.filter(user=request.user)
         return JsonResponse({
             'status': 'ok',
             'chat_type': 'saved',
             'target_id': other_user.username,
+            'target_user_id': other_user.id,
+            'target_username': other_user.username,
             'is_locked': False,
+            'locked_user_ids': list(locks.filter(locked_user__isnull=False).values_list('locked_user_id', flat=True)),
+            'locked_users': list(locks.filter(locked_user__isnull=False).values_list('locked_user__username', flat=True)),
+            'locked_group_ids': list(locks.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True)),
+            'is_saved_messages_locked': locks.filter(is_self_chat=True).exists(),
             'message': 'Chat data cleared and unlocked.'
         })
 
@@ -3214,12 +3255,19 @@ def unlock_and_clear_chat(request):
 
     _unlock_session(request)
 
+    locks = ChatLock.objects.filter(user=request.user)
     return JsonResponse({
         'status': 'ok',
         'chat_type': 'direct',
         'target_id': other_user.username,
         'user_id': other_user.id,
+        'target_user_id': other_user.id,
+        'target_username': other_user.username,
         'is_locked': False,
+        'locked_user_ids': list(locks.filter(locked_user__isnull=False).values_list('locked_user_id', flat=True)),
+        'locked_users': list(locks.filter(locked_user__isnull=False).values_list('locked_user__username', flat=True)),
+        'locked_group_ids': list(locks.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True)),
+        'is_saved_messages_locked': locks.filter(is_self_chat=True).exists(),
         'message': f'Chat history with {other_user.username} permanently deleted and chat unlocked.'
     })
 

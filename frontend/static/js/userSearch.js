@@ -361,7 +361,7 @@ SDH.UserSearch = (() => {
     const isSearching = !!(input && input.value.trim().length > 0);
     if (!isSearching) {
       const dms = document.getElementById('dmsContainer') || document.getElementById('userList');
-      if (dms && !findUserNode(dms, username)) {
+      if (dms && !findUserNode(document, username)) {
         const savedMsg = dms.querySelector('[data-self="1"]');
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = itemHTML;

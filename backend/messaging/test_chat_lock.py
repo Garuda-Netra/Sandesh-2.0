@@ -133,6 +133,56 @@ class ChatLockTestCase(TestCase):
         res = self.client.get(f'/messaging/api/groups/{self.group.id}/history/')
         self.assertEqual(res.status_code, 200)
 
+        # Unlock Bob's chat by username
+        res = self.client.post('/messaging/api/chat-lock/toggle/', json.dumps({
+            'chat_type': 'direct',
+            'target_id': self.user2.username,
+            'locked': False,
+        }), content_type='application/json')
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertFalse(data['is_locked'])
+        self.assertNotIn(self.user2.username, data['locked_users'])
+        self.assertNotIn(self.user2.id, data['locked_user_ids'])
+        self.assertEqual(data.get('target_username'), self.user2.username)
+        self.assertEqual(data.get('target_user_id'), self.user2.id)
+
+        # Status endpoint confirms Bob is unlocked
+        res = self.client.get('/messaging/api/chat-lock/status/')
+        self.assertEqual(res.status_code, 200)
+        self.assertNotIn(self.user2.username, res.json()['locked_users'])
+        self.assertNotIn(self.user2.id, res.json()['locked_user_ids'])
+
+        # Context in chat view includes locked_users
+        res = self.client.get('/messaging/chat/')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('locked_users', res.context)
+        self.assertNotIn(self.user2.username, res.context['locked_users'])
+
+        # Now lock Bob's chat by user ID
+        res = self.client.post('/messaging/api/chat-lock/toggle/', json.dumps({
+            'chat_type': 'direct',
+            'target_id': self.user2.id,
+            'locked': True,
+        }), content_type='application/json')
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['is_locked'])
+        self.assertIn(self.user2.username, data['locked_users'])
+        self.assertIn(self.user2.id, data['locked_user_ids'])
+
+        # Unlock Bob's chat by user ID
+        res = self.client.post('/messaging/api/chat-lock/toggle/', json.dumps({
+            'chat_type': 'direct',
+            'target_id': self.user2.id,
+            'locked': False,
+        }), content_type='application/json')
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertFalse(data['is_locked'])
+        self.assertNotIn(self.user2.username, data['locked_users'])
+        self.assertNotIn(self.user2.id, data['locked_user_ids'])
+
     def test_webauthn_options_and_verify(self):
         """Test WebAuthn options and verification endpoints."""
         self.client.login(username='alice', password='password123')

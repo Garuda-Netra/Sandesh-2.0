@@ -270,6 +270,9 @@
 {{ users_json|json_script:"sdh-users-data" }}
 {{ groups|json_script:"sdh-groups-data" }}
 {{ user_settings_json|json_script:"sdh-user-settings-data" }}
+{{ locked_users|json_script:"sdh-locked-users-data" }}
+{{ locked_user_ids|json_script:"sdh-locked-user-ids-data" }}
+{{ locked_group_ids|json_script:"sdh-locked-group-ids-data" }}
 
 <!-- Hidden data for JS -->
 <script>
@@ -308,8 +311,9 @@
     hasSecurityPin: {{ has_security_pin|yesno:"true,false" }},
     biometricEnabled: {{ biometric_enabled|yesno:"true,false" }},
     isSessionUnlocked: {{ is_session_unlocked|yesno:"true,false" }},
-    lockedUserIds: {{ locked_user_ids|safe }},
-    lockedGroupIds: {{ locked_group_ids|safe }},
+    lockedUserIds: JSON.parse(document.getElementById('sdh-locked-user-ids-data')?.textContent || '[]'),
+    lockedUsers: JSON.parse(document.getElementById('sdh-locked-users-data')?.textContent || '[]'),
+    lockedGroupIds: JSON.parse(document.getElementById('sdh-locked-group-ids-data')?.textContent || '[]'),
     isSavedMessagesLocked: {{ is_saved_messages_locked|yesno:"true,false" }},
     lockedChatsCount: {{ locked_chats_count }},
     chatLockToggleUrl: "{% url 'messaging:toggle_chat_lock' %}",

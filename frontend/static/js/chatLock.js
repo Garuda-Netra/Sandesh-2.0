@@ -15,6 +15,7 @@ SDH.ChatLock = (() => {
   let hasSecurityPin        = false;
   let biometricEnabled      = false;
   let lockedUserIds         = new Set();
+  let lockedUsernames       = new Set();
   let lockedGroupIds        = new Set();
   let isSavedMessagesLocked = false;
   let folderExpanded        = false;
@@ -81,6 +82,9 @@ SDH.ChatLock = (() => {
     if (Array.isArray(d.lockedUserIds)) {
       lockedUserIds = new Set(d.lockedUserIds.map(String));
     }
+    if (Array.isArray(d.lockedUsers)) {
+      lockedUsernames = new Set(d.lockedUsers.map(u => String(u).toLowerCase()));
+    }
     if (Array.isArray(d.lockedGroupIds)) {
       lockedGroupIds = new Set(d.lockedGroupIds.map(String));
     }
@@ -143,10 +147,27 @@ SDH.ChatLock = (() => {
     }
   }
 
+  function updateLockStateFromServer(data) {
+    if (!data) return;
+    if (Array.isArray(data.locked_user_ids)) {
+      lockedUserIds = new Set(data.locked_user_ids.map(String));
+    }
+    if (Array.isArray(data.locked_users)) {
+      lockedUsernames = new Set(data.locked_users.map(u => String(u).toLowerCase()));
+    }
+    if (Array.isArray(data.locked_group_ids)) {
+      lockedGroupIds = new Set(data.locked_group_ids.map(String));
+    }
+    if (typeof data.is_saved_messages_locked === 'boolean') {
+      isSavedMessagesLocked = data.is_saved_messages_locked;
+    }
+  }
+
   // ── Check if a chat is locked ───────────────────────────────────
   function isChatLocked(chatIdentifier, isGroup = false) {
     if (!chatIdentifier) return false;
-    const str = String(chatIdentifier);
+    const str = String(chatIdentifier).trim();
+    if (!str) return false;
 
     if (str === window.SDH_DATA?.currentUser || str === 'saved') {
       return isSavedMessagesLocked;
@@ -157,16 +178,36 @@ SDH.ChatLock = (() => {
       return lockedGroupIds.has(gId);
     }
 
+    const lower = str.toLowerCase();
     // Check by user ID or username
     if (lockedUserIds.has(str)) return true;
-    const uObj = window.SDH_DATA?.users?.find(u => u.username === str);
-    if (uObj && lockedUserIds.has(String(uObj.id))) return true;
+    if (lockedUsernames.has(lower)) return true;
+
+    // Check via SDH_DATA.users list
+    const uObj = window.SDH_DATA?.users?.find(u =>
+      String(u.id) === str || (u.username && u.username.toLowerCase() === lower)
+    );
+    if (uObj) {
+      if (lockedUserIds.has(String(uObj.id))) return true;
+      if (uObj.username && lockedUsernames.has(uObj.username.toLowerCase())) return true;
+    }
+
+    // Check DOM item data attributes if present
+    const domEl = document.querySelector(`.user-item[data-username="${str}"]`) ||
+                  document.querySelector(`.user-item[data-userid="${str}"]`);
+    if (domEl) {
+      const uId = domEl.dataset.userid;
+      const uName = domEl.dataset.username;
+      if (uId && lockedUserIds.has(String(uId))) return true;
+      if (uName && lockedUsernames.has(uName.toLowerCase())) return true;
+    }
 
     return false;
   }
 
   function getLockedCount() {
-    return lockedUserIds.size + lockedGroupIds.size + (isSavedMessagesLocked ? 1 : 0);
+    const directLockedCount = Math.max(lockedUserIds.size, lockedUsernames.size);
+    return directLockedCount + lockedGroupIds.size + (isSavedMessagesLocked ? 1 : 0);
   }
 
   // ── DOM Synchronization ─────────────────────────────────────────
@@ -238,7 +279,7 @@ SDH.ChatLock = (() => {
       const username = el.dataset.username;
       const userId = el.dataset.userid;
       const isSelf = el.dataset.self === '1';
-      const locked = isSelf ? isSavedMessagesLocked : (lockedUserIds.has(String(userId)) || isChatLocked(username));
+      const locked = isSelf ? isSavedMessagesLocked : (isChatLocked(username) || (userId && isChatLocked(userId)));
 
       if (locked) {
         el.setAttribute('data-locked', '1');
@@ -261,7 +302,12 @@ SDH.ChatLock = (() => {
         _removeItemLockBadge(el);
         // Move back to dmsContainer if it was in itemsContainer
         if (el.parentElement === itemsContainer && dmsContainer) {
-          dmsContainer.appendChild(el);
+          const savedMsg = dmsContainer.querySelector('[data-self="1"]');
+          if (savedMsg && savedMsg.nextSibling) {
+            dmsContainer.insertBefore(el, savedMsg.nextSibling);
+          } else {
+            dmsContainer.prepend(el);
+          }
         }
         el.classList.remove('hidden');
       }
@@ -583,17 +629,15 @@ SDH.ChatLock = (() => {
   function _onUnlockSuccess() {
     isUnlocked = true;
     _resetAutoLockTimer();
+    const cb = authSuccessCallback;
+    authSuccessCallback = null;
     closeAuthModal();
     syncLockedItemsInDom();
 
-    if (window.SDH?.Chat?.showToast) {
-      SDH.Chat.showToast('Chats unlocked 🔓', 'success');
-    }
-
-    if (typeof authSuccessCallback === 'function') {
-      const cb = authSuccessCallback;
-      authSuccessCallback = null;
+    if (typeof cb === 'function') {
       cb();
+    } else if (window.SDH?.Chat?.showToast) {
+      SDH.Chat.showToast('Chats unlocked 🔓', 'success');
     }
   }
 
@@ -801,8 +845,14 @@ SDH.ChatLock = (() => {
       } else if (chatType === 'group') {
         lockedGroupIds.add(String(targetId));
       } else {
-        lockedUserIds.add(String(targetId));
+        if (data.target_user_id) lockedUserIds.add(String(data.target_user_id));
+        else if (/^\d+$/.test(String(targetId))) lockedUserIds.add(String(targetId));
+
+        if (data.target_username) lockedUsernames.add(String(data.target_username).toLowerCase());
+        else lockedUsernames.add(String(displayName || targetId).toLowerCase());
       }
+
+      updateLockStateFromServer(data);
 
       // Immediately lock session and secure UI
       isUnlocked = false;
@@ -859,7 +909,29 @@ SDH.ChatLock = (() => {
         lockedGroupIds.delete(String(targetId));
       } else {
         lockedUserIds.delete(String(targetId));
+        lockedUsernames.delete(String(targetId).toLowerCase());
+        if (displayName) {
+          lockedUserIds.delete(String(displayName));
+          lockedUsernames.delete(String(displayName).toLowerCase());
+        }
+        if (data.target_user_id) {
+          lockedUserIds.delete(String(data.target_user_id));
+        }
+        if (data.target_username) {
+          lockedUsernames.delete(String(data.target_username).toLowerCase());
+        }
+        const uObj = window.SDH_DATA?.users?.find(u =>
+          String(u.id) === String(targetId) ||
+          (u.username && u.username.toLowerCase() === String(targetId).toLowerCase()) ||
+          (displayName && (String(u.id) === String(displayName) || (u.username && u.username.toLowerCase() === String(displayName).toLowerCase())))
+        );
+        if (uObj) {
+          lockedUserIds.delete(String(uObj.id));
+          if (uObj.username) lockedUsernames.delete(uObj.username.toLowerCase());
+        }
       }
+
+      updateLockStateFromServer(data);
 
       syncLockedItemsInDom();
       if (window.SDH?.Chat?.showToast) {
@@ -874,6 +946,10 @@ SDH.ChatLock = (() => {
   function toggleLockFromItem(chatType, targetId, displayName = null) {
     if (chatType === 'user') chatType = 'direct';
 
+    if (!targetId && displayName) {
+      targetId = displayName;
+    }
+
     if (!displayName) {
       if (chatType === 'saved' || targetId === 'saved') {
         displayName = 'Saved Messages';
@@ -885,7 +961,7 @@ SDH.ChatLock = (() => {
       }
     }
 
-    const locked = isChatLocked(targetId, chatType === 'group');
+    const locked = isChatLocked(targetId, chatType === 'group') || (displayName && isChatLocked(displayName, chatType === 'group'));
 
     if (!locked) {
       // Intention: Lock this chat! Show professional warning notice first.
@@ -1002,6 +1078,7 @@ SDH.ChatLock = (() => {
 
       if (data.cleared_all) {
         lockedUserIds.clear();
+        lockedUsernames.clear();
         lockedGroupIds.clear();
         isSavedMessagesLocked = false;
         hasSecurityPin = false;
@@ -1012,9 +1089,15 @@ SDH.ChatLock = (() => {
         else if (target.chatType === 'group') lockedGroupIds.delete(String(target.targetId));
         else {
           lockedUserIds.delete(String(target.targetId));
+          lockedUsernames.delete(String(target.targetId).toLowerCase());
+          if (target.displayName) {
+            lockedUsernames.delete(String(target.displayName).toLowerCase());
+          }
           if (data.user_id) lockedUserIds.delete(String(data.user_id));
         }
       }
+
+      updateLockStateFromServer(data);
 
       // If viewing cleared chat, reset view
       if (window.SDH?.Chat?._resetConversationPanel) {
