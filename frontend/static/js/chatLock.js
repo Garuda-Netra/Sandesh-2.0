@@ -18,6 +18,7 @@ SDH.ChatLock = (() => {
   let lockedGroupIds        = new Set();
   let isSavedMessagesLocked = false;
   let folderExpanded        = false;
+  let forceShowFolder       = false;
   let autoLockTimeoutId     = null;
   const AUTO_LOCK_DELAY_MS  = 5 * 60 * 1000; // 5 minutes inactivity
 
@@ -94,6 +95,36 @@ SDH.ChatLock = (() => {
 
     // Initial DOM synchronization
     syncLockedItemsInDom();
+
+    // Check if user arrived via ?open_locked=1 from Settings
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('open_locked') === '1') {
+      forceShowFolder = true;
+      syncLockedItemsInDom();
+      setTimeout(() => {
+        _handleOpenLockedParam();
+      }, 350);
+    }
+  }
+
+  function _handleOpenLockedParam() {
+    const folderEl = document.getElementById('lockedChatsFolder');
+    if (folderEl) {
+      folderEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    const count = getLockedCount();
+    if (count === 0) {
+      folderExpanded = true;
+      syncLockedItemsInDom();
+      if (window.SDH?.Chat?.showToast) {
+        SDH.Chat.showToast('Locked folder ready. To lock a chat, open it and select (⋯) → Lock Chat', 'info');
+      }
+    } else if (!isUnlocked) {
+      toggleLockedFolder();
+    } else {
+      folderExpanded = true;
+      syncLockedItemsInDom();
+    }
   }
 
   // ── Auto-Lock Timer ─────────────────────────────────────────────
@@ -150,7 +181,7 @@ SDH.ChatLock = (() => {
     if (badgeEl) badgeEl.textContent = String(totalLocked);
 
     if (folderEl) {
-      if (totalLocked > 0) {
+      if (totalLocked > 0 || forceShowFolder) {
         folderEl.classList.remove('hidden');
       } else {
         folderEl.classList.add('hidden');
@@ -176,6 +207,21 @@ SDH.ChatLock = (() => {
     if (itemsContainer) {
       if (isUnlocked && folderExpanded) {
         itemsContainer.classList.remove('hidden');
+        // If totalLocked is 0, show helpful empty state prompt
+        const existingEmpty = itemsContainer.querySelector('.sdh-locked-empty-prompt');
+        if (totalLocked === 0) {
+          if (!existingEmpty) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'sdh-locked-empty-prompt px-3 py-3 text-center text-xs text-purple-300/80 bg-purple-500/5 rounded-xl border border-purple-500/20 my-1';
+            emptyEl.innerHTML = `
+              <p class="font-semibold text-purple-300">No locked chats yet</p>
+              <p class="text-[11px] text-divine-muted mt-0.5">To lock a chat, open conversation & tap (⋯) → Lock Chat</p>
+            `;
+            itemsContainer.appendChild(emptyEl);
+          }
+        } else if (existingEmpty) {
+          existingEmpty.remove();
+        }
       } else {
         itemsContainer.classList.add('hidden');
       }

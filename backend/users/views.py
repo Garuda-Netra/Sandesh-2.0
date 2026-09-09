@@ -1337,10 +1337,24 @@ def settings_view(request):
     user_settings = UserSettings.get_for_user(request.user)
     my_profile = request.user.profile
     blocked_count = my_profile.blocked_users.count()
+
+    # Chat lock & security credentials status
+    from messaging.models import UserSecurityCredential, ChatLock
+    from messaging.views import _is_session_unlocked
+    cred = UserSecurityCredential.objects.filter(user=request.user).first()
+    has_security_pin = bool(cred and cred.pin_hash)
+    biometric_enabled = bool(cred and cred.biometric_enabled and cred.biometric_credential_id)
+    is_session_unlocked = _is_session_unlocked(request)
+    locked_chats_count = ChatLock.objects.filter(user=request.user).count()
+
     return render(request, 'users/settings.html', {
         'settings': user_settings,
         'settings_json': _serialize_settings(user_settings),
         'blocked_count': blocked_count,
+        'has_security_pin': has_security_pin,
+        'biometric_enabled': biometric_enabled,
+        'is_session_unlocked': is_session_unlocked,
+        'locked_chats_count': locked_chats_count,
     })
 
 

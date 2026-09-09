@@ -337,19 +337,114 @@
           </div>
         </div>
 
-        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Chat Lock & Biometrics</h2>
-              <p class="text-xs text-slate-500 dark:text-divine-muted mt-0.5">Protect confidential conversations with PIN or device fingerprint</p>
+        <!-- Chat Lock & Biometrics Hub -->
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-white/5">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Chat Lock & Biometrics</h2>
+                <span class="text-purple-500">🔒</span>
+                <span id="lockedCountBadge" class="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                  {{ locked_chats_count }} Protected
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-divine-muted">
+                End-to-end secured conversations with 4–6 digit PIN or device biometrics (Fingerprint / Face ID / Windows Hello)
+              </p>
             </div>
-            <a href="{% url 'messaging:chat' %}" class="sdh-liquid-btn btn-secondary btn-sm !py-2 !px-3 shrink-0">
-              <span>Manage in Chat</span>
+            <a href="{% url 'messaging:chat' %}?open_locked=1" class="sdh-liquid-btn btn-secondary btn-sm !py-2 !px-3 shrink-0 flex items-center gap-1.5 self-start sm:self-auto">
+              <span>Open in Chat</span>
+              <svg class="w-3.5 h-3.5 text-slate-400 dark:text-divine-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+              </svg>
             </a>
           </div>
-          <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed">
-            Locked conversations are secured with PIN or WebAuthn biometrics and kept in a hidden folder inside your chat interface.
-          </p>
+
+          <!-- Feature Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- 1. Security PIN Tile -->
+            <div class="p-4 rounded-xl bg-slate-50/90 dark:bg-divine-surface/50 border border-slate-200/80 dark:border-divine-border/60 flex flex-col justify-between gap-3">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center text-sm">
+                    🔢
+                  </div>
+                  <span id="pinStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold {% if has_security_pin %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20{% else %}bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20{% endif %}">
+                    {% if has_security_pin %}Configured ✓{% else %}Not Set{% endif %}
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-slate-900 dark:text-divine-text">Security PIN</h3>
+                  <p class="text-[11px] text-slate-500 dark:text-divine-muted mt-0.5 leading-relaxed">
+                    Primary 4–6 digit passcode for accessing locked chats.
+                  </p>
+                </div>
+              </div>
+              <button type="button" id="pinActionBtn" onclick="openSettingsPinModal()"
+                      class="sdh-liquid-btn btn-secondary btn-sm !py-1.5 !px-3 text-xs w-full justify-center">
+                <span>{% if has_security_pin %}Change PIN{% else %}Set Up PIN{% endif %}</span>
+              </button>
+            </div>
+
+            <!-- 2. Biometrics Tile -->
+            <div class="p-4 rounded-xl bg-slate-50/90 dark:bg-divine-surface/50 border border-slate-200/80 dark:border-divine-border/60 flex flex-col justify-between gap-3">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm">
+                    🖐️
+                  </div>
+                  <span id="bioStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold {% if biometric_enabled %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20{% else %}bg-slate-200/70 dark:bg-white/5 text-slate-600 dark:text-divine-muted border border-slate-300 dark:border-white/10{% endif %}">
+                    {% if biometric_enabled %}Linked 🖐️{% else %}Not Linked{% endif %}
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-slate-900 dark:text-divine-text">Device Biometrics</h3>
+                  <p class="text-[11px] text-slate-500 dark:text-divine-muted mt-0.5 leading-relaxed">
+                    Unlock chats with Touch ID, Face ID, or Windows Hello.
+                  </p>
+                </div>
+              </div>
+              <button type="button" id="bioActionBtn" onclick="enrollBiometricsFromSettings()"
+                      class="sdh-liquid-btn btn-secondary btn-sm !py-1.5 !px-3 text-xs w-full justify-center">
+                <span>{% if biometric_enabled %}Re-link Biometrics{% else %}Link Biometrics{% endif %}</span>
+              </button>
+            </div>
+
+            <!-- 3. Active Session Tile -->
+            <div class="p-4 rounded-xl bg-slate-50/90 dark:bg-divine-surface/50 border border-slate-200/80 dark:border-divine-border/60 flex flex-col justify-between gap-3">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center text-sm">
+                    🛡️
+                  </div>
+                  <span id="sessionStatusBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold {% if is_session_unlocked %}bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20{% else %}bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20{% endif %}">
+                    {% if is_session_unlocked %}Session Unlocked{% else %}Session Locked 🔒{% endif %}
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-slate-900 dark:text-divine-text">Active Session</h3>
+                  <p class="text-[11px] text-slate-500 dark:text-divine-muted mt-0.5 leading-relaxed">
+                    Auto-locks after 10 min inactivity or lock immediately now.
+                  </p>
+                </div>
+              </div>
+              <button type="button" id="lockNowBtn" onclick="lockSessionNowFromSettings()"
+                      class="sdh-liquid-btn btn-secondary btn-sm !py-1.5 !px-3 text-xs w-full justify-center">
+                <span>Lock Session Now</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- How to Lock Chats Guide -->
+          <div class="p-3.5 rounded-xl bg-purple-500/5 dark:bg-purple-900/10 border border-purple-500/20 flex items-start gap-3 text-xs">
+            <span class="text-base text-purple-500 shrink-0 mt-0.5">💡</span>
+            <div class="space-y-1 text-slate-600 dark:text-divine-muted">
+              <p class="font-semibold text-slate-800 dark:text-divine-text">How to lock any conversation:</p>
+              <p class="leading-relaxed">
+                Open any 1-on-1 chat, group, or your Saved Messages in Sandesh. Tap the three dots <span class="font-bold text-slate-700 dark:text-divine-text">(⋯)</span> in the top header and select <span class="font-bold text-purple-600 dark:text-purple-400">Lock Chat</span>. The conversation will move into your hidden <span class="font-semibold text-slate-800 dark:text-divine-text">Locked Chats</span> folder and notifications will stay discreet.
+              </p>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -398,7 +493,100 @@
 
 </div>
 
-<!-- Styles for Tabs & Options (Flawless Light & Dark mode support) -->
+<!-- Security PIN & Biometrics Configuration Modal -->
+<div id="settingsPinModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm hidden" role="dialog" aria-modal="true">
+  <div class="bg-white dark:bg-divine-card border border-slate-200 dark:border-divine-border rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5">
+    <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center text-lg">
+          🔒
+        </div>
+        <div>
+          <h3 id="settingsPinModalTitle" class="text-base font-bold text-slate-900 dark:text-divine-text">
+            {% if has_security_pin %}Change Security PIN{% else %}Set Up Security PIN{% endif %}
+          </h3>
+          <p class="text-xs text-slate-500 dark:text-divine-muted">4 to 6 numeric digits</p>
+        </div>
+      </div>
+      <button type="button" onclick="closeSettingsPinModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Error container -->
+    <div id="settingsPinError" class="hidden p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
+      <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span id="settingsPinErrorText"></span>
+    </div>
+
+    <form id="settingsPinForm" onsubmit="submitSettingsPin(event)" class="space-y-4">
+      <!-- Current PIN (shown if user already has a PIN) -->
+      <div id="settingsCurrentPinGroup" class="{% if not has_security_pin %}hidden{% endif %} space-y-1.5">
+        <label for="settingsCurrentPin" class="text-xs font-semibold text-slate-700 dark:text-divine-text flex items-center justify-between">
+          <span>Current PIN</span>
+          <span class="text-[10px] text-slate-400">Required to change</span>
+        </label>
+        <div class="relative">
+          <input type="password" id="settingsCurrentPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Enter current PIN"
+                 class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-divine-surface/70 border border-slate-200 dark:border-divine-border text-slate-900 dark:text-divine-text focus:outline-none focus:border-purple-500 tracking-widest text-center font-mono">
+          <button type="button" onclick="togglePinVisibility('settingsCurrentPin')" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs p-1">
+            👁️
+          </button>
+        </div>
+      </div>
+
+      <!-- New PIN -->
+      <div class="space-y-1.5">
+        <label for="settingsNewPin" class="text-xs font-semibold text-slate-700 dark:text-divine-text flex items-center justify-between">
+          <span>New PIN</span>
+          <span class="text-[10px] text-slate-400">4–6 digits</span>
+        </label>
+        <div class="relative">
+          <input type="password" id="settingsNewPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Enter 4-6 digit PIN" required
+                 class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-divine-surface/70 border border-slate-200 dark:border-divine-border text-slate-900 dark:text-divine-text focus:outline-none focus:border-purple-500 tracking-widest text-center font-mono">
+          <button type="button" onclick="togglePinVisibility('settingsNewPin')" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs p-1">
+            👁️
+          </button>
+        </div>
+      </div>
+
+      <!-- Confirm PIN -->
+      <div class="space-y-1.5">
+        <label for="settingsConfirmPin" class="text-xs font-semibold text-slate-700 dark:text-divine-text">Confirm PIN</label>
+        <div class="relative">
+          <input type="password" id="settingsConfirmPin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Re-enter PIN" required
+                 class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-divine-surface/70 border border-slate-200 dark:border-divine-border text-slate-900 dark:text-divine-text focus:outline-none focus:border-purple-500 tracking-widest text-center font-mono">
+          <button type="button" onclick="togglePinVisibility('settingsConfirmPin')" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs p-1">
+            👁️
+          </button>
+        </div>
+      </div>
+
+      <!-- Optional Biometrics Checkbox -->
+      <label class="flex items-center gap-2.5 cursor-pointer pt-1">
+        <input type="checkbox" id="settingsEnableBioCheckbox" class="rounded border-slate-300 dark:border-divine-border text-purple-600 focus:ring-purple-500 w-4 h-4" checked>
+        <span class="text-xs text-slate-600 dark:text-divine-muted">
+          Also enroll device biometrics (Fingerprint / Windows Hello / Face ID)
+        </span>
+      </label>
+
+      <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-white/5">
+        <button type="button" onclick="closeSettingsPinModal()" class="sdh-liquid-btn btn-secondary btn-sm !py-2 !px-4 text-xs">
+          <span>Cancel</span>
+        </button>
+        <button type="submit" id="settingsPinSubmitBtn" class="sdh-liquid-btn btn-primary btn-sm !py-2 !px-4 text-xs">
+          <span>Save PIN</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Floating Glass Toast -->
+<div id="settingsToast" class="fixed bottom-6 right-6 z-50 transform translate-y-12 opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold backdrop-blur-md">
+  <span id="settingsToastIcon">ℹ️</span>
+  <span id="settingsToastMsg">Notification</span>
+</div>
 <style>
   /* Tabs */
   .settings-tab-btn.active {
@@ -655,6 +843,265 @@
         });
       }
     });
+  }
+
+  // ── Chat Lock & Biometrics Settings Controller ────────────────────
+  let sdhHasSecurityPin = {{ has_security_pin|yesno:"true,false" }};
+  let sdhBiometricEnabled = {{ biometric_enabled|yesno:"true,false" }};
+  let sdhSessionUnlocked = {{ is_session_unlocked|yesno:"true,false" }};
+
+  function showSettingsToast(message, type = 'info') {
+    const toast = document.getElementById('settingsToast');
+    const msgEl = document.getElementById('settingsToastMsg');
+    const iconEl = document.getElementById('settingsToastIcon');
+    if (!toast || !msgEl) return;
+
+    msgEl.textContent = message;
+    if (type === 'success') {
+      iconEl.textContent = '✅';
+      toast.className = 'fixed bottom-6 right-6 z-50 transition-all duration-300 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold backdrop-blur-md bg-emerald-950/90 text-emerald-200 border border-emerald-500/30';
+    } else if (type === 'error') {
+      iconEl.textContent = '⚠️';
+      toast.className = 'fixed bottom-6 right-6 z-50 transition-all duration-300 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold backdrop-blur-md bg-red-950/90 text-red-200 border border-red-500/30';
+    } else {
+      iconEl.textContent = '🔒';
+      toast.className = 'fixed bottom-6 right-6 z-50 transition-all duration-300 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold backdrop-blur-md bg-purple-950/90 text-purple-200 border border-purple-500/30';
+    }
+
+    toast.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+    setTimeout(() => {
+      toast.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+    }, 3500);
+  }
+
+  function togglePinVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+
+  function openSettingsPinModal() {
+    const modal = document.getElementById('settingsPinModal');
+    const err = document.getElementById('settingsPinError');
+    if (err) err.classList.add('hidden');
+    document.getElementById('settingsNewPin').value = '';
+    document.getElementById('settingsConfirmPin').value = '';
+    const curPin = document.getElementById('settingsCurrentPin');
+    if (curPin) curPin.value = '';
+
+    const curGroup = document.getElementById('settingsCurrentPinGroup');
+    if (curGroup) {
+      if (sdhHasSecurityPin) curGroup.classList.remove('hidden');
+      else curGroup.classList.add('hidden');
+    }
+
+    const title = document.getElementById('settingsPinModalTitle');
+    if (title) {
+      title.textContent = sdhHasSecurityPin ? 'Change Security PIN' : 'Set Up Security PIN';
+    }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+      if (sdhHasSecurityPin && curPin) curPin.focus();
+      else document.getElementById('settingsNewPin')?.focus();
+    }, 100);
+  }
+
+  function closeSettingsPinModal() {
+    const modal = document.getElementById('settingsPinModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  // Base64 helpers for WebAuthn
+  function _settingsBufferToBase64Url(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function _settingsBase64UrlToBuffer(base64url) {
+    if (!base64url) return new ArrayBuffer(0);
+    let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) base64 += '=';
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  async function submitSettingsPin(e) {
+    e.preventDefault();
+    const pin = document.getElementById('settingsNewPin').value.trim();
+    const confirm = document.getElementById('settingsConfirmPin').value.trim();
+    const currentPin = document.getElementById('settingsCurrentPin')?.value.trim() || '';
+    const enableBio = document.getElementById('settingsEnableBioCheckbox')?.checked;
+    const errBox = document.getElementById('settingsPinError');
+    const errText = document.getElementById('settingsPinErrorText');
+    const submitBtn = document.getElementById('settingsPinSubmitBtn');
+
+    if (!pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+      errText.textContent = 'PIN must be between 4 and 6 numeric digits.';
+      errBox.classList.remove('hidden');
+      return;
+    }
+    if (pin !== confirm) {
+      errText.textContent = 'PINs do not match. Please re-enter.';
+      errBox.classList.remove('hidden');
+      return;
+    }
+    if (sdhHasSecurityPin && !currentPin) {
+      errText.textContent = 'Please enter your current PIN.';
+      errBox.classList.remove('hidden');
+      return;
+    }
+
+    errBox.classList.add('hidden');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span>Saving...</span>';
+
+    try {
+      const res = await fetch("{% url 'messaging:setup_security_pin' %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ pin, current_pin: currentPin })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        errText.textContent = data.error || 'Failed to configure PIN.';
+        errBox.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        return;
+      }
+
+      sdhHasSecurityPin = true;
+      sdhSessionUnlocked = true;
+
+      // Update PIN badge & action button
+      const pinBadge = document.getElementById('pinStatusBadge');
+      if (pinBadge) {
+        pinBadge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20';
+        pinBadge.textContent = 'Configured ✓';
+      }
+      const pinBtnSpan = document.querySelector('#pinActionBtn span');
+      if (pinBtnSpan) pinBtnSpan.textContent = 'Change PIN';
+
+      // Update Session status badge
+      const sessionBadge = document.getElementById('sessionStatusBadge');
+      if (sessionBadge) {
+        sessionBadge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20';
+        sessionBadge.textContent = 'Session Unlocked';
+      }
+
+      closeSettingsPinModal();
+      showSettingsToast('Security PIN saved successfully! 🔒', 'success');
+
+      // If user selected biometrics, trigger registration
+      if (enableBio) {
+        await enrollBiometricsFromSettings();
+      }
+    } catch (err) {
+      errText.textContent = 'Network error saving PIN.';
+      errBox.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalText;
+    }
+  }
+
+  async function enrollBiometricsFromSettings() {
+    if (!sdhHasSecurityPin) {
+      showSettingsToast('Please set up a Security PIN first as a fallback.', 'info');
+      openSettingsPinModal();
+      return;
+    }
+
+    if (!window.PublicKeyCredential) {
+      alert('WebAuthn biometrics is not supported in this browser environment.');
+      return;
+    }
+
+    const bioBadge = document.getElementById('bioStatusBadge');
+    const bioBtnSpan = document.querySelector('#bioActionBtn span');
+
+    try {
+      const optRes = await fetch("{% url 'messaging:webauthn_register_options' %}", {
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+      });
+      const options = await optRes.json();
+      if (!optRes.ok) {
+        showSettingsToast(options.error || 'Failed to initialize biometrics.', 'error');
+        return;
+      }
+
+      options.challenge = _settingsBase64UrlToBuffer(options.challenge);
+      options.user.id = _settingsBase64UrlToBuffer(options.user.id);
+
+      const credential = await navigator.credentials.create({ publicKey: options });
+      if (!credential) return;
+
+      const verifyPayload = {
+        id: credential.id,
+        rawId: _settingsBufferToBase64Url(credential.rawId),
+        type: credential.type,
+        clientDataJSON: _settingsBufferToBase64Url(credential.response.clientDataJSON),
+        attestationObject: _settingsBufferToBase64Url(credential.response.attestationObject),
+      };
+
+      const verRes = await fetch("{% url 'messaging:webauthn_register_verify' %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(verifyPayload)
+      });
+
+      const verData = await verRes.json();
+      if (verRes.ok) {
+        sdhBiometricEnabled = true;
+        if (bioBadge) {
+          bioBadge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20';
+          bioBadge.textContent = 'Linked 🖐️';
+        }
+        if (bioBtnSpan) bioBtnSpan.textContent = 'Re-link Biometrics';
+        showSettingsToast('Device biometrics linked successfully! 🖐️', 'success');
+      } else {
+        showSettingsToast(verData.error || 'Biometric verification failed.', 'error');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+        showSettingsToast('Biometrics registration cancelled or not available.', 'info');
+      }
+    }
+  }
+
+  async function lockSessionNowFromSettings() {
+    try {
+      const res = await fetch("{% url 'messaging:lock_session_now' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+      });
+      if (res.ok) {
+        sdhSessionUnlocked = false;
+        const sessionBadge = document.getElementById('sessionStatusBadge');
+        if (sessionBadge) {
+          sessionBadge.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20';
+          sessionBadge.textContent = 'Session Locked 🔒';
+        }
+        showSettingsToast('Locked chats session secured 🔒', 'info');
+      }
+    } catch (err) {
+      showSettingsToast('Error locking session.', 'error');
+    }
   }
 
   // Init on DOM ready
