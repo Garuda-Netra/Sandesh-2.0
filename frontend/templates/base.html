@@ -264,7 +264,7 @@
           </button>
           <div class="border-t border-divine-border"></div>
           <a href="{% url 'users:logout' %}"
-             onclick="try{sessionStorage.clear();if(window.Clerk&&window.Clerk.signOut){Clerk.signOut();}}catch(e){}"
+             onclick="sdhSignOut(event)"
              class="flex items-center gap-2 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:bg-divine-surface transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -432,7 +432,7 @@
     });
   </script>
 
-  {% if not user.is_authenticated %}
+  {% if CLERK_PUBLISHABLE_KEY %}
   <!-- Clerk JS SDK -->
   <script
     async
@@ -442,6 +442,50 @@
     type="text/javascript">
   </script>
   {% endif %}
+
+  <!-- Global Sandesh Clean Sign-Out Handler -->
+  <script>
+    async function sdhSignOut(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      try {
+        sessionStorage.clear();
+        localStorage.removeItem('clerk_signing_in');
+      } catch (e) {}
+
+      let navigated = false;
+      const navigateToLogout = () => {
+        if (!navigated) {
+          navigated = true;
+          window.location.href = "{% url 'users:logout' %}";
+        }
+      };
+
+      // Failsafe: navigate after 1200ms max so user is never stuck
+      const timer = setTimeout(navigateToLogout, 1200);
+
+      try {
+        if (window.Clerk) {
+          if (!window.Clerk.loaded) {
+            await Promise.race([
+              window.Clerk.load(),
+              new Promise((resolve) => setTimeout(resolve, 600))
+            ]);
+          }
+          if (window.Clerk.session && window.Clerk.signOut) {
+            await window.Clerk.signOut();
+          }
+        }
+      } catch (err) {
+        console.warn('[Sandesh] Clerk signOut error during sign-out:', err);
+      } finally {
+        clearTimeout(timer);
+        navigateToLogout();
+      }
+    }
+  </script>
 
   {% block extra_js %}{% endblock %}
 

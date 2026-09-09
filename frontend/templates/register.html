@@ -28,7 +28,17 @@
     try {
       var s = window.location.search || '';
       var h = window.location.hash || '';
-      var isOAuth = s.indexOf('__clerk') !== -1 || h.indexOf('__clerk') !== -1 || sessionStorage.getItem('clerk_signing_in') === '1';
+      var signingIn = sessionStorage.getItem('clerk_signing_in');
+      var isRecent = false;
+      if (signingIn) {
+        var elapsed = Date.now() - parseInt(signingIn, 10);
+        if (!isNaN(elapsed) && elapsed < 300000) {
+          isRecent = true;
+        } else {
+          sessionStorage.removeItem('clerk_signing_in');
+        }
+      }
+      var isOAuth = s.indexOf('__clerk') !== -1 || h.indexOf('__clerk') !== -1 || isRecent;
       if (isOAuth) {
         var ov = document.getElementById('authLoadingOverlay');
         if (ov) ov.style.display = 'flex';
@@ -241,7 +251,17 @@
     // ── Capture URL params BEFORE Clerk.load() strips them ─────
     const rawSearch = window.location.search || '';
     const rawHash   = window.location.hash || '';
-    const isOAuthCallback = rawSearch.includes('__clerk') || rawHash.includes('__clerk') || sessionStorage.getItem('clerk_signing_in') === '1';
+    const signingInTime = sessionStorage.getItem('clerk_signing_in');
+    let isRecentSigningIn = false;
+    if (signingInTime) {
+      const elapsed = Date.now() - parseInt(signingInTime, 10);
+      if (!isNaN(elapsed) && elapsed < 300000) {
+        isRecentSigningIn = true;
+      } else {
+        sessionStorage.removeItem('clerk_signing_in');
+      }
+    }
+    const isOAuthCallback = rawSearch.includes('__clerk') || rawHash.includes('__clerk') || isRecentSigningIn;
 
     if (isOAuthCallback) {
       showAuthOverlay('Authenticating with Google', 'Verifying your credentials with Google...', 'Connecting to Sandesh...');
@@ -323,20 +343,29 @@
           sessionStorage.removeItem('clerk_signing_in');
           hideAuthOverlay();
           try { await Clerk.signOut(); } catch(e) { console.error('[Sandesh] signOut error:', e); }
-        } else {
-          // Returning from Google OAuth redirect or valid active Clerk session — sync immediately with Django
+        } else if (isOAuthCallback) {
+          // Returning from an active Google OAuth flow explicitly initiated by user — sync with Django
+          sessionStorage.removeItem('clerk_signing_in');
           await syncWithDjango();
           return;
+        } else {
+          // Stale Clerk session detected on register page without an active sign-in flow
+          // (e.g. user previously logged out of Sandesh, or directly visited /register/).
+          // DO NOT auto-login! Destroy the stale Clerk session so user can choose account cleanly.
+          sessionStorage.removeItem('clerk_sync_pending');
+          sessionStorage.removeItem('clerk_signing_in');
+          hideAuthOverlay();
+          try {
+            await Clerk.signOut();
+          } catch(e) {
+            console.warn('[Sandesh] Cleaned stale Clerk session on register page:', e);
+          }
         }
       } else {
-        // No Clerk session — clear any stale flags
+        // No Clerk session — clear any stale flags and hide overlay
         sessionStorage.removeItem('clerk_sync_pending');
-        if (!isOAuthCallback) {
-          hideAuthOverlay();
-        } else {
-          // Safety fallback if callback was aborted
-          setTimeout(() => { hideAuthOverlay(); }, 3000);
-        }
+        sessionStorage.removeItem('clerk_signing_in');
+        hideAuthOverlay();
       }
     } else {
       hideAuthOverlay();
@@ -352,7 +381,7 @@
       }
 
       sessionStorage.removeItem('clerk_sync_pending');
-      sessionStorage.setItem('clerk_signing_in', '1');
+      sessionStorage.setItem('clerk_signing_in', Date.now().toString());
 
       btn.disabled = true;
       btn.classList.add('opacity-75', 'cursor-wait');
@@ -382,6 +411,7 @@
         const checkSession = setInterval(async () => {
           if (Clerk.session) {
             clearInterval(checkSession);
+            sessionStorage.removeItem('clerk_signing_in');
             showAuthOverlay('Authenticating with Google', 'Securing your session and creating your Sandesh account...', 'Verifying credentials...');
             try {
               await syncWithDjango();

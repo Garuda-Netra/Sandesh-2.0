@@ -297,6 +297,9 @@ def logout_view(request):
         except Exception:
             pass
     logout(request)
+    next_url = request.GET.get('next')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
     return redirect('users:index')
 
 
