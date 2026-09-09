@@ -214,6 +214,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'settings': event.get('settings', {})
         }))
 
+    async def system_notification(self, event: dict):
+        """Relay a system push alert event to the client."""
+        await self.send(text_data=json.dumps({
+            'type': 'system_notification',
+            'title': event.get('title', 'Sandesh Push Alert'),
+            'body': event.get('body', ''),
+        }))
+
     async def broadcast_presence(self, event: dict):
         if event.get('user_id') == getattr(self, 'me', None).id:
             return
@@ -705,7 +713,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     can_see_last_seen = prof.id in friend_ids
 
                 can_see_online = True
-                if u_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN:
+                if my_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN and not can_see_last_seen:
+                    can_see_online = False
+                elif u_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN:
                     can_see_online = can_see_last_seen
 
                 if can_see_online:
@@ -743,7 +753,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     can_see_last_seen = False
 
             can_see_online = True
-            if sender_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN:
+            if my_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN and not can_see_last_seen:
+                can_see_online = False
+            elif sender_settings.online_visibility == UserSettings.ONLINE_SAME_AS_LAST_SEEN:
                 can_see_online = can_see_last_seen
 
             return {'can_see_online': can_see_online, 'can_see_last_seen': can_see_last_seen}

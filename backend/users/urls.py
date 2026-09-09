@@ -21,6 +21,7 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile'),
     path('settings/', views.settings_view, name='settings'),
     path('api/settings/', views.settings_api, name='settings_api'),
+    path('api/test-notification/', views.test_notification_api, name='test_notification_api'),
     path('api/storage-usage/', views.storage_usage_api, name='storage_usage_api'),
     path('api/blocked-contacts/', views.blocked_contacts_api, name='blocked_contacts_api'),
 

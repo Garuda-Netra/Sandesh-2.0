@@ -70,6 +70,30 @@ SDH.Chat = (() => {
     } catch { /* AudioContext suppressed by browser policy — fail silently */ }
   }
 
+  function playSentSound() {
+    if (window.SDH_SETTINGS && window.SDH_SETTINGS.message_sound_enabled === false) {
+      return;
+    }
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      // Harmonic subtle sent pop/chime (G5 -> C6)
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+    } catch { /* AudioContext suppressed by policy */ }
+  }
+
   const _baseDocumentTitle = document.title || 'Sandesh';
   function updateDocumentTitle() {
     let totalUnread = 0;
@@ -140,6 +164,11 @@ SDH.Chat = (() => {
       case 'delete_moment': SDH.Moments?.handleDeleteMomentEvent?.(data.user_id, data.moment_id); break;
       case 'moment_viewed': SDH.Moments?.handleMomentViewedEvent?.(data.moment_id, data.viewer); break;
       case 'moment_reacted': SDH.Moments?.handleMomentReactedEvent?.(data.moment_id, data.reaction); break;
+      case 'system_notification':
+        Notif.show(data.title || 'Sandesh Alert', data.body || '', 'sdh-system-alert');
+        if (typeof showToast === 'function') showToast(data.body || '', 'info');
+        playNotificationSound();
+        break;
       case 'pong': break;
       case 'error':
         console.error('[Chat] Server error:', data.message);
@@ -167,7 +196,7 @@ SDH.Chat = (() => {
     if (data.new_friend) {
       showToast(`${data.new_friend} is now your friend!`, 'success');
     }
-    
+
     // Clear search input so user sees the newly added friend in Direct Messages
     const searchInput = document.getElementById('searchUsers');
     if (searchInput) {
@@ -176,7 +205,7 @@ SDH.Chat = (() => {
 
     // Refresh friend requests panel in case a request was pending
     loadFriendRequests();
-    
+
     _refreshSidebar();
   }
 
@@ -187,35 +216,35 @@ SDH.Chat = (() => {
 
   function handleUserUnfriended(data) {
     const target = data.unfriender_username === window.SDH_DATA.currentUser ? data.unfriended_username : data.unfriender_username;
-    
+
     // Update internal state
     const u = window.SDH_DATA?.users?.find(x => x.username === target);
     if (u) {
-        u.is_friend = false;
+      u.is_friend = false;
     }
-    
+
     // Hide dot
     const dot = document.getElementById(`online-dot-${target}`);
     if (dot) dot.remove();
-    
+
     // Clear last seen if not blocked
     const lsEl = document.getElementById(`last-seen-${target}`);
     if (lsEl) {
-        lsEl.innerHTML = '&nbsp;';
-        lsEl.className = 'text-[11px] truncate mt-0.5 sdh-status-offline';
+      lsEl.innerHTML = '&nbsp;';
+      lsEl.className = 'text-[11px] truncate mt-0.5 sdh-status-offline';
     }
-    
+
     // Update dataset
     const userItem = document.getElementById(`user-item-${target}`);
     if (userItem) {
-        userItem.dataset.friendship = 'none';
+      userItem.dataset.friendship = 'none';
     }
-    
+
     // If active chat, update header
     if (activeUser === target) {
-        _setDefaultHeaderStatus();
+      _setDefaultHeaderStatus();
     }
-    
+
     _refreshSidebar();
   }
 
@@ -257,7 +286,7 @@ SDH.Chat = (() => {
       if (usersDataScript && window.SDH_DATA) {
         try {
           window.SDH_DATA.users = JSON.parse(usersDataScript.textContent);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Update embedded SDH_DATA.groups if available
@@ -265,7 +294,7 @@ SDH.Chat = (() => {
       if (groupsDataScript && window.SDH_DATA) {
         try {
           window.SDH_DATA.groups = JSON.parse(groupsDataScript.textContent || '[]');
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Re-apply any existing unread badges
@@ -302,7 +331,7 @@ SDH.Chat = (() => {
     // 4. If the user is currently viewing this group chat, clean up completely
     if (activeUser === deletedGroupKey) {
       _resetConversationPanel();
-      
+
       // Additional header cleanup that _resetConversationPanel misses
       const avatarEl = document.getElementById('chatAvatar');
       if (avatarEl) {
@@ -310,9 +339,9 @@ SDH.Chat = (() => {
         avatarEl.style.backgroundImage = '';
         avatarEl.className = 'sdh-chat-avatar w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold select-none flex-shrink-0';
       }
-      
+
       _setHeaderStatus('Choose someone to start messaging', 'default');
-      
+
       const groupMenuBtn = document.getElementById('groupChatMenuBtn');
       if (groupMenuBtn) groupMenuBtn.classList.add('hidden');
     }
@@ -658,11 +687,13 @@ SDH.Chat = (() => {
     });
     scrollToBottom();
 
-    if (!isFromMe && (document.visibilityState !== 'visible' || !document.hasFocus())) {
-      const notifTitle = isGroupMsg ? `New message in Group` : `New message from ${data.sender}`;
-      const previewText = data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`;
-      Notif.show(notifTitle, previewText, `sdh-${chatTarget}`);
+    if (!isFromMe) {
       playNotificationSound();
+      if (document.visibilityState !== 'visible' || !document.hasFocus()) {
+        const notifTitle = isGroupMsg ? `New message in Group` : `New message from ${data.sender}`;
+        const previewText = data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`;
+        Notif.show(notifTitle, previewText, `sdh-${chatTarget}`);
+      }
     }
 
     if (SDH.WS.isOpen()) {
@@ -768,9 +799,9 @@ SDH.Chat = (() => {
     });
     scrollToBottom();
 
+    playNotificationSound();
     if (document.visibilityState !== 'visible' || !document.hasFocus()) {
       Notif.show(`New file from ${data.sender}`, `📎 ${data.original_filename || 'File'}`, `sdh-${data.sender}`);
-      playNotificationSound();
     }
 
     if (SDH.WS.isOpen()) {
@@ -2118,6 +2149,7 @@ SDH.Chat = (() => {
 
         hideUploadIndicator();
         if (successCount > 0) {
+          playSentSound();
           showToast(successCount === 1 ? 'File sent ✓' : `${successCount} files sent ✓`, 'success');
         }
 
@@ -2141,6 +2173,7 @@ SDH.Chat = (() => {
           input.style.height = 'auto';
 
           SDH.WS.sendMessage(payload);
+          playSentSound();
 
           if (!activeUser.startsWith('group_') && !_isSelfChat(activeUser)) {
             _ensureUserInSidebar(activeUser, activeUserId);
@@ -2172,6 +2205,7 @@ SDH.Chat = (() => {
       input.style.height = 'auto';
 
       SDH.WS.sendMessage(payload);
+      playSentSound();
 
       if (!activeUser.startsWith('group_') && !_isSelfChat(activeUser)) {
         _ensureUserInSidebar(activeUser, activeUserId);
@@ -2329,7 +2363,7 @@ SDH.Chat = (() => {
   function handleTypingIndicator(data) {
     if (_isSelfChat(activeUser)) return;
     if (data.sender === window.SDH_DATA.currentUser) return;
-    
+
     // Prevent cross-display of typing indicators
     if (data.group_id) {
       if (activeUser !== `group_${data.group_id}`) return;
@@ -2535,7 +2569,7 @@ SDH.Chat = (() => {
     if (_isSelfChat(username)) {
       document.getElementById('voiceCallBtn')?.classList.add('hidden');
       document.getElementById('videoCallBtn')?.classList.add('hidden');
-      
+
       // Hide non-applicable kebab menu options for Saved Messages
       document.getElementById('removeContactBtn')?.classList.add('hidden');
       document.getElementById('unfriendBtn')?.classList.add('hidden');
@@ -2545,7 +2579,7 @@ SDH.Chat = (() => {
     } else {
       document.getElementById('voiceCallBtn')?.classList.remove('hidden');
       document.getElementById('videoCallBtn')?.classList.remove('hidden');
-      
+
       // Show kebab options for normal users (blockBtn visibility is handled by _updateBlockUI)
       document.getElementById('removeContactBtn')?.classList.remove('hidden');
       document.getElementById('unfriendBtn')?.classList.remove('hidden');
@@ -2781,7 +2815,7 @@ SDH.Chat = (() => {
       const id = 'f_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
       let thumbUrl = null;
       if (file.type && file.type.startsWith('image/')) {
-        try { thumbUrl = URL.createObjectURL(file); } catch (e) {}
+        try { thumbUrl = URL.createObjectURL(file); } catch (e) { }
       }
 
       pendingFiles.push({ id, file, thumbUrl });
@@ -2800,7 +2834,7 @@ SDH.Chat = (() => {
     if (idx !== -1) {
       const item = pendingFiles[idx];
       if (item.thumbUrl) {
-        try { URL.revokeObjectURL(item.thumbUrl); } catch (e) {}
+        try { URL.revokeObjectURL(item.thumbUrl); } catch (e) { }
       }
       pendingFiles.splice(idx, 1);
       renderFilePreviews();
@@ -2810,7 +2844,7 @@ SDH.Chat = (() => {
   function clearFiles() {
     pendingFiles.forEach(item => {
       if (item.thumbUrl) {
-        try { URL.revokeObjectURL(item.thumbUrl); } catch (e) {}
+        try { URL.revokeObjectURL(item.thumbUrl); } catch (e) { }
       }
     });
     pendingFiles = [];
@@ -3024,7 +3058,7 @@ SDH.Chat = (() => {
       <span>${message}</span>
     `;
     container.appendChild(toast);
-    
+
     return function hide() {
       toast.style.transition = 'opacity 0.4s';
       toast.style.opacity = '0';
@@ -3326,9 +3360,9 @@ SDH.Chat = (() => {
       }
     } catch (err) {
       if (err.message === 'Request already sent') {
-         showToast('Request already sent', 'info');
+        showToast('Request already sent', 'info');
       } else {
-         showToast(err.message || 'Could not send friend request.', 'error');
+        showToast(err.message || 'Could not send friend request.', 'error');
       }
     }
   }

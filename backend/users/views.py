@@ -1446,6 +1446,26 @@ def settings_api(request):
 
 
 @login_required
+@csrf_protect
+@require_POST
+def test_notification_api(request):
+    """Broadcasts a test notification event to user's real-time WebSocket."""
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(
+            f"user_chat_{request.user.id}",
+            {
+                'type': 'system_notification',
+                'title': 'Sandesh Push Alert',
+                'body': 'Real-time background notifications are active and working!',
+            }
+        )
+    return JsonResponse({'status': 'ok', 'message': 'Test notification sent.'})
+
+
+@login_required
 @require_GET
 def blocked_contacts_api(request):
     """Returns list of contacts blocked by the current user."""
