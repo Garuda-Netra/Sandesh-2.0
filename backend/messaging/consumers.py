@@ -27,6 +27,7 @@ def room_name_for(user_a: str, user_b: str) -> str:
 
 def room_name_for_ids(user_a_id: int, user_b_id: int) -> str:
     lo, hi = sorted([int(user_a_id), int(user_b_id)])
+    return f"{lo}__{hi}"
 
 _presence_tasks = set()
 
@@ -268,6 +269,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'message_type': data.get('message_type', 'text'),
             'original_filename': data.get('original_filename', ''),
             'mime_type': data.get('mime_type', ''),
+            'is_encrypted': data.get('is_encrypted', False),
+            'encryption_iv': data.get('encryption_iv', ''),
             'timestamp': message['timestamp'],
         }
 
@@ -607,6 +610,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 replied_moment=replied_moment,
                 is_delivered=is_self_chat,
                 is_read=is_self_chat,
+                is_encrypted=data.get('is_encrypted', False),
+                encryption_iv=data.get('encryption_iv', ''),
                 expires_at=expires_at,
             )
 
@@ -1206,7 +1211,11 @@ class GroupChatConsumer(ChatConsumer):
             await self.send_error('Empty message.')
             return
 
-        msg = await self._save_group_message(message_text)
+        msg = await self._save_group_message(
+            message_text,
+            is_encrypted=data.get('is_encrypted', False),
+            encryption_iv=data.get('encryption_iv', '')
+        )
         if not msg:
             await self.send_error('Failed to save message.')
             return
@@ -1218,6 +1227,8 @@ class GroupChatConsumer(ChatConsumer):
             'sender_id': self.me.id,
             'message': message_text,
             'message_type': 'text',
+            'is_encrypted': data.get('is_encrypted', False),
+            'encryption_iv': data.get('encryption_iv', ''),
             'timestamp': msg['timestamp'],
             'is_system_message': False,
             'group_id': self.group_id,
@@ -1338,7 +1349,7 @@ class GroupChatConsumer(ChatConsumer):
         ).exists()
 
     @database_sync_to_async
-    def _save_group_message(self, message_text):
+    def _save_group_message(self, message_text, is_encrypted=False, encryption_iv=''):
         from .models import GroupMessage
         try:
             msg = GroupMessage.objects.create(
@@ -1346,6 +1357,8 @@ class GroupChatConsumer(ChatConsumer):
                 sender=self.me,
                 message=message_text,
                 message_type=GroupMessage.MESSAGE_TYPE_TEXT,
+                is_encrypted=is_encrypted,
+                encryption_iv=encryption_iv,
             )
             # Touch group updated_at for sidebar ordering
             from .models import Group

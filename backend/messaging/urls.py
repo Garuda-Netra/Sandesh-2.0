@@ -65,4 +65,11 @@ urlpatterns = [
     path('api/groups/messages/<int:message_id>/reads/', views.group_message_reads, name='group_message_reads'),
     path('api/groups/invites/pending/', views.pending_group_invites, name='pending_group_invites'),
     path('api/groups/invites/<int:invite_id>/respond/', views.group_invite_respond, name='group_invite_respond'),
+
+    # ── End-to-End Encryption (E2EE) ──────────────────────────────
+    path('api/e2e/public-key/', views.e2e_save_public_key, name='e2e_save_public_key'),
+    path('api/e2e/public-key/<str:username>/', views.e2e_get_public_key, name='e2e_get_public_key'),
+    path('api/groups/<int:group_id>/e2e-member-keys/', views.e2e_get_group_member_keys, name='e2e_get_group_member_keys'),
+    path('api/groups/<int:group_id>/e2e-key/', views.e2e_group_key, name='e2e_group_key'),
+    path('api/groups/<int:group_id>/e2e-keys/', views.e2e_group_key, name='e2e_save_group_keys'),
 ]

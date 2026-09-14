@@ -27,7 +27,7 @@ import secrets
 import time
 from django.contrib.auth.hashers import make_password, check_password
 
-from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead, ChatLock, UserSecurityCredential, Moment, MomentPrivacySetting
+from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead, ChatLock, UserSecurityCredential, Moment, MomentPrivacySetting, GroupE2EKey
 from .chatbot import generate_chatbot_reply
 from .file_security import validate_uploaded_file
 from users.models import UserProfile, Friendship, UserSettings
@@ -443,6 +443,8 @@ def message_history(request, username):
             'is_delivered': m.is_delivered,
             'is_read': (m.is_read and can_show_read_receipts) if not is_self else True,
             'is_mine': m.sender == request.user,
+            'is_encrypted': getattr(m, 'is_encrypted', False),
+            'encryption_iv': getattr(m, 'encryption_iv', ''),
             'has_file': bool(m.file),
             'file_id': m.id if m.file else None,
             'is_deleted_for_all': m.is_deleted_for_all,
@@ -1314,8 +1316,35 @@ def remove_from_my_view(request, message_id):
     """
     Adds the current user to hidden_for_users.
     The message record is preserved; only this user stops seeing it.
+    Supports both direct (1-to-1) messages and group messages.
     """
-    msg = get_object_or_404(Message, pk=message_id)
+    msg = Message.objects.filter(pk=message_id).first()
+    is_group = False
+
+    if not msg:
+        from .models import GroupMessage
+        msg = GroupMessage.objects.filter(pk=message_id).first()
+        is_group = True
+
+    if not msg:
+        return JsonResponse({'error': 'Message not found.'}, status=404)
+
+    channel_layer = get_channel_layer()
+    payload = {
+        'type': 'message_removed',
+        'message_id': message_id,
+        'removal_scope': 'self',
+        'removed_by': request.user.username,
+    }
+
+    if is_group:
+        if hasattr(msg, 'hidden_for_users'):
+            msg.hidden_for_users.add(request.user)
+        try:
+            async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', payload)
+        except Exception:
+            pass
+        return JsonResponse({'status': 'ok'})
 
     # Only sender or receiver may act
     if request.user not in (msg.sender, msg.receiver):
@@ -1327,17 +1356,10 @@ def remove_from_my_view(request, message_id):
     lo, hi = sorted([msg.sender_id, msg.receiver_id])
     room_group = f'chat_{lo}__{hi}'
     try:
-        async_to_sync(get_channel_layer().group_send)(
-            room_group,
-            {
-                'type': 'message_removed',
-                'message_id': message_id,
-                'removal_scope': 'self',
-                'removed_by': request.user.username,
-            },
-        )
+        async_to_sync(channel_layer.group_send)(room_group, payload)
+        async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', payload)
     except Exception:
-        pass  # channel layer may not be available in all environments
+        pass
 
     return JsonResponse({'status': 'ok'})
 
@@ -1352,8 +1374,18 @@ def delete_for_all(request, message_id):
     Permanently removes message content for all participants.
     Only the original sender may invoke this action.
     Associated file is deleted from storage to prevent orphan files.
+    Supports both direct (1-to-1) messages and group messages.
     """
-    msg = get_object_or_404(Message, pk=message_id)
+    msg = Message.objects.filter(pk=message_id).first()
+    is_group = False
+
+    if not msg:
+        from .models import GroupMessage
+        msg = GroupMessage.objects.filter(pk=message_id).first()
+        is_group = True
+
+    if not msg:
+        return JsonResponse({'error': 'Message not found.'}, status=404)
 
     if msg.sender != request.user:
         return JsonResponse(
@@ -1361,37 +1393,62 @@ def delete_for_all(request, message_id):
             status=403,
         )
 
-    # Delete file from storage and clear references
+    # Delete physical file from storage and clear references
     if msg.file:
         try:
-            file_path = msg.file.path
-            if os.path.isfile(file_path):
-                os.remove(file_path)
+            if hasattr(msg.file, 'path') and os.path.isfile(msg.file.path):
+                os.remove(msg.file.path)
+            if hasattr(msg.file, 'delete'):
+                msg.file.delete(save=False)
         except Exception:
             pass  # log in production; do not halt the operation
         msg.file = None
         msg.file_name = ''
         msg.original_filename = ''
 
+    channel_layer = get_channel_layer()
+
+    # Handle Group Message Deletion
+    if is_group:
+        msg.message = 'This message has been deleted.'
+        msg.message_type = 'text'
+        msg.save(update_fields=[
+            'message', 'message_type', 'file', 'file_name', 'original_filename'
+        ])
+
+        payload = {
+            'type': 'message_removed',
+            'message_id': message_id,
+            'removal_scope': 'all',
+            'removed_by': request.user.username,
+            'group_id': msg.group_id,
+        }
+        try:
+            async_to_sync(channel_layer.group_send)(f'group_chat_{msg.group_id}', payload)
+            for member_id in msg.group.memberships.values_list('user_id', flat=True):
+                async_to_sync(channel_layer.group_send)(f'user_chat_{member_id}', payload)
+        except Exception:
+            pass
+
+        return JsonResponse({'status': 'ok'})
+
     # For Saved Messages (self-chat), completely remove the message.
     if msg.sender == msg.receiver:
-        # Save necessary details before deleting the object
         sender_id = msg.sender_id
         receiver_id = msg.receiver_id
         msg.delete()
         
         lo, hi = sorted([sender_id, receiver_id])
         room_group = f'chat_{lo}__{hi}'
+        payload = {
+            'type': 'message_removed',
+            'message_id': message_id,
+            'removal_scope': 'self',
+            'removed_by': request.user.username,
+        }
         try:
-            async_to_sync(get_channel_layer().group_send)(
-                room_group,
-                {
-                    'type': 'message_removed',
-                    'message_id': message_id,
-                    'removal_scope': 'self',
-                    'removed_by': request.user.username,
-                },
-            )
+            async_to_sync(channel_layer.group_send)(room_group, payload)
+            async_to_sync(channel_layer.group_send)(f'user_chat_{sender_id}', payload)
         except Exception:
             pass
         return JsonResponse({'status': 'ok'})
@@ -1405,19 +1462,19 @@ def delete_for_all(request, message_id):
         'file', 'file_name', 'original_filename',
     ])
 
-    # Broadcast real-time update to all participants in this chat room
+    # Broadcast real-time update to all participants in this chat room and personal groups
     lo, hi = sorted([msg.sender_id, msg.receiver_id])
     room_group = f'chat_{lo}__{hi}'
+    payload = {
+        'type': 'message_removed',
+        'message_id': message_id,
+        'removal_scope': 'all',
+        'removed_by': request.user.username,
+    }
     try:
-        async_to_sync(get_channel_layer().group_send)(
-            room_group,
-            {
-                'type': 'message_removed',
-                'message_id': message_id,
-                'removal_scope': 'all',
-                'removed_by': request.user.username,
-            },
-        )
+        async_to_sync(channel_layer.group_send)(room_group, payload)
+        async_to_sync(channel_layer.group_send)(f'user_chat_{msg.sender_id}', payload)
+        async_to_sync(channel_layer.group_send)(f'user_chat_{msg.receiver_id}', payload)
     except Exception:
         pass
 
@@ -1445,26 +1502,28 @@ def clear_chat(request, username):
     # Delete files from storage to prevent orphan media
     for msg in messages_qs.exclude(file='').exclude(file=None):
         try:
-            file_path = msg.file.path
-            if os.path.isfile(file_path):
-                os.remove(file_path)
+            if hasattr(msg.file, 'path') and os.path.isfile(msg.file.path):
+                os.remove(msg.file.path)
+            if hasattr(msg.file, 'delete'):
+                msg.file.delete(save=False)
         except Exception:
             pass  # log in production; do not halt the operation
 
     deleted_count, _ = messages_qs.delete()
 
-    # Broadcast real-time clear event to both users in the shared chat room
+    # Broadcast real-time clear event to both users in the shared chat room and personal groups
     lo, hi = sorted([request.user.id, other_user.id])
     room_group = f'chat_{lo}__{hi}'
     try:
-        async_to_sync(get_channel_layer().group_send)(
-            room_group,
-            {
-                'type': 'chat_cleared',
-                'cleared_by': request.user.username,
-                'other_user': other_user.username,
-            },
-        )
+        channel_layer = get_channel_layer()
+        payload = {
+            'type': 'chat_cleared',
+            'cleared_by': request.user.username,
+            'other_user': other_user.username,
+        }
+        async_to_sync(channel_layer.group_send)(room_group, payload)
+        async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', payload)
+        async_to_sync(channel_layer.group_send)(f'user_chat_{other_user.id}', payload)
     except Exception:
         pass
 
@@ -2664,6 +2723,7 @@ def group_message_history(request, group_id):
 
     result = []
     for msg in messages_page:
+        is_deleted = (msg.message == 'This message has been deleted.' and not msg.file)
         entry = {
             'id': msg.id,
             'sender': msg.sender.username if msg.sender else None,
@@ -2671,9 +2731,12 @@ def group_message_history(request, group_id):
             'message': msg.message,
             'message_type': msg.message_type,
             'is_system_message': msg.is_system_message,
+            'is_encrypted': getattr(msg, 'is_encrypted', False),
+            'encryption_iv': getattr(msg, 'encryption_iv', ''),
             'timestamp': msg.timestamp.isoformat(),
+            'is_deleted_for_all': is_deleted,
         }
-        if msg.file:
+        if msg.file and not is_deleted:
             entry['has_file'] = True
             entry['file_id'] = msg.id
             entry['original_filename'] = msg.original_filename or msg.file_name or ''
@@ -3270,5 +3333,161 @@ def unlock_and_clear_chat(request):
         'is_saved_messages_locked': locks.filter(is_self_chat=True).exists(),
         'message': f'Chat history with {other_user.username} permanently deleted and chat unlocked.'
     })
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# End-to-End Encryption (E2EE) API Endpoints
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@login_required
+@require_http_methods(['POST'])
+def e2e_save_public_key(request):
+    """
+    Store or update the current user's ECDH P-256 public key (JWK format).
+    """
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
+
+    public_key = body.get('public_key')
+    if not public_key or not isinstance(public_key, dict):
+        return JsonResponse({'error': 'Missing or invalid public_key'}, status=400)
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    profile.e2e_public_key = public_key
+    profile.save(update_fields=['e2e_public_key'])
+
+    return JsonResponse({'status': 'ok', 'message': 'Public key saved successfully.'})
+
+
+@login_required
+@require_http_methods(['GET'])
+def e2e_get_public_key(request, username):
+    """
+    Retrieve another user's ECDH P-256 public key.
+    """
+    target_user = User.objects.filter(username=username).select_related('profile').first()
+    if not target_user:
+        return JsonResponse({'error': 'User not found'}, status=404)
+
+    profile = getattr(target_user, 'profile', None)
+    public_key = getattr(profile, 'e2e_public_key', None) if profile else None
+
+    return JsonResponse({
+        'username': target_user.username,
+        'user_id': target_user.id,
+        'public_key': public_key
+    })
+
+
+@login_required
+@require_http_methods(['GET'])
+def e2e_get_group_member_keys(request, group_id):
+    """
+    Returns public keys for all members of a group, and tracks which members
+    already have an encrypted group key distributed.
+    """
+    group = get_object_or_404(Group, id=group_id)
+    if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+        return JsonResponse({'error': 'Forbidden: Not a member of this group'}, status=403)
+
+    memberships = group.memberships.select_related('user', 'user__profile').all()
+    existing_key_user_ids = set(
+        GroupE2EKey.objects.filter(group=group).values_list('user_id', flat=True)
+    )
+
+    members = []
+    for m in memberships:
+        u = m.user
+        prof = getattr(u, 'profile', None)
+        pub_key = getattr(prof, 'e2e_public_key', None) if prof else None
+        members.append({
+            'user_id': u.id,
+            'username': u.username,
+            'public_key': pub_key,
+            'has_group_key': u.id in existing_key_user_ids
+        })
+
+    has_my_key = request.user.id in existing_key_user_ids
+
+    return JsonResponse({
+        'group_id': group.id,
+        'members': members,
+        'has_my_key': has_my_key
+    })
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def e2e_group_key(request, group_id):
+    """
+    GET: Retrieve the current user's encrypted AES group key for this group.
+    POST: Distribute encrypted group keys to one or more group members.
+    """
+    group = get_object_or_404(Group, id=group_id)
+    if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+        return JsonResponse({'error': 'Forbidden: Not a member of this group'}, status=403)
+
+    if request.method == 'GET':
+        key_record = (
+            GroupE2EKey.objects
+            .filter(group=group, user=request.user)
+            .select_related('sender', 'sender__profile')
+            .first()
+        )
+        if not key_record:
+            return JsonResponse({'has_key': False})
+
+        sender = key_record.sender
+        sender_prof = getattr(sender, 'profile', None) if sender else None
+        sender_pub_key = getattr(sender_prof, 'e2e_public_key', None) if sender_prof else None
+
+        return JsonResponse({
+            'has_key': True,
+            'encrypted_key': key_record.encrypted_key,
+            'encryption_iv': key_record.encryption_iv,
+            'sender_id': sender.id if sender else None,
+            'sender_username': sender.username if sender else None,
+            'sender_public_key': sender_pub_key,
+        })
+
+    # POST: Save encrypted keys for members
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'error': 'Invalid JSON body'}, status=400)
+
+    keys_data = body.get('keys', [])
+    if not isinstance(keys_data, list):
+        return JsonResponse({'error': 'Invalid keys format. Expected list.'}, status=400)
+
+    valid_member_ids = set(group.memberships.values_list('user_id', flat=True))
+    saved_count = 0
+
+    for item in keys_data:
+        target_uid = item.get('user_id')
+        enc_key = item.get('encrypted_key')
+        enc_iv = item.get('encryption_iv', '')
+
+        if not target_uid or not enc_key or target_uid not in valid_member_ids:
+            continue
+
+        GroupE2EKey.objects.update_or_create(
+            group=group,
+            user_id=target_uid,
+            defaults={
+                'sender': request.user,
+                'encrypted_key': enc_key,
+                'encryption_iv': enc_iv,
+            }
+        )
+        saved_count += 1
+
+    return JsonResponse({
+        'status': 'ok',
+        'saved_count': saved_count
+    })
+
 
 

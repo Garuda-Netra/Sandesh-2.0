@@ -554,10 +554,11 @@ SDH.Chat = (() => {
   }
 
   function _setDefaultHeaderStatus() {
+    const e2eTag = ' • 🔒 E2E Encrypted';
     if (_isSelfChat(activeUser)) {
-      _setHeaderStatus('Only visible to you', 'connected');
+      _setHeaderStatus('Only visible to you' + e2eTag, 'connected');
     } else if (activeUser && activeUser.startsWith('group_')) {
-      _setHeaderStatus('Group Chat', 'connected');
+      _setHeaderStatus('Group Chat' + e2eTag, 'connected');
     } else {
       const userObj = window.SDH_DATA?.users?.find(u => u.username === activeUser);
       const userItem = document.getElementById(`user-item-${activeUser}`);
@@ -566,11 +567,11 @@ SDH.Chat = (() => {
       if (isBlocked) {
         _setHeaderStatus('', 'default');
       } else if (userObj && userObj.is_online) {
-        _setHeaderStatus('Active now', 'connected');
+        _setHeaderStatus('Active now' + e2eTag, 'connected');
       } else if (userObj && userObj.last_seen) {
-        _setHeaderStatus('Last seen ' + _relativeTime(userObj.last_seen), 'default');
+        _setHeaderStatus('Last seen ' + _relativeTime(userObj.last_seen) + e2eTag, 'default');
       } else {
-        _setHeaderStatus('Offline', 'default');
+        _setHeaderStatus('Offline' + e2eTag, 'default');
       }
     }
   }
@@ -599,6 +600,16 @@ SDH.Chat = (() => {
   // ═════════════════════════════════════════════════════════════════════
   async function handleIncomingMessage(data) {
     const isFromMe = data.sender === window.SDH_DATA.currentUser;
+
+    // Decrypt incoming message content if E2E encrypted
+    if (data.is_encrypted && data.encryption_iv && data.message && window.SDH?.E2E) {
+      if (data.type === 'group_message' || !!data.group_id) {
+        data.message = await window.SDH.E2E.decryptGroupMessage(data.message, data.encryption_iv, data.group_id);
+      } else {
+        const peerName = isFromMe ? data.receiver : data.sender;
+        data.message = await window.SDH.E2E.decrypt(data.message, data.encryption_iv, peerName);
+      }
+    }
 
     if (isFromMe && data.message_id) {
       // Server echo: upgrade the optimistic temp bubble to the real ID
@@ -679,11 +690,14 @@ SDH.Chat = (() => {
     if (renderedIds.has(String(data.message_id))) return;
     renderedIds.add(String(data.message_id));
 
+    const hasFile = !!(data.has_file || data.file_id || data.message_type === 'file' || data.message_type === 'image' || data.message_type === 'video');
     appendMessage({
       sender: data.sender, isFromMe: isFromMe, content: displayContent,
       messageType: data.message_type,
       originalFilename: data.original_filename, mimeType: data.mime_type,
       timestamp: data.timestamp, messageId: data.message_id,
+      hasServerFile: hasFile,
+      fileId: hasFile ? (data.file_id || data.message_id) : null,
       repliedMoment: data.replied_moment,
     });
     scrollToBottom();
@@ -826,7 +840,15 @@ SDH.Chat = (() => {
 
   function handleMessageRemoved(data) {
     const { message_id, removal_scope, removed_by } = data;
-    const bubble = document.getElementById(`msg-${message_id}`);
+    if (window.SDH?.MediaViewer?.evictBlob) {
+      window.SDH.MediaViewer.evictBlob(message_id);
+    }
+    _closeAllMsgMenus();
+
+    const bubble = document.getElementById(`msg-${message_id}`)
+      || document.querySelector(`[data-message-id="${message_id}"]`)
+      || document.querySelector(`[data-file-id="${message_id}"]`)?.closest('[data-message-id]')
+      || document.querySelector(`[data-file-id="${message_id}"]`)?.closest('.animate-msg-appear');
 
     if (removal_scope === 'self') {
       // Only affect the user who initiated the removal
@@ -888,6 +910,7 @@ SDH.Chat = (() => {
 
     // Remember original parent so we can restore DOM order
     dropdown._originalParent = dropdown.parentElement;
+    dropdown._targetBubble = btn.closest('[data-message-id]');
 
     // Append to body so it escapes overflow clipping (composer bar, containers)
     document.body.appendChild(dropdown);
@@ -905,7 +928,7 @@ SDH.Chat = (() => {
     const dropdownWidth = dropdown.offsetWidth || 224;
     const dropdownHeight = dropdown.offsetHeight || 80;
 
-    const bubble = btn.closest('[data-message-id]');
+    const bubble = dropdown._targetBubble || btn.closest('[data-message-id]');
     const isRightAligned = bubble?.classList?.contains('justify-end');
 
     let left = isRightAligned
@@ -938,23 +961,24 @@ SDH.Chat = (() => {
         dropdown._originalParent.appendChild(dropdown);
         delete dropdown._originalParent;
       }
+      delete dropdown._targetBubble;
     });
   }
 
   /** "Remove from My View" — hides the message only for the current user. */
   async function _removeFromMyView(btn) {
     const dropdown = btn.closest('.msg-dropdown');
-    const bubble = (dropdown?._originalParent || btn).closest('[data-message-id]');
+    const bubble = dropdown?._targetBubble || (dropdown?._originalParent || btn).closest('[data-message-id]');
     const msgId = bubble?.dataset?.messageId;
     if (!msgId || msgId.startsWith('temp_')) return;
-    btn.closest('.msg-dropdown')?.classList.add('hidden');
+    _closeAllMsgMenus();
     try {
       const res = await fetch(`/messaging/api/message/${msgId}/remove-my-view/`, {
         method: 'POST',
         headers: { 'X-CSRFToken': window.SDH_DATA.csrfToken, 'Content-Type': 'application/json' },
       });
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || res.statusText); }
-      bubble.remove();
+      if (bubble) bubble.remove();
       _showRemoveMyViewToast();
     } catch (err) { showToast('Could not remove message: ' + err.message, 'error'); }
   }
@@ -962,10 +986,10 @@ SDH.Chat = (() => {
   /** Opens the confirmation modal for "Delete for All Participants". */
   function _confirmDeleteForAll(btn) {
     const dropdown = btn.closest('.msg-dropdown');
-    const bubble = (dropdown?._originalParent || btn).closest('[data-message-id]');
+    const bubble = dropdown?._targetBubble || (dropdown?._originalParent || btn).closest('[data-message-id]');
     const msgId = bubble?.dataset?.messageId;
     if (!msgId || msgId.startsWith('temp_')) return;
-    btn.closest('.msg-dropdown')?.classList.add('hidden');
+    _closeAllMsgMenus();
     const modal = document.getElementById('deleteForAllModal');
     if (modal) { modal.dataset.targetId = msgId; modal.classList.remove('hidden'); }
   }
@@ -976,12 +1000,19 @@ SDH.Chat = (() => {
     const msgId = modal?.dataset?.targetId;
     if (modal) modal.classList.add('hidden');
     if (!msgId) return;
+    _closeAllMsgMenus();
     try {
       const res = await fetch(`/messaging/api/message/${msgId}/delete-for-all/`, {
         method: 'POST',
         headers: { 'X-CSRFToken': window.SDH_DATA.csrfToken, 'Content-Type': 'application/json' },
       });
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || res.statusText); }
+      // Immediately reflect deletion on local client!
+      handleMessageRemoved({
+        message_id: msgId,
+        removal_scope: 'all',
+        removed_by: window.SDH_DATA.currentUser,
+      });
       showToast('Message deleted for all participants.', 'success');
     } catch (err) { showToast('Could not delete message: ' + err.message, 'error'); }
   }
@@ -1659,7 +1690,11 @@ SDH.Chat = (() => {
         headers: { 'X-CSRFToken': window.SDH_DATA.csrfToken, 'Content-Type': 'application/json' },
       });
       if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || res.statusText); }
-      // UI cleared by the chat_cleared WebSocket event
+      handleChatCleared({
+        cleared_by: window.SDH_DATA.currentUser,
+        other_user: activeUser,
+        group_id: activeUser.startsWith('group_') ? activeUserId : null
+      });
     } catch (err) { showToast('Could not clear chat: ' + err.message, 'error'); }
   }
 
@@ -2101,6 +2136,29 @@ SDH.Chat = (() => {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   //  Send message
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  async function _encryptOutgoingText(text, targetUser) {
+    if (!window.SDH?.E2E || !text) {
+      return { message: text, encryption_iv: '', is_encrypted: false };
+    }
+    try {
+      if (targetUser && targetUser.startsWith('group_')) {
+        const gid = activeUserId || parseInt(targetUser.replace('group_', ''), 10);
+        const enc = await window.SDH.E2E.encryptGroupMessage(text, gid);
+        if (enc && enc.is_encrypted) {
+          return { message: enc.ciphertext, encryption_iv: enc.iv, is_encrypted: true };
+        }
+      } else if (targetUser) {
+        const enc = await window.SDH.E2E.encrypt(text, targetUser);
+        if (enc && enc.is_encrypted) {
+          return { message: enc.ciphertext, encryption_iv: enc.iv, is_encrypted: true };
+        }
+      }
+    } catch (err) {
+      console.warn('[E2EE] Encryption failed, sending unencrypted fallback:', err);
+    }
+    return { message: text, encryption_iv: '', is_encrypted: false };
+  }
+
   async function sendMessage() {
     if (!activeUser || !activeUserId) return;
     if (!SDH.WS.isOpen()) {
@@ -2132,13 +2190,16 @@ SDH.Chat = (() => {
             const msgData = await SDH.FileUpload.handleFileUpload(
               file, activeUser, stage => console.debug('[Chat] File upload:', file.name, stage),
             );
-            const tempId = `temp_${Date.now()}_${i}`;
+            const realMsgId = msgData.message_id || msgData.file_id;
+            if (realMsgId) {
+              renderedIds.add(String(realMsgId));
+            }
             appendMessage({
               sender: window.SDH_DATA.currentUser, isFromMe: true, content: null,
               messageType: msgData.message_type,
               originalFilename: msgData.original_filename, mimeType: msgData.mime_type,
-              timestamp: msgData.timestamp, messageId: tempId,
-              hasServerFile: true, fileId: msgData.file_id,
+              timestamp: msgData.timestamp, messageId: realMsgId,
+              hasServerFile: true, fileId: msgData.file_id || realMsgId,
             });
             scrollToBottom();
             successCount++;
@@ -2155,7 +2216,15 @@ SDH.Chat = (() => {
         }
 
         if (rawText) {
-          const payload = { type: 'chat_message', receiver: activeUser, message_type: 'text', message: rawText };
+          const encResult = await _encryptOutgoingText(rawText, activeUser);
+          const payload = {
+            type: 'chat_message',
+            receiver: activeUser,
+            message_type: 'text',
+            message: encResult.message,
+            encryption_iv: encResult.encryption_iv,
+            is_encrypted: encResult.is_encrypted,
+          };
           if (activeUser.startsWith('group_')) {
             payload.type = 'group_message';
           }
@@ -2187,7 +2256,15 @@ SDH.Chat = (() => {
       }
 
       // Text message
-      const payload = { type: 'chat_message', receiver: activeUser, message_type: 'text', message: rawText };
+      const encResult = await _encryptOutgoingText(rawText, activeUser);
+      const payload = {
+        type: 'chat_message',
+        receiver: activeUser,
+        message_type: 'text',
+        message: encResult.message,
+        encryption_iv: encResult.encryption_iv,
+        is_encrypted: encResult.is_encrypted,
+      };
       if (activeUser.startsWith('group_')) {
         payload.type = 'group_message';
       }
@@ -2542,6 +2619,9 @@ SDH.Chat = (() => {
     // Ensure user exists in sidebar list & originalHTML
     if (!_isSelfChat(username) && !username.startsWith('group_')) {
       _ensureUserInSidebar(username, userId);
+      if (window.SDH?.E2E?.getPeerPublicKey) {
+        window.SDH.E2E.getPeerPublicKey(username);
+      }
     }
 
     if (SDH.WS && userId) {
@@ -2689,7 +2769,10 @@ SDH.Chat = (() => {
         const isFromMe = msg.sender === window.SDH_DATA.currentUser;
         // Deleted-for-all messages render as a placeholder; no menu shown
         const effectiveType = msg.is_deleted_for_all ? 'deleted' : msg.message_type;
-        const content = effectiveType === 'text' ? (msg.message || '') : null;
+        let content = effectiveType === 'text' ? (msg.message || '') : null;
+        if (effectiveType === 'text' && msg.is_encrypted && msg.encryption_iv && window.SDH?.E2E) {
+          content = await window.SDH.E2E.decrypt(msg.message, msg.encryption_iv, username);
+        }
         renderedIds.add(String(msg.id));
         appendMessage({
           sender: msg.sender, isFromMe, content,
@@ -4073,6 +4156,14 @@ SDH.Chat = (() => {
       }
     } catch (e) { }
 
+    if (window.SDH?.E2E?.getGroupKey) {
+      try {
+        await window.SDH.E2E.getGroupKey(groupId);
+      } catch (e2eGroupErr) {
+        console.warn('[E2EE] Group key prefetch warning:', e2eGroupErr);
+      }
+    }
+
     await loadGroupHistory(groupId, groupName);
 
     unreadCounts[`group_${groupId}`] = 0;
@@ -4367,7 +4458,10 @@ SDH.Chat = (() => {
           continue;
         }
 
-        const content = effectiveType === 'text' ? (msg.message || '') : null;
+        let content = effectiveType === 'text' ? (msg.message || '') : null;
+        if (effectiveType === 'text' && msg.is_encrypted && msg.encryption_iv && window.SDH?.E2E) {
+          content = await window.SDH.E2E.decryptGroupMessage(msg.message, msg.encryption_iv, groupId);
+        }
         renderedIds.add(String(msg.id));
         appendMessage({
           sender: msg.sender,

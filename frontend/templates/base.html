@@ -101,7 +101,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="{% static 'css/custom.css' %}?v=11" />
+  <link rel="stylesheet" href="{% static 'css/custom.css' %}?v=12" />
 
   <style>
     /* Theme Transition API */
@@ -112,6 +112,61 @@
     }
     ::view-transition-old(root) { z-index: 1; }
     ::view-transition-new(root) { z-index: 9999; }
+
+    /* Universal Dropdown & Hover Contrast Rules */
+    [data-theme="light"] .hover\:bg-divine-surface:hover,
+    [data-theme="light"] .hover\:bg-divine-surface\/80:hover {
+      background-color: #f1f5f9 !important;
+    }
+    [data-theme="light"] .hover\:text-divine-text:hover {
+      color: #0f172a !important;
+    }
+    [data-theme="light"] .hover\:text-divine-muted:hover {
+      color: #475569 !important;
+    }
+    [data-theme="light"] #userDropdown {
+      background-color: #ffffff !important;
+      border: 1px solid rgba(168, 85, 247, 0.22) !important;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(168, 85, 247, 0.08) !important;
+    }
+    [data-theme="light"] #userDropdown a,
+    [data-theme="light"] #userDropdown button {
+      color: #1e293b !important;
+      font-weight: 500 !important;
+    }
+    [data-theme="light"] #userDropdown a svg,
+    [data-theme="light"] #userDropdown button svg {
+      color: #64748b !important;
+    }
+    [data-theme="light"] #userDropdown a:hover,
+    [data-theme="light"] #userDropdown button:hover {
+      background-color: #f1f5f9 !important;
+      color: #0f172a !important;
+    }
+    [data-theme="light"] #userDropdown a:hover svg,
+    [data-theme="light"] #userDropdown button:hover svg {
+      color: #7c3aed !important;
+    }
+    [data-theme="light"] #userDropdown a[href*="logout"]:hover {
+      background-color: #fef2f2 !important;
+      color: #b91c1c !important;
+    }
+    [data-theme="light"] #userDropdown a[href*="logout"]:hover svg {
+      color: #b91c1c !important;
+    }
+    .dark #userDropdown,
+    [data-theme="dark"] #userDropdown {
+      background-color: #121324 !important;
+      border: 1px solid rgba(168, 85, 247, 0.3) !important;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
+    }
+    .dark #userDropdown a:hover,
+    .dark #userDropdown button:hover,
+    [data-theme="dark"] #userDropdown a:hover,
+    [data-theme="dark"] #userDropdown button:hover {
+      background-color: rgba(255, 255, 255, 0.08) !important;
+      color: #ffffff !important;
+    }
   </style>
 
   {% block extra_head %}{% endblock %}

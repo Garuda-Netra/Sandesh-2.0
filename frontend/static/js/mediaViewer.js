@@ -552,6 +552,19 @@ SDH.MediaViewer = (() => {
     }
   }
 
+  function evictBlob(fileId) {
+    if (!fileId) return;
+    const key = String(fileId);
+    const entry = blobCache.get(key);
+    if (entry && entry.blobUrl) {
+      try { URL.revokeObjectURL(entry.blobUrl); } catch (_) {}
+    }
+    blobCache.delete(key);
+    if (activeMedia && String(activeMedia.fileId) === key) {
+      close();
+    }
+  }
+
   // ── Keyboard Support ──────────────────────────────────────────────────────
   document.addEventListener('keydown', (e) => {
     if (!modalEl || modalEl.classList.contains('hidden')) return;
@@ -587,6 +600,7 @@ SDH.MediaViewer = (() => {
     downloadCurrent,
     openInNewTab,
     retry,
+    evictBlob,
     cacheBlob,
     getCachedBlob,
   };

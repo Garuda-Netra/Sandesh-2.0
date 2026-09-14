@@ -3,7 +3,7 @@ Messaging Admin
 """
 
 from django.contrib import admin
-from .models import Message, CallLog, Group, GroupMembership, GroupMessage
+from .models import Message, CallLog, Group, GroupMembership, GroupMessage, GroupE2EKey
 
 
 @admin.register(Message)
@@ -50,3 +50,10 @@ class GroupMessageAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(GroupE2EKey)
+class GroupE2EKeyAdmin(admin.ModelAdmin):
+    list_display = ('group', 'user', 'sender', 'created_at')
+    search_fields = ('group__name', 'user__username', 'sender__username')
+    readonly_fields = ('encrypted_key', 'encryption_iv', 'created_at')

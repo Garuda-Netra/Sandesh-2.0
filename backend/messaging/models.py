@@ -105,6 +105,18 @@ class Message(models.Model):
         help_text='True when sender deleted the message for all participants',
     )
 
+    # ── End-to-End Encryption (AES-GCM-256) ────────────────────────────────
+    is_encrypted = models.BooleanField(
+        default=False,
+        help_text='Indicates if the message content is end-to-end encrypted'
+    )
+    encryption_iv = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text='Base64-encoded AES-GCM initialization vector'
+    )
+
     class Meta:
         ordering = ['timestamp']
         verbose_name = 'Message'
@@ -471,6 +483,18 @@ class GroupMessage(models.Model):
     # System messages (e.g. "User joined the group")
     is_system_message = models.BooleanField(default=False)
 
+    # ── End-to-End Encryption (AES-GCM-256) ────────────────────────────────
+    is_encrypted = models.BooleanField(
+        default=False,
+        help_text='Indicates if the group message content is end-to-end encrypted'
+    )
+    encryption_iv = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text='Base64-encoded AES-GCM initialization vector'
+    )
+
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -504,6 +528,47 @@ class GroupMessageRead(models.Model):
 
     def __str__(self):
         return f'{self.user.username} read {self.message.id} at {self.read_at:%Y-%m-%d %H:%M}'
+
+
+class GroupE2EKey(models.Model):
+    """
+    Stores the AES-256 group encryption key, encrypted with the member's ECDH public key.
+    The server cannot decrypt this key; only the member with their private key can decrypt it.
+    """
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name='e2e_keys'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='group_e2e_keys'
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='distributed_group_keys'
+    )
+    encrypted_key = models.TextField(
+        help_text="Base64 ciphertext of AES group key encrypted with user's ECDH public key"
+    )
+    encryption_iv = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text='Base64 IV used when encrypting the group key'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('group', 'user')
+        verbose_name = 'Group E2E Key'
+        verbose_name_plural = 'Group E2E Keys'
+
+    def __str__(self):
+        return f'GroupE2EKey for {self.user.username} in {self.group.name}'
 
 
 @receiver(post_delete, sender=GroupMessage)

@@ -265,6 +265,201 @@
     background: rgba(244, 63, 94, 0.22) !important;
     border-color: rgba(244, 63, 94, 0.5) !important;
   }
+
+  /* ══════════════════════════════════════════════════════════════
+     MESSAGE & CONTEXT DROPDOWNS: HOVER CONTRAST & VISIBILITY FIXES
+     ══════════════════════════════════════════════════════════════ */
+
+  /* Light theme message and user dropdowns */
+  [data-theme="light"] .msg-dropdown,
+  [data-theme="light"] .user-ctx-dropdown,
+  [data-theme="light"] #kebabDropdown,
+  [data-theme="light"] [id^="sidebarKebab-"] {
+    background: #ffffff !important;
+    border: 1px solid rgba(168, 85, 247, 0.25) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(168, 85, 247, 0.08) !important;
+  }
+
+  [data-theme="light"] .msg-dropdown button,
+  [data-theme="light"] .user-ctx-dropdown button,
+  [data-theme="light"] #kebabDropdown button,
+  [data-theme="light"] #kebabDropdown .sdh-kebab-item,
+  [data-theme="light"] [id^="sidebarKebab-"] button {
+    color: #1e293b !important;
+    font-weight: 500 !important;
+  }
+
+  [data-theme="light"] .msg-dropdown button svg,
+  [data-theme="light"] .user-ctx-dropdown button svg,
+  [data-theme="light"] #kebabDropdown svg,
+  [data-theme="light"] [id^="sidebarKebab-"] svg {
+    color: #64748b !important;
+    stroke: currentColor !important;
+  }
+
+  /* Light theme hover state: crystal clear readable text on light surface */
+  [data-theme="light"] .msg-dropdown button:hover,
+  [data-theme="light"] .user-ctx-dropdown button:hover,
+  [data-theme="light"] #kebabDropdown button:hover,
+  [data-theme="light"] #kebabDropdown .sdh-kebab-item:hover,
+  [data-theme="light"] [id^="sidebarKebab-"] button:hover {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+  }
+
+  [data-theme="light"] .msg-dropdown button:hover svg,
+  [data-theme="light"] .user-ctx-dropdown button:hover svg,
+  [data-theme="light"] #kebabDropdown button:hover svg,
+  [data-theme="light"] #kebabDropdown .sdh-kebab-item:hover svg,
+  [data-theme="light"] [id^="sidebarKebab-"] button:hover svg {
+    color: #7c3aed !important;
+    stroke: #7c3aed !important;
+  }
+
+  /* Download / Gold options in Light Theme */
+  [data-theme="light"] .msg-dropdown button[class*="text-divine-gold"],
+  [data-theme="light"] .user-ctx-dropdown button[class*="text-purple"],
+  [data-theme="light"] #kebabDropdown button[class*="text-purple"],
+  [data-theme="light"] #kebabDropdown button[class*="text-amber"] {
+    color: #7c3aed !important;
+  }
+
+  [data-theme="light"] .msg-dropdown button[class*="text-divine-gold"] svg,
+  [data-theme="light"] .user-ctx-dropdown button[class*="text-purple"] svg,
+  [data-theme="light"] #kebabDropdown button[class*="text-purple"] svg,
+  [data-theme="light"] #kebabDropdown button[class*="text-amber"] svg {
+    color: #7c3aed !important;
+    stroke: #7c3aed !important;
+  }
+
+  [data-theme="light"] .msg-dropdown button[class*="text-divine-gold"]:hover,
+  [data-theme="light"] .user-ctx-dropdown button[class*="text-purple"]:hover,
+  [data-theme="light"] #kebabDropdown button[class*="text-purple"]:hover,
+  [data-theme="light"] #kebabDropdown button[class*="text-amber"]:hover {
+    background-color: rgba(168, 85, 247, 0.1) !important;
+    color: #6d28d9 !important;
+  }
+
+  /* Muted options ("Remove from My View", "Remove Contact") in Light Theme */
+  [data-theme="light"] .msg-dropdown button[class*="text-divine-muted"],
+  [data-theme="light"] .user-ctx-dropdown button[class*="text-divine-muted"] {
+    color: #64748b !important;
+  }
+
+  [data-theme="light"] .msg-dropdown button[class*="text-divine-muted"]:hover,
+  [data-theme="light"] .user-ctx-dropdown button[class*="text-divine-muted"]:hover {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+  }
+
+  /* Danger / Delete options in Light Theme */
+  [data-theme="light"] .msg-dropdown button[class*="text-red"],
+  [data-theme="light"] .user-ctx-dropdown button[class*="text-red"],
+  [data-theme="light"] #kebabDropdown button[class*="text-red"],
+  [data-theme="light"] #kebabDropdown #blockBtn,
+  [data-theme="light"] [id^="sidebarKebab-"] button[class*="text-red"] {
+    color: #dc2626 !important;
+  }
+
+  [data-theme="light"] .msg-dropdown button[class*="text-red"] svg,
+  [data-theme="light"] .user-ctx-dropdown button[class*="text-red"] svg,
+  [data-theme="light"] #kebabDropdown button[class*="text-red"] svg,
+  [data-theme="light"] #kebabDropdown #blockBtn svg,
+  [data-theme="light"] [id^="sidebarKebab-"] button[class*="text-red"] svg {
+    color: #dc2626 !important;
+    stroke: #dc2626 !important;
+  }
+
+  [data-theme="light"] .msg-dropdown button[class*="text-red"]:hover,
+  [data-theme="light"] .user-ctx-dropdown button[class*="text-red"]:hover,
+  [data-theme="light"] #kebabDropdown button[class*="text-red"]:hover,
+  [data-theme="light"] #kebabDropdown #blockBtn:hover,
+  [data-theme="light"] [id^="sidebarKebab-"] button[class*="text-red"]:hover {
+    background-color: #fef2f2 !important;
+    color: #b91c1c !important;
+  }
+
+  /* Dropdown dividers in Light Theme */
+  [data-theme="light"] .msg-dropdown div[class*="border-t"],
+  [data-theme="light"] .user-ctx-dropdown div[class*="border-t"],
+  [data-theme="light"] #kebabDropdown div[class*="border-t"],
+  [data-theme="light"] #kebabDropdown .h-px {
+    border-color: #e2e8f0 !important;
+    background-color: #e2e8f0 !important;
+  }
+
+  /* Dark Theme Dropdowns */
+  .dark .msg-dropdown,
+  [data-theme="dark"] .msg-dropdown,
+  .dark .user-ctx-dropdown,
+  [data-theme="dark"] .user-ctx-dropdown,
+  .dark #kebabDropdown,
+  [data-theme="dark"] #kebabDropdown,
+  .dark [id^="sidebarKebab-"],
+  [data-theme="dark"] [id^="sidebarKebab-"] {
+    background: rgba(18, 18, 34, 0.98) !important;
+    border: 1px solid rgba(168, 85, 247, 0.3) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(168, 85, 247, 0.12) !important;
+  }
+
+  .dark .msg-dropdown button,
+  [data-theme="dark"] .msg-dropdown button,
+  .dark .user-ctx-dropdown button,
+  [data-theme="dark"] .user-ctx-dropdown button,
+  .dark #kebabDropdown button,
+  [data-theme="dark"] #kebabDropdown button,
+  .dark #kebabDropdown .sdh-kebab-item,
+  [data-theme="dark"] #kebabDropdown .sdh-kebab-item,
+  .dark [id^="sidebarKebab-"] button,
+  [data-theme="dark"] [id^="sidebarKebab-"] button {
+    color: #e2e8f0 !important;
+    font-weight: 500 !important;
+  }
+
+  .dark .msg-dropdown button:hover,
+  [data-theme="dark"] .msg-dropdown button:hover,
+  .dark .user-ctx-dropdown button:hover,
+  [data-theme="dark"] .user-ctx-dropdown button:hover,
+  .dark #kebabDropdown button:hover,
+  [data-theme="dark"] #kebabDropdown button:hover,
+  .dark #kebabDropdown .sdh-kebab-item:hover,
+  [data-theme="dark"] #kebabDropdown .sdh-kebab-item:hover,
+  .dark [id^="sidebarKebab-"] button:hover,
+  [data-theme="dark"] [id^="sidebarKebab-"] button:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    color: #ffffff !important;
+  }
+
+  .dark .msg-dropdown button:hover svg,
+  [data-theme="dark"] .msg-dropdown button:hover svg,
+  .dark .user-ctx-dropdown button:hover svg,
+  [data-theme="dark"] .user-ctx-dropdown button:hover svg,
+  .dark #kebabDropdown button:hover svg,
+  [data-theme="dark"] #kebabDropdown button:hover svg,
+  .dark #kebabDropdown .sdh-kebab-item:hover svg,
+  [data-theme="dark"] #kebabDropdown .sdh-kebab-item:hover svg,
+  .dark [id^="sidebarKebab-"] button:hover svg,
+  [data-theme="dark"] [id^="sidebarKebab-"] button:hover svg {
+    color: #c084fc !important;
+    stroke: #c084fc !important;
+  }
+
+  .dark .msg-dropdown button[class*="text-divine-gold"]:hover,
+  [data-theme="dark"] .msg-dropdown button[class*="text-divine-gold"]:hover,
+  .dark .user-ctx-dropdown button[class*="text-purple"]:hover,
+  [data-theme="dark"] .user-ctx-dropdown button[class*="text-purple"]:hover {
+    background-color: rgba(168, 85, 247, 0.22) !important;
+    color: #f3e8ff !important;
+  }
+
+  .dark .msg-dropdown button[class*="text-red"]:hover,
+  [data-theme="dark"] .msg-dropdown button[class*="text-red"]:hover,
+  .dark .user-ctx-dropdown button[class*="text-red"]:hover,
+  [data-theme="dark"] .user-ctx-dropdown button[class*="text-red"]:hover {
+    background-color: rgba(239, 68, 68, 0.2) !important;
+    color: #fca5a5 !important;
+  }
+
 </style>
 
 {{ users_json|json_script:"sdh-users-data" }}
@@ -325,7 +520,9 @@
     webauthnRegOptionsUrl: "{% url 'messaging:webauthn_register_options' %}",
     webauthnRegVerifyUrl: "{% url 'messaging:webauthn_register_verify' %}",
     webauthnAuthOptionsUrl: "{% url 'messaging:webauthn_auth_options' %}",
-    webauthnAuthVerifyUrl: "{% url 'messaging:webauthn_auth_verify' %}"
+    webauthnAuthVerifyUrl: "{% url 'messaging:webauthn_auth_verify' %}",
+    e2ePublicKeySaveUrl: "{% url 'messaging:e2e_save_public_key' %}",
+    e2ePublicKeyGetUrl: "/messaging/api/e2e/public-key/"
   };
 
   window.SDH_SETTINGS = window.SDH_DATA.userSettings || {};
@@ -2634,10 +2831,11 @@
 </style>
 <script src="{% static 'js/moments.js' %}?v=2.3"></script>
 <script src="{% static 'js/fileUpload.js' %}?v=2.1"></script>
-<script src="{% static 'js/mediaViewer.js' %}?v=1.0"></script>
+<script src="{% static 'js/mediaViewer.js' %}?v=1.1"></script>
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
+<script src="{% static 'js/e2eCrypto.js' %}?v=1.0"></script>
 <script src="{% static 'js/chatLock.js' %}?v=1.0"></script>
-<script src="{% static 'js/chat.js' %}?v=3.4"></script>
+<script src="{% static 'js/chat.js' %}?v=3.5"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.1"></script>
 <script src="{% static 'js/userSearch.js' %}?v=3.2"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->
@@ -2968,6 +3166,15 @@
     // Initialize ChatLock immediately
     if (window.SDH?.ChatLock?.init) {
       window.SDH.ChatLock.init();
+    }
+
+    // Initialize End-to-End Encryption (E2EE) immediately
+    if (window.SDH?.E2E?.init && window.SDH_DATA?.currentUser) {
+      try {
+        await window.SDH.E2E.init(window.SDH_DATA.currentUser);
+      } catch (e2eErr) {
+        console.warn('[E2EE] Bootstrap init error:', e2eErr);
+      }
     }
 
     try {

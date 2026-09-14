@@ -30,7 +30,16 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 
 ---
 
-### 🔐 WhatsApp-Style Chat Lock & Biometric Security *(New!)*
+### 🔒 Native End-to-End Encryption (E2EE) *(New!)*
+- **Military-Grade Cryptography**: Zero-dependency, client-side encryption powered directly by the browser's native **Web Crypto API** using **ECDH (Elliptic Curve Diffie-Hellman P-256)** for key exchange and **AES-GCM-256** with unique 12-byte initialization vectors (IV) for authenticated message encryption.
+- **Direct (1-on-1) Perfect Privacy**: Each user generates and retains their private key strictly within their browser (`localStorage`). The server only holds public keys in JWK format and relays/stores ciphertext. The server **cannot decrypt or read** text content.
+- **Group Symmetric Key Exchange**: Scalable group encryption where each group generates an autonomous 256-bit AES-GCM group key, encrypted individually for each member using their ECDH public key (`GroupE2EKey`). All group members seamlessly encrypt and decrypt in real time.
+- **Zero-Latency Real-Time Pipeline**: Encrypted payloads travel effortlessly across WebSockets (`chat_message` & `group_message`) and decrypt instantly on incoming arrival or during chat history loading.
+- **Visual E2E Lock Indicator**: Distinctive `🔒` security badges in headers and messages reaffirming that the session is cryptographically sealed end-to-end.
+
+---
+
+### 🔐 WhatsApp-Style Chat Lock & Biometric Security
 - **Granular Per-Chat Locking**: Lock any individual direct chat, group conversation, or your private Saved Messages notebook with one click.
 - **Dedicated "Locked Chats" Vault**: Pinned right at the top of your sidebar. When locked, conversations are completely tucked away from view.
 - **Device Biometrics (WebAuthn)**: Seamlessly unlock with your fingerprint, Face ID, Touch ID, or Windows Hello using secure hardware-backed platform credentials.
@@ -42,14 +51,16 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 ---
 
 ### 💬 Messaging & Real-Time Connection
-- **⚡ Real-Time WebSockets**: Instant bidirectional message delivery powered by Django Channels (`/ws/chat/`) with zero page reloading.
+- **⚡ Real-Time WebSockets**: Instant bidirectional message delivery powered by Django Channels (`/ws/chat/` & `/ws/group/`) with zero page reloading.
 - **✔️ Live Delivery & Read Receipts**: Visual status tracking from sent (`✓`) to delivered (`✓✓` grey) to read (`✓✓` gold/purple).
 - **🟢 Live Presence & Typing Signals**: Anti-flicker online presence indicators and real-time typing bubbles.
 - **🔒 Disappearing Messages**: Set chats to self-destruct automatically after 2 days, 1 week, or 1 month.
-- **🗑️ Dual-Tier Message Deletion**:
-  - *Remove from My View:* Cleans up messages solely on your device.
-  - *Delete for Everyone:* Sender-authorized deletion broadcasted across all participants in real time.
-  - *Clear Chat:* Wipe an entire conversation history with a single confirmation.
+- **🗑️ Real-Time Dual-Tier Deletion & Storage Purging**:
+  - *Remove from My View:* Hides the message immediately on your device while preserving it for the other party.
+  - *Delete for Everyone (1-on-1 & Groups):* Sender-authorized real-time deletion broadcasted over multi-channel WebSockets (`chat_{lo}__{hi}`, `group_chat_{id}`, and personal `user_chat_{id}` streams) with instant optimistic local replacement.
+  - *Zero Orphan File Policy:* Deleting media permanently unlinks and purges physical files from disk/storage (`msg.file.delete()` & `os.remove`), revoking live blob object URLs and evicting items from memory.
+  - *Dynamic Deleted Group Merging:* Multiple consecutive deleted messages cleanly merge into a unified, subtle badge (`"X messages deleted"`).
+  - *Clear Chat:* Instantly wipes an entire conversation history with zero latency.
 - **📝 Saved Messages**: Your personal, cloud-synced digital notebook for quick notes, links, and files.
 
 ---
@@ -61,8 +72,8 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
   - *My Contacts Except...:* Hide stories from specific individuals with contact exclusion counters.
   - *Only Share With...:* Whitelist specific friends who can view your moment.
   - *Persistent Defaults & Live Broadcast Filtering:* Settings persist across uploads and WebSocket events are strictly routed only to permitted friends.
-- **🖼️ Interactive Media Lightbox**: High-resolution viewer modal for photos, videos, and PDFs with pan, zoom, playback controls, and keyboard navigation.
-- **📎 Multi-File Attachments & Document Previews**: Send photos, videos, audio clips, PDFs, documents, and archives up to 5 MB with instant previews.
+- **🖼️ Interactive Universal Media Lightbox & Viewer (`SDH.MediaViewer`)**: High-resolution viewer modal for photos, videos, and PDFs with pan, zoom, playback controls, keyboard navigation (Esc, +, -, 0), and real-time blob cache eviction.
+- **📎 Multi-File Attachments & Real-Time Previews**: Send photos, videos, audio clips, PDFs, documents, and archives up to 5 MB with instant optimistic previews, dedicated preview/open buttons, and direct downloads.
 
 ---
 
@@ -102,6 +113,7 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 |---|---|---|
 | **Backend Core** | Python 3.12, Django 5.2 | High-throughput async web framework & API layer |
 | **Real-Time Engine** | Django Channels 4.3, Daphne 4.2 | ASGI server, WebSockets & real-time event pipeline |
+| **Cryptography (E2EE)** | Web Crypto API (SubtleCrypto) | Client-side ECDH P-256 key exchange & AES-GCM-256 authenticated encryption |
 | **PWA & Offline** | Service Worker API, Cache API, Webmanifest | Installable desktop/mobile app shell with offline resilience |
 | **Database & Cache** | PostgreSQL / SQLite, Redis | Relational data persistence & channel layer pub/sub |
 | **Audio/Video Engine** | WebRTC, STUN/TURN, Web Audio API | Browser-to-browser encrypted media streaming & acoustic audio |
@@ -124,7 +136,7 @@ Sandesh-2.0/
 │   └── manage.py          # Administrative command utility
 ├── frontend/
 │   ├── static/
-│   │   ├── js/            # Modular JS (chat, chatLock, webrtc, sw.js, moments, chatbot)
+│   │   ├── js/            # Modular JS (chat, e2eCrypto, chatLock, mediaViewer, fileUpload, webrtc, moments, sw.js)
 │   │   ├── css/           # Glassmorphic custom CSS design system
 │   │   ├── icons/         # PWA multi-resolution ancient scroll app icons & favicons
 │   │   └── sounds/        # Authentic Divine Shankha acoustic audio assets (.mp3, .ogg)

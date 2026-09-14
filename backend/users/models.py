@@ -46,6 +46,13 @@ class UserProfile(models.Model):
         help_text="User's verified phone number with country code"
     )
 
+    # ── End-to-End Encryption (Web Crypto ECDH P-256 Public Key in JWK format) ──
+    e2e_public_key = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="User's ECDH P-256 public key (JWK format) for end-to-end encryption"
+    )
+
     # ── Hidden / removed contacts (one-way) ────────────────────────────────
     hidden_users = models.ManyToManyField(
         'self',

@@ -429,6 +429,65 @@ body {
   background-color: var(--c-card) !important;
 }
 
+/* ─── Bridge Tailwind hover states to theme variables ─────────────────── */
+[data-theme="light"] .hover\:bg-divine-surface:hover,
+[data-theme="light"] .hover\:bg-divine-surface\/80:hover {
+  background-color: #f1f5f9 !important;
+}
+
+[data-theme="light"] .hover\:bg-divine-card:hover,
+[data-theme="light"] .hover\:bg-divine-card\/70:hover,
+[data-theme="light"] .hover\:bg-divine-card\/80:hover {
+  background-color: #f8fafc !important;
+}
+
+[data-theme="light"] .hover\:bg-divine-deep:hover {
+  background-color: #f1f5f9 !important;
+}
+
+[data-theme="light"] .hover\:text-divine-text:hover {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .hover\:text-divine-muted:hover {
+  color: #475569 !important;
+}
+
+[data-theme="light"] .hover\:text-divine-gold:hover {
+  color: #7c3aed !important;
+}
+
+[data-theme="light"] .hover\:border-divine-border:hover,
+[data-theme="light"] .hover\:border-divine-border\/60:hover {
+  border-color: #cbd5e1 !important;
+}
+
+.dark .hover\:bg-divine-surface:hover,
+[data-theme="dark"] .hover\:bg-divine-surface:hover,
+.dark .hover\:bg-divine-surface\/80:hover,
+[data-theme="dark"] .hover\:bg-divine-surface\/80:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .hover\:bg-divine-card:hover,
+[data-theme="dark"] .hover\:bg-divine-card:hover,
+.dark .hover\:bg-divine-card\/70:hover,
+[data-theme="dark"] .hover\:bg-divine-card\/70:hover,
+.dark .hover\:bg-divine-card\/80:hover,
+[data-theme="dark"] .hover\:bg-divine-card\/80:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .hover\:text-divine-text:hover,
+[data-theme="dark"] .hover\:text-divine-text:hover {
+  color: #ffffff !important;
+}
+
+.dark .hover\:text-divine-gold:hover,
+[data-theme="dark"] .hover\:text-divine-gold:hover {
+  color: #c084fc !important;
+}
+
 /* ─── Auth Loading Overlay Theme Rules ───────────────────────── */
 #authLoadingOverlay {
   background: rgba(15, 23, 42, 0.45);
@@ -3447,6 +3506,322 @@ input[type="password"]::-webkit-reveal {
   50% {
     box-shadow: 0 0 0 12px rgba(20, 184, 166, 0.05);
   }
+}
+
+/* ─── Universal Dropdown Menus (.msg-dropdown, .user-ctx-dropdown, #kebabDropdown, #userDropdown) ─── */
+[data-theme="light"] .msg-dropdown,
+[data-theme="light"] .user-ctx-dropdown,
+[data-theme="light"] #kebabDropdown,
+[data-theme="light"] #userDropdown,
+[data-theme="light"] [id^="sidebarKebab-"] {
+  background: #ffffff !important;
+  border: 1px solid rgba(168, 85, 247, 0.22) !important;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.12),
+    0 4px 12px rgba(168, 85, 247, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Base button and link state in light mode dropdowns */
+[data-theme="light"] .msg-dropdown button,
+[data-theme="light"] .user-ctx-dropdown button,
+[data-theme="light"] #kebabDropdown button,
+[data-theme="light"] #kebabDropdown a,
+[data-theme="light"] #kebabDropdown .sdh-kebab-item,
+[data-theme="light"] #userDropdown a,
+[data-theme="light"] #userDropdown button,
+[data-theme="light"] [id^="sidebarKebab-"] button {
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+
+[data-theme="light"] .msg-dropdown button svg,
+[data-theme="light"] .user-ctx-dropdown button svg,
+[data-theme="light"] #kebabDropdown svg,
+[data-theme="light"] #userDropdown svg,
+[data-theme="light"] [id^="sidebarKebab-"] svg {
+  color: #64748b !important;
+  stroke: currentColor !important;
+  transition: all 0.15s ease !important;
+}
+
+/* Hover state on dropdown items in Light Mode — crystal clear visibility */
+[data-theme="light"] .msg-dropdown button:hover,
+[data-theme="light"] .user-ctx-dropdown button:hover,
+[data-theme="light"] #kebabDropdown button:hover,
+[data-theme="light"] #kebabDropdown a:hover,
+[data-theme="light"] #kebabDropdown .sdh-kebab-item:hover,
+[data-theme="light"] #userDropdown a:hover,
+[data-theme="light"] #userDropdown button:hover,
+[data-theme="light"] [id^="sidebarKebab-"] button:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .msg-dropdown button:hover svg,
+[data-theme="light"] .user-ctx-dropdown button:hover svg,
+[data-theme="light"] #kebabDropdown button:hover svg,
+[data-theme="light"] #kebabDropdown a:hover svg,
+[data-theme="light"] #kebabDropdown .sdh-kebab-item:hover svg,
+[data-theme="light"] #userDropdown a:hover svg,
+[data-theme="light"] #userDropdown button:hover svg,
+[data-theme="light"] [id^="sidebarKebab-"] button:hover svg {
+  color: #7c3aed !important;
+  stroke: #7c3aed !important;
+}
+
+/* Accent / Gold / Download items in Light Mode */
+[data-theme="light"] .msg-dropdown button[class*="text-divine-gold"],
+[data-theme="light"] .user-ctx-dropdown button[class*="text-purple"],
+[data-theme="light"] #kebabDropdown button[class*="text-purple"],
+[data-theme="light"] #kebabDropdown button[class*="text-amber"],
+[data-theme="light"] [id^="sidebarKebab-"] button[class*="text-purple"] {
+  color: #7c3aed !important;
+}
+
+[data-theme="light"] .msg-dropdown button[class*="text-divine-gold"] svg,
+[data-theme="light"] .user-ctx-dropdown button[class*="text-purple"] svg,
+[data-theme="light"] #kebabDropdown button[class*="text-purple"] svg,
+[data-theme="light"] #kebabDropdown button[class*="text-amber"] svg,
+[data-theme="light"] [id^="sidebarKebab-"] button[class*="text-purple"] svg {
+  color: #7c3aed !important;
+  stroke: #7c3aed !important;
+}
+
+[data-theme="light"] .msg-dropdown button[class*="text-divine-gold"]:hover,
+[data-theme="light"] .user-ctx-dropdown button[class*="text-purple"]:hover,
+[data-theme="light"] #kebabDropdown button[class*="text-purple"]:hover,
+[data-theme="light"] #kebabDropdown button[class*="text-amber"]:hover,
+[data-theme="light"] [id^="sidebarKebab-"] button[class*="text-purple"]:hover {
+  background-color: rgba(168, 85, 247, 0.1) !important;
+  color: #6d28d9 !important;
+}
+
+/* Danger / Delete items in Light Mode */
+[data-theme="light"] .msg-dropdown button[class*="text-red"],
+[data-theme="light"] .user-ctx-dropdown button[class*="text-red"],
+[data-theme="light"] #kebabDropdown button[class*="text-red"],
+[data-theme="light"] #kebabDropdown #blockBtn,
+[data-theme="light"] #userDropdown a[class*="text-red"],
+[data-theme="light"] #userDropdown button[class*="text-red"],
+[data-theme="light"] [id^="sidebarKebab-"] button[class*="text-red"] {
+  color: #dc2626 !important;
+}
+
+[data-theme="light"] .msg-dropdown button[class*="text-red"] svg,
+[data-theme="light"] .user-ctx-dropdown button[class*="text-red"] svg,
+[data-theme="light"] #kebabDropdown button[class*="text-red"] svg,
+[data-theme="light"] #kebabDropdown #blockBtn svg,
+[data-theme="light"] #userDropdown a[class*="text-red"] svg,
+[data-theme="light"] #userDropdown button[class*="text-red"] svg,
+[data-theme="light"] [id^="sidebarKebab-"] button[class*="text-red"] svg {
+  color: #dc2626 !important;
+  stroke: #dc2626 !important;
+}
+
+[data-theme="light"] .msg-dropdown button[class*="text-red"]:hover,
+[data-theme="light"] .user-ctx-dropdown button[class*="text-red"]:hover,
+[data-theme="light"] #kebabDropdown button[class*="text-red"]:hover,
+[data-theme="light"] #kebabDropdown #blockBtn:hover,
+[data-theme="light"] #userDropdown a[class*="text-red"]:hover,
+[data-theme="light"] #userDropdown button[class*="text-red"]:hover,
+[data-theme="light"] [id^="sidebarKebab-"] button[class*="text-red"]:hover {
+  background-color: #fef2f2 !important;
+  color: #b91c1c !important;
+}
+
+/* Success / Unblock in Light Mode */
+[data-theme="light"] #kebabDropdown #unblockBtn {
+  color: #059669 !important;
+}
+
+[data-theme="light"] #kebabDropdown #unblockBtn:hover {
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  color: #047857 !important;
+}
+
+[data-theme="light"] #kebabDropdown #unblockBtn svg {
+  color: #059669 !important;
+  stroke: #059669 !important;
+}
+
+/* Dividers in Light Mode dropdowns */
+[data-theme="light"] .msg-dropdown div[class*="border-t"],
+[data-theme="light"] .user-ctx-dropdown div[class*="border-t"],
+[data-theme="light"] #kebabDropdown div[class*="border-t"],
+[data-theme="light"] #kebabDropdown .h-px,
+[data-theme="light"] #kebabDropdown [class*="bg-divine-border"],
+[data-theme="light"] #userDropdown div[class*="border-t"],
+[data-theme="light"] #userDropdown .border-t {
+  border-color: #e2e8f0 !important;
+  background-color: #e2e8f0 !important;
+}
+
+/* ─── Universal Dropdown Menus Dark Mode ──────────────────────────── */
+.dark .msg-dropdown,
+[data-theme="dark"] .msg-dropdown,
+.dark .user-ctx-dropdown,
+[data-theme="dark"] .user-ctx-dropdown,
+.dark #kebabDropdown,
+[data-theme="dark"] #kebabDropdown,
+.dark #userDropdown,
+[data-theme="dark"] #userDropdown,
+.dark [id^="sidebarKebab-"],
+[data-theme="dark"] [id^="sidebarKebab-"] {
+  background: rgba(18, 18, 34, 0.98) !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.6),
+    0 0 24px rgba(168, 85, 247, 0.12) !important;
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+}
+
+.dark .msg-dropdown button,
+[data-theme="dark"] .msg-dropdown button,
+.dark .user-ctx-dropdown button,
+[data-theme="dark"] .user-ctx-dropdown button,
+.dark #kebabDropdown button,
+[data-theme="dark"] #kebabDropdown button,
+.dark #kebabDropdown a,
+[data-theme="dark"] #kebabDropdown a,
+.dark #kebabDropdown .sdh-kebab-item,
+[data-theme="dark"] #kebabDropdown .sdh-kebab-item,
+.dark #userDropdown a,
+[data-theme="dark"] #userDropdown a,
+.dark #userDropdown button,
+[data-theme="dark"] #userDropdown button,
+.dark [id^="sidebarKebab-"] button,
+[data-theme="dark"] [id^="sidebarKebab-"] button {
+  color: #e2e8f0 !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+
+.dark .msg-dropdown button svg,
+[data-theme="dark"] .msg-dropdown button svg,
+.dark .user-ctx-dropdown button svg,
+[data-theme="dark"] .user-ctx-dropdown button svg,
+.dark #kebabDropdown svg,
+[data-theme="dark"] #kebabDropdown svg,
+.dark #userDropdown svg,
+[data-theme="dark"] #userDropdown svg,
+.dark [id^="sidebarKebab-"] svg,
+[data-theme="dark"] [id^="sidebarKebab-"] svg {
+  color: #94a3b8 !important;
+  stroke: currentColor !important;
+  transition: all 0.15s ease !important;
+}
+
+.dark .msg-dropdown button:hover,
+[data-theme="dark"] .msg-dropdown button:hover,
+.dark .user-ctx-dropdown button:hover,
+[data-theme="dark"] .user-ctx-dropdown button:hover,
+.dark #kebabDropdown button:hover,
+[data-theme="dark"] #kebabDropdown button:hover,
+.dark #kebabDropdown a:hover,
+[data-theme="dark"] #kebabDropdown a:hover,
+.dark #kebabDropdown .sdh-kebab-item:hover,
+[data-theme="dark"] #kebabDropdown .sdh-kebab-item:hover,
+.dark #userDropdown a:hover,
+[data-theme="dark"] #userDropdown a:hover,
+.dark #userDropdown button:hover,
+[data-theme="dark"] #userDropdown button:hover,
+.dark [id^="sidebarKebab-"] button:hover,
+[data-theme="dark"] [id^="sidebarKebab-"] button:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.dark .msg-dropdown button:hover svg,
+[data-theme="dark"] .msg-dropdown button:hover svg,
+.dark .user-ctx-dropdown button:hover svg,
+[data-theme="dark"] .user-ctx-dropdown button:hover svg,
+.dark #kebabDropdown button:hover svg,
+[data-theme="dark"] #kebabDropdown button:hover svg,
+.dark #kebabDropdown a:hover svg,
+[data-theme="dark"] #kebabDropdown a:hover svg,
+.dark #kebabDropdown .sdh-kebab-item:hover svg,
+[data-theme="dark"] #kebabDropdown .sdh-kebab-item:hover svg,
+.dark #userDropdown a:hover svg,
+[data-theme="dark"] #userDropdown a:hover svg,
+.dark #userDropdown button:hover svg,
+[data-theme="dark"] #userDropdown button:hover svg,
+.dark [id^="sidebarKebab-"] button:hover svg,
+[data-theme="dark"] [id^="sidebarKebab-"] button:hover svg {
+  color: #c084fc !important;
+  stroke: #c084fc !important;
+}
+
+.dark .msg-dropdown button[class*="text-divine-gold"],
+[data-theme="dark"] .msg-dropdown button[class*="text-divine-gold"],
+.dark .user-ctx-dropdown button[class*="text-purple"],
+[data-theme="dark"] .user-ctx-dropdown button[class*="text-purple"] {
+  color: #c084fc !important;
+}
+
+.dark .msg-dropdown button[class*="text-divine-gold"]:hover,
+[data-theme="dark"] .msg-dropdown button[class*="text-divine-gold"]:hover,
+.dark .user-ctx-dropdown button[class*="text-purple"]:hover,
+[data-theme="dark"] .user-ctx-dropdown button[class*="text-purple"]:hover {
+  background-color: rgba(168, 85, 247, 0.22) !important;
+  color: #f3e8ff !important;
+}
+
+.dark .msg-dropdown button[class*="text-red"],
+[data-theme="dark"] .msg-dropdown button[class*="text-red"],
+.dark .user-ctx-dropdown button[class*="text-red"],
+[data-theme="dark"] .user-ctx-dropdown button[class*="text-red"] {
+  color: #f87171 !important;
+}
+
+.dark .msg-dropdown button[class*="text-red"]:hover,
+[data-theme="dark"] .msg-dropdown button[class*="text-red"]:hover,
+.dark .user-ctx-dropdown button[class*="text-red"]:hover,
+[data-theme="dark"] .user-ctx-dropdown button[class*="text-red"]:hover {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+}
+
+.dark .msg-dropdown div[class*="border-t"],
+[data-theme="dark"] .msg-dropdown div[class*="border-t"],
+.dark .user-ctx-dropdown div[class*="border-t"],
+[data-theme="dark"] .user-ctx-dropdown div[class*="border-t"],
+.dark #kebabDropdown div[class*="border-t"],
+[data-theme="dark"] #kebabDropdown div[class*="border-t"],
+.dark #kebabDropdown .h-px,
+[data-theme="dark"] #kebabDropdown .h-px,
+.dark #userDropdown div[class*="border-t"],
+[data-theme="dark"] #userDropdown div[class*="border-t"],
+.dark #userDropdown .border-t,
+[data-theme="dark"] #userDropdown .border-t {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 3-dot trigger buttons */
+[data-theme="light"] .msg-menu-wrap > button,
+[data-theme="light"] .user-ctx-wrap > button {
+  color: #64748b !important;
+}
+
+[data-theme="light"] .msg-menu-wrap > button:hover,
+[data-theme="light"] .user-ctx-wrap > button:hover {
+  background-color: rgba(168, 85, 247, 0.12) !important;
+  color: #7c3aed !important;
+  border-color: rgba(168, 85, 247, 0.3) !important;
+}
+
+.dark .msg-menu-wrap > button:hover,
+[data-theme="dark"] .msg-menu-wrap > button:hover,
+.dark .user-ctx-wrap > button:hover,
+[data-theme="dark"] .user-ctx-wrap > button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #c084fc !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
 }
 
 @keyframes botDot {
