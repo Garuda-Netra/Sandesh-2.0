@@ -469,6 +469,14 @@ SDH.UserSearch = (() => {
     const input = document.getElementById('searchUsers');
     if (!input) return;
 
+    // Reset any browser autofilled credential (e.g. saved username)
+    input.value = '';
+    setTimeout(() => {
+      if (input && document.activeElement !== input && input.value) {
+        input.value = '';
+      }
+    }, 150);
+
     // Persist the server-rendered HTML so we can restore it later
     const list = document.getElementById('userList');
     if (list) originalHTML = list.innerHTML;
