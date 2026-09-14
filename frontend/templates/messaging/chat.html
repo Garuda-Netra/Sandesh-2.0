@@ -2083,10 +2083,10 @@
       </button>
 
       <!-- Close Button -->
-      <button type="button" onclick="SDH.MediaViewer.close()"
-              class="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-all hover:rotate-90 duration-200 active:scale-95 ml-1 cursor-pointer"
+      <button id="mpCloseBtn" type="button" onclick="SDH.MediaViewer.close()"
+              class="w-9 h-9 rounded-xl flex items-center justify-center text-white/70 hover:text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-all hover:rotate-90 duration-200 active:scale-95 ml-1 cursor-pointer z-20"
               title="Close (Esc)">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
@@ -3101,7 +3101,7 @@
 </style>
 <script src="{% static 'js/moments.js' %}?v=2.3"></script>
 <script src="{% static 'js/fileUpload.js' %}?v=2.1"></script>
-<script src="{% static 'js/mediaViewer.js' %}?v=1.1"></script>
+<script src="{% static 'js/mediaViewer.js' %}?v=1.2"></script>
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
 <script src="{% static 'js/e2eCrypto.js' %}?v=1.0"></script>
 <script src="{% static 'js/chatLock.js' %}?v=1.0"></script>

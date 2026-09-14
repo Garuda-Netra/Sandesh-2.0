@@ -33,7 +33,8 @@ SDH.MediaViewer = (() => {
 
   // ── DOM References ────────────────────────────────────────────────────────
   let modalEl, headerEl, titleEl, metaEl, typeIconEl, zoomControlsEl, zoomLevelEl;
-  let viewportEl, containerEl, spinnerEl, errorEl, errorMsgEl, openTabBtnEl, downloadBtnEl;
+  let viewportEl, containerEl, spinnerEl, errorEl, errorMsgEl, openTabBtnEl, downloadBtnEl, closeBtnEl;
+  let isClosing = false;
 
   function _ensureElements() {
     modalEl        = document.getElementById('mediaPreviewModal');
@@ -50,6 +51,16 @@ SDH.MediaViewer = (() => {
     errorMsgEl     = document.getElementById('mpErrorMsg');
     openTabBtnEl   = document.getElementById('mpOpenTabBtn');
     downloadBtnEl  = document.getElementById('mpDownloadBtn');
+    closeBtnEl     = document.getElementById('mpCloseBtn');
+
+    if (closeBtnEl && !closeBtnEl._hasClickListener) {
+      closeBtnEl._hasClickListener = true;
+      closeBtnEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      });
+    }
   }
 
   // ── Helper: Download URL ──────────────────────────────────────────────────
@@ -249,6 +260,7 @@ SDH.MediaViewer = (() => {
    */
   async function open(opts) {
     _ensureElements();
+    isClosing = false;
     if (!modalEl) {
       console.error('[MediaViewer] Modal element #mediaPreviewModal not found');
       return;
@@ -504,26 +516,37 @@ SDH.MediaViewer = (() => {
   // ── Actions ───────────────────────────────────────────────────────────────
   function close() {
     _ensureElements();
-    if (!modalEl || modalEl.classList.contains('hidden')) return;
+    if (!modalEl || modalEl.classList.contains('hidden') || isClosing) return;
+    isClosing = true;
 
-    if (activeMedia?.isViewOnce) {
-      const mid = activeMedia.messageId || activeMedia.fileId;
+    const mediaToClose = activeMedia;
+    activeMedia = null;
+
+    if (mediaToClose?.isViewOnce) {
+      const mid = mediaToClose.messageId || mediaToClose.fileId;
       if (window.SDH?.Chat?.markViewOnceOpened) {
-        window.SDH.Chat.markViewOnceOpened(mid);
+        try {
+          window.SDH.Chat.markViewOnceOpened(mid);
+        } catch (err) {
+          console.warn('[MediaViewer] markViewOnceOpened error:', err);
+        }
       }
-      evictBlob(activeMedia.fileId);
+      if (mediaToClose.fileId) {
+        evictBlob(mediaToClose.fileId);
+      }
+      if (mediaToClose.blobUrl) {
+        try { URL.revokeObjectURL(mediaToClose.blobUrl); } catch (_) {}
+      }
     }
 
     // Pause any playing media immediately
     const video = document.getElementById('mpVideo');
     if (video) {
-      video.pause();
-      video.src = '';
+      try { video.pause(); video.src = ''; } catch (_) {}
     }
     const audio = document.getElementById('mpAudio');
     if (audio) {
-      audio.pause();
-      audio.src = '';
+      try { audio.pause(); audio.src = ''; } catch (_) {}
     }
 
     if (viewportEl) viewportEl.onwheel = null;
@@ -539,7 +562,7 @@ SDH.MediaViewer = (() => {
       }
       if (downloadBtnEl) downloadBtnEl.style.display = '';
       if (openTabBtnEl) openTabBtnEl.style.display = '';
-      activeMedia = null;
+      isClosing = false;
     }, 200);
   }
 
@@ -594,7 +617,7 @@ SDH.MediaViewer = (() => {
       try { URL.revokeObjectURL(entry.blobUrl); } catch (_) {}
     }
     blobCache.delete(key);
-    if (activeMedia && String(activeMedia.fileId) === key) {
+    if (!isClosing && activeMedia && String(activeMedia.fileId) === key) {
       close();
     }
   }
