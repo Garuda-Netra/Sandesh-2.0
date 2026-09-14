@@ -7,7 +7,7 @@
  *  - Stale-While-Revalidate for static assets (CSS, images, icons, fonts)
  */
 
-const CACHE_VERSION = 'sandesh-pwa-v1.1.0';
+const CACHE_VERSION = 'sandesh-pwa-v1.2.0';
 const STATIC_CACHE = `sandesh-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `sandesh-runtime-${CACHE_VERSION}`;
 
@@ -20,8 +20,10 @@ const PRECACHE_ASSETS = [
   '/static/icons/apple-touch-icon.png',
   '/static/icons/favicon-32x32.png',
   '/static/icons/favicon.ico',
-  '/static/sounds/shankha.mp3',
-  '/static/sounds/shankha.ogg'
+  '/static/sounds/ringtone_modern.wav',
+  '/static/sounds/ringtone_executive.wav',
+  '/static/sounds/ringtone_chime.wav',
+  '/static/sounds/ringtone_classic.wav'
 ];
 
 // ── Install: Precache Core App Shell ─────────────────────────────

@@ -1278,8 +1278,8 @@ SDH.WebRTC = (() => {
     let ringbackTimer = null;
     let previewTimer = null;
     let activeNodes = [];
-    let shankhaAudioBuffer = null;
-    let shankhaLoading = false;
+    const audioBufferCache = {};
+    const audioLoading = {};
 
     function getAudioContext() {
       if (!audioCtx || audioCtx.state === 'closed') {
@@ -1291,8 +1291,111 @@ SDH.WebRTC = (() => {
       return audioCtx;
     }
 
+    function preloadAudio(url, ctx) {
+      if (!url || audioBufferCache[url] || audioLoading[url]) return;
+      audioLoading[url] = true;
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.arrayBuffer();
+        })
+        .then(arr => ctx.decodeAudioData(arr))
+        .then(decoded => {
+          audioBufferCache[url] = decoded;
+          audioLoading[url] = false;
+        })
+        .catch(err => {
+          console.warn('[RingtoneEngine] Preload error for ' + url + ':', err);
+          audioLoading[url] = false;
+        });
+    }
+
+    function playAudioTrack(ctx, masterGain, url, maxDuration = null) {
+      preloadAudio(url, ctx);
+      if (audioBufferCache[url]) {
+        try {
+          const source = ctx.createBufferSource();
+          source.buffer = audioBufferCache[url];
+          source.connect(masterGain);
+          const now = ctx.currentTime;
+          source.start(now);
+          if (maxDuration) {
+            source.stop(now + maxDuration);
+          }
+          activeNodes.push(source);
+        } catch (e) {
+          console.warn('[RingtoneEngine] Buffer play error:', e);
+        }
+      } else {
+        // Direct HTML5 Audio fallback
+        try {
+          const audio = new Audio(url);
+          audio.volume = getVolume();
+          audio.play().catch(e => console.warn('[RingtoneEngine] HTML5 play error:', e));
+          let timeoutId = null;
+          if (maxDuration) {
+            timeoutId = setTimeout(() => {
+              try { audio.pause(); audio.currentTime = 0; } catch (e) {}
+            }, maxDuration * 1000);
+          }
+          activeNodes.push({
+            stop: () => {
+              if (timeoutId) clearTimeout(timeoutId);
+              audio.pause();
+              audio.currentTime = 0;
+            },
+            pause: () => {
+              if (timeoutId) clearTimeout(timeoutId);
+              audio.pause();
+              audio.currentTime = 0;
+            },
+            disconnect: () => {}
+          });
+        } catch (e) {
+          console.warn('[RingtoneEngine] HTML5 fallback error:', e);
+        }
+      }
+    }
+
+    const TONES = {
+      'modern': {
+        name: 'Sandesh Modern',
+        desc: 'Acoustic marimba & warm kalimba melody',
+        badge: 'Recommended',
+        url: '/static/sounds/ringtone_modern.wav',
+        interval: 4300,
+        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_modern.wav')
+      },
+      'executive': {
+        name: 'Executive Suite',
+        desc: 'Smooth Rhodes electric piano chord progression',
+        badge: 'Luxury',
+        url: '/static/sounds/ringtone_executive.wav',
+        interval: 4600,
+        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_executive.wav')
+      },
+      'chime': {
+        name: 'Acoustic Chime',
+        desc: 'Crystalline luxury bell chime arpeggio',
+        badge: 'Serene',
+        url: '/static/sounds/ringtone_chime.wav',
+        interval: 4100,
+        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_chime.wav')
+      },
+      'classic': {
+        name: 'Classic Bell',
+        desc: 'Refined modern acoustic desk bell',
+        badge: 'Classic',
+        url: '/static/sounds/ringtone_classic.wav',
+        interval: 4300,
+        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_classic.wav')
+      }
+    };
+
     function getSelectedTone() {
-      return localStorage.getItem('sdh_call_ringtone') || 'shankha';
+      const saved = localStorage.getItem('sdh_call_ringtone');
+      if (saved && TONES[saved]) return saved;
+      return 'modern';
     }
 
     function getVolume() {
@@ -1314,201 +1417,6 @@ SDH.WebRTC = (() => {
       });
       activeNodes = [];
     }
-
-    // Play a synthetic note with harmonic overtones and smooth envelope
-    function playHarmonicTone(ctx, freq, startTime, duration, masterGain, type = 'sine') {
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = type;
-      osc1.frequency.setValueAtTime(freq, startTime);
-
-      // Harmonic overtone (octave higher for shimmer & warmth)
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(freq * 2, startTime);
-
-      osc1.connect(gain1);
-      gain1.connect(masterGain);
-      osc2.connect(gain2);
-      gain2.connect(masterGain);
-
-      const attack = 0.015;
-      gain1.gain.setValueAtTime(0.0001, startTime);
-      gain1.gain.exponentialRampToValueAtTime(0.65, startTime + attack);
-      gain1.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-
-      gain2.gain.setValueAtTime(0.0001, startTime);
-      gain2.gain.exponentialRampToValueAtTime(0.2, startTime + attack);
-      gain2.gain.exponentialRampToValueAtTime(0.0001, startTime + (duration * 0.7));
-
-      osc1.start(startTime);
-      osc1.stop(startTime + duration + 0.05);
-      osc2.start(startTime);
-      osc2.stop(startTime + duration + 0.05);
-
-      activeNodes.push(osc1, osc2, gain1, gain2);
-    }
-
-    // 1. Celestial Chime: Warm, luxury polyphonic arpeggio
-    function playCelestial(ctx, masterGain) {
-      const now = ctx.currentTime;
-      const notes = [
-        { f: 523.25, t: 0.00, d: 0.8 }, // C5
-        { f: 659.25, t: 0.12, d: 0.8 }, // E5
-        { f: 783.99, t: 0.24, d: 0.9 }, // G5
-        { f: 1046.50, t: 0.36, d: 1.2 }, // C6
-        { f: 1174.66, t: 0.58, d: 0.6 }, // D6 shimmer
-        { f: 1046.50, t: 0.74, d: 1.4 }  // C6 resolve
-      ];
-      notes.forEach(n => playHarmonicTone(ctx, n.f, now + n.t, n.d, masterGain, 'sine'));
-    }
-
-    // 2. Executive Lounge: Smooth corporate vibraphone chord progression
-    function playExecutive(ctx, masterGain) {
-      const now = ctx.currentTime;
-      // Chord 1: A4, C#5, E5
-      [440.00, 554.37, 659.25].forEach(f => playHarmonicTone(ctx, f, now, 0.9, masterGain, 'sine'));
-      // Chord 2: B4, D#5, F#5
-      [493.88, 622.25, 739.99].forEach(f => playHarmonicTone(ctx, f, now + 0.45, 1.4, masterGain, 'sine'));
-    }
-
-    // 3. Modern Marimba: Crisp acoustic wooden percussion motif
-    function playMarimba(ctx, masterGain) {
-      const now = ctx.currentTime;
-      const notes = [
-        { f: 783.99, t: 0.00, d: 0.35 },
-        { f: 987.77, t: 0.14, d: 0.35 },
-        { f: 1174.66, t: 0.28, d: 0.45 },
-        { f: 987.77, t: 0.44, d: 0.35 },
-        { f: 783.99, t: 0.60, d: 0.70 }
-      ];
-      notes.forEach(n => playHarmonicTone(ctx, n.f, now + n.t, n.d, masterGain, 'triangle'));
-    }
-
-    // 4. Cosmic Horizon: Ambient ethereal drifting chord
-    function playCosmic(ctx, masterGain) {
-      const now = ctx.currentTime;
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const lfo = ctx.createOscillator();
-      const lfoGain = ctx.createGain();
-      const gain = ctx.createGain();
-
-      osc1.frequency.value = 587.33;
-      osc2.frequency.value = 880.00;
-      osc2.detune.value = 8;
-
-      lfo.frequency.value = 4.5;
-      lfoGain.gain.value = 6;
-      lfo.connect(osc1.frequency);
-      lfo.connect(osc2.frequency);
-
-      osc1.connect(gain);
-      osc2.connect(gain);
-      gain.connect(masterGain);
-
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.5, now + 0.2);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
-
-      lfo.start(now);
-      osc1.start(now);
-      osc2.start(now);
-      lfo.stop(now + 1.9);
-      osc1.stop(now + 1.9);
-      osc2.stop(now + 1.9);
-
-      activeNodes.push(osc1, osc2, lfo, lfoGain, gain);
-    }
-
-    // 5. Classic Bell: Crisp modern telephone dual-tone (440Hz + 480Hz)
-    function playClassic(ctx, masterGain) {
-      const now = ctx.currentTime;
-      const playPulse = (start) => {
-        const osc1 = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc1.frequency.value = 440;
-        osc2.frequency.value = 480;
-
-        osc1.connect(gain);
-        osc2.connect(gain);
-        gain.connect(masterGain);
-
-        gain.gain.setValueAtTime(0.001, start);
-        gain.gain.linearRampToValueAtTime(0.4, start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.45);
-
-        osc1.start(start);
-        osc2.start(start);
-        osc1.stop(start + 0.48);
-        osc2.stop(start + 0.48);
-        activeNodes.push(osc1, osc2, gain);
-      };
-      playPulse(now);
-      playPulse(now + 0.55);
-    }
-
-    function preloadOriginalShankha(ctx) {
-      if (shankhaAudioBuffer || shankhaLoading) return;
-      shankhaLoading = true;
-      fetch('/static/sounds/shankha.mp3')
-        .then(res => {
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return res.arrayBuffer();
-        })
-        .then(arr => ctx.decodeAudioData(arr))
-        .then(decoded => {
-          shankhaAudioBuffer = decoded;
-          shankhaLoading = false;
-        })
-        .catch(err => {
-          console.warn('[RingtoneEngine] Preload shankha error:', err);
-          shankhaLoading = false;
-        });
-    }
-
-    // 6. Divine Shankha: Authentic original sacred conch blast recording (शंख नाद)
-    function playShankha(ctx, masterGain) {
-      const now = ctx.currentTime;
-      preloadOriginalShankha(ctx);
-      if (shankhaAudioBuffer) {
-        try {
-          const source = ctx.createBufferSource();
-          source.buffer = shankhaAudioBuffer;
-          source.connect(masterGain);
-          source.start(now);
-          activeNodes.push(source);
-        } catch (e) {
-          console.warn('[RingtoneEngine] WebAudio buffer playback error:', e);
-        }
-      } else {
-        // Direct HTML5 Audio fallback
-        try {
-          const audio = new Audio('/static/sounds/shankha.mp3');
-          audio.volume = getVolume();
-          audio.play().catch(e => console.warn('[RingtoneEngine] Shankha HTML5 play error:', e));
-          activeNodes.push({
-            stop: () => { audio.pause(); audio.currentTime = 0; },
-            pause: () => { audio.pause(); audio.currentTime = 0; },
-            disconnect: () => {}
-          });
-        } catch (e) {
-          console.warn('[RingtoneEngine] Shankha fallback error:', e);
-        }
-      }
-    }
-
-    const TONES = {
-      'shankha': { name: 'Divine Shankha', desc: 'Original sacred conch shell blast (शंख नाद)', badge: 'Divine', play: playShankha, interval: 6800 },
-      'celestial': { name: 'Celestial Chime', desc: 'Modern luxury polyphonic chime', badge: 'Popular', play: playCelestial, interval: 2800 },
-      'executive': { name: 'Executive Lounge', desc: 'Warm corporate vibraphone chords', badge: 'Refined', play: playExecutive, interval: 3000 },
-      'marimba': { name: 'Modern Marimba', desc: 'Crisp acoustic rosewood percussion', badge: 'Upbeat', play: playMarimba, interval: 2600 },
-      'cosmic': { name: 'Cosmic Horizon', desc: 'Ambient ethereal futuristic pad', badge: 'Ambient', play: playCosmic, interval: 3200 },
-      'classic': { name: 'Classic Bell', desc: 'Modernized dual-cadence telephone ring', badge: 'Classic', play: playClassic, interval: 2800 },
-    };
 
     function startIncomingRingtone() {
       stopAll();
@@ -1608,7 +1516,7 @@ SDH.WebRTC = (() => {
 
     function previewTone(toneId) {
       stopAll();
-      const tone = TONES[toneId] || TONES['celestial'];
+      const tone = TONES[toneId] || TONES['modern'];
       const ctx = getAudioContext();
       const masterGain = ctx.createGain();
       masterGain.gain.value = getVolume();
@@ -1617,7 +1525,7 @@ SDH.WebRTC = (() => {
       tone.play(ctx, masterGain);
 
       if (previewTimer) clearTimeout(previewTimer);
-      const previewDuration = (toneId === 'shankha') ? 6700 : Math.min(3500, Math.max(2500, (tone.interval || 3000) - 200));
+      const previewDuration = Math.min(4200, Math.max(2500, (tone.interval || 4000) - 100));
       previewTimer = setTimeout(() => {
         stopPreview();
       }, previewDuration);
@@ -1629,6 +1537,7 @@ SDH.WebRTC = (() => {
         previewTimer = null;
       }
       stopAllNodes();
+      activePreviewToneId = null;
       document.querySelectorAll('.sdh-tone-preview-btn').forEach(b => {
         b.innerHTML = '▶ Preview';
         b.classList.remove('bg-divine-gold', 'text-black');
@@ -1641,9 +1550,7 @@ SDH.WebRTC = (() => {
         const masterGain = ctx.createGain();
         masterGain.gain.value = Math.min(0.6, getVolume());
         masterGain.connect(ctx.destination);
-        const now = ctx.currentTime;
-        playHarmonicTone(ctx, 587.33, now, 0.35, masterGain, 'sine');        // D5
-        playHarmonicTone(ctx, 880.00, now + 0.14, 0.55, masterGain, 'sine'); // A5
+        playAudioTrack(ctx, masterGain, '/static/sounds/ringtone_chime.wav', 0.9);
       } catch (e) {
         console.warn('[RingtoneEngine] playChime error:', e);
       }

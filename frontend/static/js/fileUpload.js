@@ -128,7 +128,7 @@ SDH.FileUpload = (() => {
    *
    * @returns {Promise<Object>} Server response JSON with message metadata.
    */
-  async function handleFileUpload(file, receiverUsername, onProgress) {
+   async function handleFileUpload(file, receiverUsername, onProgress, isViewOnce = false) {
     const _progress = typeof onProgress === 'function' ? onProgress : () => {};
 
     // ── Guard: file ──────────────────────────────────────────────────────────
@@ -142,6 +142,9 @@ SDH.FileUpload = (() => {
     form.append('receiver',     receiverUsername);
     form.append('mime_type',    file.type || 'application/octet-stream');
     form.append('message_type', _sdhMessageType(file.type));
+    if (isViewOnce) {
+      form.append('is_view_once', 'true');
+    }
 
     const response = await fetch(_uploadUrl(), {
       method:  'POST',
@@ -168,6 +171,8 @@ SDH.FileUpload = (() => {
         mime_type:         data.mime_type,
         timestamp:         data.timestamp,
         has_file:          true,
+        is_view_once:      Boolean(data.is_view_once),
+        view_once_opened:  false,
       });
     }
 

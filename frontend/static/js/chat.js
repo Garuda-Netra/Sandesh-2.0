@@ -27,6 +27,7 @@ SDH.Chat = (() => {
   let typingTimer = null;
   let isTyping = false;
   let pendingFiles = [];
+  let isViewOnceActive = false;
   let unreadCounts = {};
   const toastQueue = [];
   let isShowingToast = false;
@@ -141,6 +142,7 @@ SDH.Chat = (() => {
       case 'chat_message': await handleIncomingMessage(data); break;
       case 'group_message': await handleIncomingMessage(data); break;
       case 'file_notification': await handleIncomingFileNotification(data); break;
+      case 'view_once_opened': handleViewOnceOpened(data); break;
       case 'typing': handleTypingIndicator(data); break;
       case 'delivered': _setMsgStatus(data.message_id, 'delivered'); break;
       case 'read_receipt': _markAllSentAsRead(); break;
@@ -690,7 +692,9 @@ SDH.Chat = (() => {
     if (renderedIds.has(String(data.message_id))) return;
     renderedIds.add(String(data.message_id));
 
-    const hasFile = !!(data.has_file || data.file_id || data.message_type === 'file' || data.message_type === 'image' || data.message_type === 'video');
+    const isViewOnce = Boolean(data.is_view_once);
+    const viewOnceOpened = Boolean(data.view_once_opened);
+    const hasFile = !(isViewOnce && viewOnceOpened) && !!(data.has_file || data.file_id || data.message_type === 'file' || data.message_type === 'image' || data.message_type === 'video');
     appendMessage({
       sender: data.sender, isFromMe: isFromMe, content: displayContent,
       messageType: data.message_type,
@@ -699,6 +703,8 @@ SDH.Chat = (() => {
       hasServerFile: hasFile,
       fileId: hasFile ? (data.file_id || data.message_id) : null,
       repliedMoment: data.replied_moment,
+      isViewOnce: isViewOnce,
+      viewOnceOpened: viewOnceOpened,
     });
     scrollToBottom();
 
@@ -805,18 +811,25 @@ SDH.Chat = (() => {
     if (renderedIds.has(String(data.message_id))) return;
     renderedIds.add(String(data.message_id));
 
+    const isViewOnce = Boolean(data.is_view_once);
+    const viewOnceOpened = Boolean(data.view_once_opened);
     appendMessage({
       sender: data.sender, isFromMe: false, content: null,
       messageType: data.message_type,
       originalFilename: data.original_filename, mimeType: data.mime_type,
       timestamp: data.timestamp, messageId: data.message_id,
-      hasServerFile: true, fileId: data.file_id,
+      hasServerFile: !(isViewOnce && viewOnceOpened), fileId: data.file_id,
+      isViewOnce: isViewOnce,
+      viewOnceOpened: viewOnceOpened,
     });
     scrollToBottom();
 
     playNotificationSound();
     if (document.visibilityState !== 'visible' || !document.hasFocus()) {
-      Notif.show(`New file from ${data.sender}`, `📎 ${data.original_filename || 'File'}`, `sdh-${data.sender}`);
+      const previewText = isViewOnce
+        ? (data.message_type === 'video' ? '① Video' : '① Photo')
+        : `📎 ${data.original_filename || 'File'}`;
+      Notif.show(`New file from ${data.sender}`, previewText, `sdh-${data.sender}`);
     }
 
     if (SDH.WS.isOpen()) {
@@ -1718,7 +1731,8 @@ SDH.Chat = (() => {
       sender, isFromMe, content, messageType,
       originalFilename, mimeType, timestamp, messageId,
       hasServerFile = false, fileId = null,
-      isDelivered = false, isRead = false, repliedMoment = null
+      isDelivered = false, isRead = false, repliedMoment = null,
+      isViewOnce = false, viewOnceOpened = false
     } = opts;
 
     // ── Date separator ───────────────────────────────────────────────────
@@ -1761,6 +1775,7 @@ SDH.Chat = (() => {
 
     const innerHtml = _buildMessageContent({
       messageType, content, originalFilename, mimeType, hasServerFile, fileId,
+      isViewOnce, viewOnceOpened, messageId,
     });
 
     const isTemp = String(messageId).startsWith('temp_');
@@ -1773,7 +1788,7 @@ SDH.Chat = (() => {
       else initTickStatus = 'sent';
     }
 
-    const dlBtnHtml = (hasServerFile && fileId) ? `
+    const dlBtnHtml = (hasServerFile && fileId && !isViewOnce) ? `
             <button onclick="SDH.MediaViewer?.open({fileId:${Number(fileId)},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType)}',messageType:'${_esc(messageType)}'})"
                     class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-text hover:bg-divine-surface transition-colors text-left font-medium">
               <svg class="w-3.5 h-3.5 flex-shrink-0 text-divine-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1874,8 +1889,47 @@ SDH.Chat = (() => {
     container.appendChild(bubble);
   }
 
+  function _buildViewOnceIconSvg({ opened = false, sizeClass = 'w-7 h-7', extraClass = '' } = {}) {
+    const dash = opened ? 'stroke-dasharray="3.5 2.5"' : '';
+    const fillOp = opened ? '0.12' : '0.18';
+    return `<svg class="${sizeClass} ${extraClass} flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <circle cx="12" cy="12" r="9.5" stroke-width="2" fill="currentColor" fill-opacity="${fillOp}" ${dash} />
+      <path d="M10.8 10.5 L13.2 8 V16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </svg>`;
+  }
+
   function _buildMessageContent({ messageType, content, originalFilename, mimeType,
-    hasServerFile, fileId }) {
+    hasServerFile, fileId, isViewOnce, viewOnceOpened, messageId }) {
+    if (isViewOnce) {
+      if (viewOnceOpened) {
+        return `
+          <div class="sdh-view-once-bubble sdh-view-once-opened flex items-center gap-3 py-1.5 px-2 select-none">
+            ${_buildViewOnceIconSvg({ opened: true, sizeClass: 'w-7 h-7', extraClass: 'sdh-view-once-badge' })}
+            <div class="flex flex-col min-w-0">
+              <span class="sdh-vo-title text-sm font-semibold tracking-wide">Opened</span>
+              <span class="sdh-vo-sub text-[11px] leading-tight">View once</span>
+            </div>
+          </div>
+        `;
+      } else {
+        const mediaLabel = (messageType === 'video') ? 'Video' : 'Photo';
+        const fid = Number(fileId || messageId);
+        return `
+          <div class="sdh-view-once-bubble sdh-view-once-unopened flex items-center gap-3 py-1.5 px-2 cursor-pointer select-none group/vo transition-all"
+               id="vo-card-${fid}"
+               onclick="SDH.Chat.openViewOnceMedia(${fid}, '${_esc(originalFilename)}', '${_esc(mimeType || (messageType === 'video' ? 'video/mp4' : 'image/jpeg'))}', '${_esc(messageType)}')">
+            ${_buildViewOnceIconSvg({ opened: false, sizeClass: 'w-7 h-7', extraClass: 'sdh-view-once-badge group-hover/vo:scale-105 transition-all' })}
+            <div class="flex flex-col min-w-0">
+              <span class="sdh-vo-title text-sm font-bold tracking-wide flex items-center gap-1.5">
+                ${mediaLabel}
+              </span>
+              <span class="sdh-vo-sub text-[11px] leading-tight">Tap to view</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
     if (messageType === 'call') {
       const isVideo = content && content.toLowerCase().includes('video');
       const icon = isVideo ? '📹' : '📞';
@@ -2174,7 +2228,10 @@ SDH.Chat = (() => {
     try {
       if (pendingFiles.length > 0) {
         const filesToSend = [...pendingFiles];
+        const viewOnceForBatch = isViewOnceActive;
         clearFiles();
+        isViewOnceActive = false;
+        updateViewOnceBtn();
 
         const totalFiles = filesToSend.length;
         const hideUploadIndicator = showPersistentNotification(
@@ -2189,6 +2246,7 @@ SDH.Chat = (() => {
           try {
             const msgData = await SDH.FileUpload.handleFileUpload(
               file, activeUser, stage => console.debug('[Chat] File upload:', file.name, stage),
+              viewOnceForBatch,
             );
             const realMsgId = msgData.message_id || msgData.file_id;
             if (realMsgId) {
@@ -2200,6 +2258,8 @@ SDH.Chat = (() => {
               originalFilename: msgData.original_filename, mimeType: msgData.mime_type,
               timestamp: msgData.timestamp, messageId: realMsgId,
               hasServerFile: true, fileId: msgData.file_id || realMsgId,
+              isViewOnce: Boolean(msgData.is_view_once),
+              viewOnceOpened: Boolean(msgData.view_once_opened),
             });
             scrollToBottom();
             successCount++;
@@ -2779,11 +2839,13 @@ SDH.Chat = (() => {
           messageType: effectiveType,
           originalFilename: msg.original_filename, mimeType: msg.mime_type,
           timestamp: msg.timestamp, messageId: msg.id,
-          hasServerFile: !msg.is_deleted_for_all && (msg.has_file || false),
+          hasServerFile: !msg.is_deleted_for_all && !(msg.is_view_once && msg.view_once_opened) && (msg.has_file || false),
           fileId: msg.is_deleted_for_all ? null : (msg.file_id || null),
           isDelivered: msg.is_delivered || false,
           isRead: msg.is_read || false,
           repliedMoment: msg.replied_moment,
+          isViewOnce: Boolean(msg.is_view_once),
+          viewOnceOpened: Boolean(msg.view_once_opened),
         });
       }
 
@@ -2911,6 +2973,7 @@ SDH.Chat = (() => {
     }
 
     renderFilePreviews();
+    updateViewOnceBtn();
   }
 
   function removeFile(fileId) {
@@ -2922,6 +2985,7 @@ SDH.Chat = (() => {
       }
       pendingFiles.splice(idx, 1);
       renderFilePreviews();
+      updateViewOnceBtn();
     }
   }
 
@@ -2945,6 +3009,8 @@ SDH.Chat = (() => {
     }
     const fileInput = document.getElementById('fileInput');
     if (fileInput) fileInput.value = '';
+    isViewOnceActive = false;
+    updateViewOnceBtn();
   }
 
   // Backward compatibility alias
@@ -2990,6 +3056,18 @@ SDH.Chat = (() => {
         </div>
       `;
     });
+
+    const hasMedia = pendingFiles.some(f => f.file && f.file.type && (f.file.type.startsWith('image/') || f.file.type.startsWith('video/')));
+    if (hasMedia) {
+      chipsHtml += `
+        <button type="button" onclick="event.stopPropagation(); SDH.Chat.toggleViewOnce()"
+          class="sdh-view-once-chip-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all self-center select-none ${isViewOnceActive ? 'active' : ''}"
+          title="View Once: Recipient can only view once">
+          ${_buildViewOnceIconSvg({ opened: false, sizeClass: 'w-4 h-4' })}
+          <span>View Once${isViewOnceActive ? ' (On)' : ''}</span>
+        </button>
+      `;
+    }
 
     if (pendingFiles.length > 1) {
       chipsHtml += `
@@ -4472,10 +4550,12 @@ SDH.Chat = (() => {
           mimeType: msg.mime_type,
           timestamp: msg.timestamp,
           messageId: msg.id,
-          hasServerFile: msg.has_file,
+          hasServerFile: !(msg.is_view_once && msg.view_once_opened) && msg.has_file,
           fileId: msg.file_id,
           isDelivered: true,
-          isRead: true
+          isRead: true,
+          isViewOnce: Boolean(msg.is_view_once),
+          viewOnceOpened: Boolean(msg.view_once_opened),
         });
       }
       scrollToBottom();
@@ -4528,7 +4608,107 @@ SDH.Chat = (() => {
     }
   }
 
-  // ── Aliases ─────────────────────────────────────────────────────────
+
+  // ── View Once Handlers (WhatsApp Style) ──────────────────────────────────
+  function updateViewOnceBtn() {
+    const btn = document.getElementById('viewOnceBtn');
+    if (!btn) return;
+    if (isViewOnceActive) {
+      btn.classList.add('active');
+      btn.title = 'View Once is ON: Media will disappear after being viewed once';
+    } else {
+      btn.classList.remove('active');
+      btn.title = 'View Once: Click to send a photo or video that can only be viewed once';
+    }
+  }
+
+  function toggleViewOnce() {
+    const hasMedia = pendingFiles.some(f => f.file && f.file.type && (f.file.type.startsWith('image/') || f.file.type.startsWith('video/')));
+    if (!hasMedia && !isViewOnceActive) {
+      isViewOnceActive = true;
+      updateViewOnceBtn();
+      const picker = document.getElementById('viewOnceFileInput') || document.getElementById('fileInput');
+      if (picker) picker.click();
+      return;
+    }
+    isViewOnceActive = !isViewOnceActive;
+    updateViewOnceBtn();
+    renderFilePreviews();
+    if (isViewOnceActive) {
+      showToast('View Once enabled for this media', 'info');
+    }
+  }
+
+  function handleViewOnceFileSelect(input) {
+    const rawFiles = Array.from(input.files || []);
+    if (!rawFiles.length) return;
+    isViewOnceActive = true;
+    addFilesToPending(rawFiles);
+    input.value = '';
+    updateViewOnceBtn();
+    showToast('Photo/video staged as View Once', 'info');
+  }
+
+  function handleViewOnceOpened(data) {
+    const msgId = String(data.message_id);
+    const msgEl = document.getElementById(`msg-${msgId}`) || document.querySelector(`[data-message-id="${msgId}"]`);
+    if (msgEl) {
+      const voCard = msgEl.querySelector('.sdh-view-once-bubble') || msgEl.querySelector(`[id^="vo-card-"]`);
+      if (voCard) {
+        voCard.outerHTML = `
+          <div class="sdh-view-once-bubble sdh-view-once-opened flex items-center gap-3 py-1.5 px-2 select-none">
+            ${_buildViewOnceIconSvg({ opened: true, sizeClass: 'w-7 h-7', extraClass: 'sdh-view-once-badge' })}
+            <div class="flex flex-col min-w-0">
+              <span class="sdh-vo-title text-sm font-semibold tracking-wide">Opened</span>
+              <span class="sdh-vo-sub text-[11px] leading-tight">View once</span>
+            </div>
+          </div>
+        `;
+      }
+      const dropdown = msgEl.querySelector('.msg-dropdown');
+      if (dropdown) {
+        dropdown.querySelectorAll('button').forEach(btn => {
+          if (btn.textContent.includes('Preview') || btn.textContent.includes('Download')) {
+            btn.remove();
+          }
+        });
+      }
+    }
+  }
+
+  async function markViewOnceOpened(messageId) {
+    if (!messageId) return;
+    try {
+      const csrf = window.SDH_DATA?.csrfToken || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+      const res = await fetch(`/messaging/api/message/${messageId}/view-once-opened/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrf,
+          'Content-Type': 'application/json',
+        }
+      });
+      if (res.ok) {
+        handleViewOnceOpened({ message_id: messageId });
+      }
+    } catch (e) {
+      console.warn('[Chat] Failed to mark view-once opened:', e);
+    }
+  }
+
+  function openViewOnceMedia(fileId, fileName, mimeType, messageType) {
+    if (window.SDH?.MediaViewer) {
+      window.SDH.MediaViewer.open({
+        fileId: Number(fileId),
+        fileName,
+        mimeType,
+        messageType,
+        isViewOnce: true,
+        messageId: Number(fileId),
+      });
+    }
+  }
+
+    // ── Aliases ─────────────────────────────────────────────────────────
 
 
   // â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -4615,6 +4795,11 @@ SDH.Chat = (() => {
     getActiveUser: () => activeUser,
     getActiveUserId: () => activeUserId,
     _resetConversationPanel,
+    toggleViewOnce,
+    openViewOnceMedia,
+    markViewOnceOpened,
+    handleViewOnceFileSelect,
+    handleViewOnceOpened,
   };
 
 })();

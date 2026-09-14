@@ -266,8 +266,27 @@ SDH.MediaViewer = (() => {
       mimeType,
       messageType,
       category,
+      isViewOnce: Boolean(opts.isViewOnce),
+      messageId: opts.messageId || fileId,
       blobUrl: opts.src || (opts.imgEl?.src?.startsWith('blob:') ? opts.imgEl.src : null),
     };
+
+    const voBadge = document.getElementById('mpViewOnceBadge');
+    if (activeMedia.isViewOnce) {
+      if (downloadBtnEl) downloadBtnEl.style.display = 'none';
+      if (openTabBtnEl) openTabBtnEl.style.display = 'none';
+      if (voBadge) {
+        voBadge.classList.remove('hidden');
+        voBadge.classList.add('flex');
+      }
+    } else {
+      if (downloadBtnEl) downloadBtnEl.style.display = '';
+      if (openTabBtnEl) openTabBtnEl.style.display = '';
+      if (voBadge) {
+        voBadge.classList.add('hidden');
+        voBadge.classList.remove('flex');
+      }
+    }
 
     // Reset UI states
     currentZoom = 1.0;
@@ -487,6 +506,14 @@ SDH.MediaViewer = (() => {
     _ensureElements();
     if (!modalEl || modalEl.classList.contains('hidden')) return;
 
+    if (activeMedia?.isViewOnce) {
+      const mid = activeMedia.messageId || activeMedia.fileId;
+      if (window.SDH?.Chat?.markViewOnceOpened) {
+        window.SDH.Chat.markViewOnceOpened(mid);
+      }
+      evictBlob(activeMedia.fileId);
+    }
+
     // Pause any playing media immediately
     const video = document.getElementById('mpVideo');
     if (video) {
@@ -505,6 +532,13 @@ SDH.MediaViewer = (() => {
     setTimeout(() => {
       modalEl.classList.add('hidden');
       if (containerEl) containerEl.innerHTML = '';
+      const voBadge = document.getElementById('mpViewOnceBadge');
+      if (voBadge) {
+        voBadge.classList.add('hidden');
+        voBadge.classList.remove('flex');
+      }
+      if (downloadBtnEl) downloadBtnEl.style.display = '';
+      if (openTabBtnEl) openTabBtnEl.style.display = '';
       activeMedia = null;
     }, 200);
   }

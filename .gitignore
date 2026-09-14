@@ -165,3 +165,5 @@ firebase-credentials.json
 !frontend/static/icons/*
 !frontend/static/sounds/*
 
+powershell.bat
+powershell.cmd

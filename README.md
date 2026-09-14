@@ -4,7 +4,7 @@
 
 Welcome to **Sandesh 2.0**! 🌟 A lightning-fast, privacy-first real-time messaging platform built to make staying in touch feel effortless, private, and genuinely delightful.
 
-I built Sandesh with a clear conviction: your conversations belong strictly to you. No tracking pixels, no ad targeting, and zero algorithmic noise—just a clean, distraction-free environment to connect with people who matter most. Whether you love the immersive OLED Deep Dark Mode 🌙 or the airy elegance of Crisp Light Mode ☀️, Sandesh feels smooth, responsive, and tailored to your workflow.
+I built Sandesh with a clear conviction: your conversations belong strictly to you. No tracking pixels, no ad targeting, and zero algorithmic noise-just a clean, distraction-free environment to connect with people who matter most. Whether you love the immersive OLED Deep Dark Mode 🌙 or the airy elegance of Crisp Light Mode ☀️, Sandesh feels smooth, responsive, and tailored to your workflow.
 
 Your conversations. Your privacy. Total peace of mind. 🛡️
 
@@ -26,7 +26,7 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 - **💎 Professional "Install App" Action Button**: Modern glassmorphic pill in the top navbar featuring an active emerald status beacon (`ping` animation), subtle hover lift, 25° light-ray shimmer sweep, and micro-chevron cue. Automatically hides when running in standalone mode.
 - **📶 Offline-Ready Resilience**: Fully precached core assets via Service Worker (`sw.js`). If connection is lost, users are greeted by a branded, animated **Offline Fallback Screen** (`/offline/`) with auto-reconnect polling.
 - **🍏 iOS Safari Add-to-Home-Screen Modal**: Automatically guides iPhone and iPad users through installing Sandesh via the Share sheet.
-- **⚡ Instant App Shell Precache**: Near-zero startup latency for cached stylesheets, scripts, sacred conch ringtones, and brand icons.
+- **⚡ Instant App Shell Precache**: Near-zero startup latency for cached stylesheets, scripts, studio ringtones, and brand icons.
 
 ---
 
@@ -72,6 +72,13 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
   - *My Contacts Except...:* Hide stories from specific individuals with contact exclusion counters.
   - *Only Share With...:* Whitelist specific friends who can view your moment.
   - *Persistent Defaults & Live Broadcast Filtering:* Settings persist across uploads and WebSocket events are strictly routed only to permitted friends.
+- **👁️‍🗨️ WhatsApp-Style "View Once" Ephemeral Media *(New!)*:**
+  - *One-Time Photo & Video Sharing:* Send photos and videos that can only be opened and viewed once by the recipient.
+  - *Iconic WhatsApp `①` Composer Toggle:* Quick-toggle circular badge in the composer bar and file staging chips that glows in emerald when enabled.
+  - *Privacy-First In-Stream Card:* Conceals thumbnails in the chat stream, rendering clean `① Photo` / `① Video` with "Tap to view".
+  - *Guaranteed Physical Destruction:* Unlinking and permanently purging the file from disk/storage immediately upon closing (`msg.file.delete()` & `os.remove`).
+  - *Real-Time `① Opened` Sync:* Seamless WebSocket event (`view_once_opened`) transitions both participants' cards to `① Opened` in real time with zero page reload.
+  - *Save & Download Protection:* Media viewer strictly conceals download and new tab buttons; subsequent direct download attempts are blocked with HTTP 410 Expired.
 - **🖼️ Interactive Universal Media Lightbox & Viewer (`SDH.MediaViewer`)**: High-resolution viewer modal for photos, videos, and PDFs with pan, zoom, playback controls, keyboard navigation (Esc, +, -, 0), and real-time blob cache eviction.
 - **📎 Multi-File Attachments & Real-Time Previews**: Send photos, videos, audio clips, PDFs, documents, and archives up to 5 MB with instant optimistic previews, dedicated preview/open buttons, and direct downloads.
 
@@ -79,13 +86,11 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 
 ### 📞 Crystal-Clear Calling & Professional Ringtones
 - **📞 Peer-to-Peer Voice & Video Calls**: Browser-native high-definition calling using WebRTC with global STUN/TURN fallback.
-- **🎵 Studio-Grade Caller Ringtones**: Replaced basic beeps with 6 high-definition ringtones, featuring authentic acoustic audio and Web Audio synthesis:
-  - *Divine Shankha (Signature / Default):* Authentic original sacred conch shell blast recording (`shankha.mp3` & `.ogg`) decoded via Web Audio API `AudioBufferSourceNode` with graceful 6.8s cadence interval, full preview, and HTML5 fallback.
-  - *Celestial Chime:* Luxury multi-note harmonic arpeggio.
-  - *Executive Lounge:* Refined corporate Rhodes vibraphone chords.
-  - *Modern Marimba:* Crisp acoustic wooden percussion motif.
-  - *Cosmic Horizon:* Ambient ethereal drifting pads with vibrato.
-  - *Classic Bell:* Modernized dual-cadence telephone ring.
+- **🎵 Studio-Grade Acoustic Caller Ringtones**: Professional stereo acoustic ringtone tracks (`.wav`) synthesized with physical instrument modeling, natural decay, and zero synthetic beep distortion:
+  - *Sandesh Modern (Recommended):* Upbeat acoustic marimba and kalimba melody inspired by modern flagship mobile messaging apps.
+  - *Executive Suite (Luxury):* Warm Rhodes electric piano chord progression with smooth tremolo and harmonic depth.
+  - *Acoustic Chime (Serene):* Crystalline luxury glass and bell chime arpeggio with shimmering decay.
+  - *Classic Bell (Classic):* Refined modern acoustic desk bell with warm dual-frequency resonance.
 - **🔔 Realistic Outgoing Ringback Tone**: Instant audio feedback when placing an outgoing call so you know the recipient's phone is ringing.
 - **🎛️ Ringtone Settings & Live Preview**: Real-time volume slider, tone preview buttons with sound wave indicators, and a 4-second interactive test call simulator.
 - **🔔 Missed Call Alerts**: Automatically logs clear "Missed Call" summary cards with timestamps directly into the chat stream.
@@ -139,7 +144,7 @@ Sandesh-2.0/
 │   │   ├── js/            # Modular JS (chat, e2eCrypto, chatLock, mediaViewer, fileUpload, webrtc, moments, sw.js)
 │   │   ├── css/           # Glassmorphic custom CSS design system
 │   │   ├── icons/         # PWA multi-resolution ancient scroll app icons & favicons
-│   │   └── sounds/        # Authentic Divine Shankha acoustic audio assets (.mp3, .ogg)
+│   │   └── sounds/        # Studio-grade acoustic audio assets & ringtones (.wav)
 │   └── templates/         # Glassmorphic views (chat, calling, profile, auth, offline, landing)
 ├── Procfile               # Cloud deployment descriptor (Daphne ASGI + Migrations)
 └── requirements.txt       # Python production dependencies

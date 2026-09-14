@@ -445,9 +445,11 @@ def message_history(request, username):
             'is_mine': m.sender == request.user,
             'is_encrypted': getattr(m, 'is_encrypted', False),
             'encryption_iv': getattr(m, 'encryption_iv', ''),
-            'has_file': bool(m.file),
-            'file_id': m.id if m.file else None,
+            'has_file': bool(m.file) and not (getattr(m, 'is_view_once', False) and getattr(m, 'view_once_opened', False)),
+            'file_id': (m.id if m.file else None) if not (getattr(m, 'is_view_once', False) and getattr(m, 'view_once_opened', False)) else None,
             'is_deleted_for_all': m.is_deleted_for_all,
+            'is_view_once': getattr(m, 'is_view_once', False),
+            'view_once_opened': getattr(m, 'view_once_opened', False),
             'replied_moment': {
                 'id': m.replied_moment.id,
                 'media_url': m.replied_moment.media.url if m.replied_moment.media else '',
@@ -944,6 +946,7 @@ def upload_file(request):
     if message_type == 'image':
         uploaded = _process_image_for_upload(uploaded, my_settings.media_upload_quality)
 
+    is_view_once = request.POST.get('is_view_once') in ('true', '1', True)
     is_group = receiver_username.startswith('group_')
     
     if is_group:
@@ -970,6 +973,7 @@ def upload_file(request):
             file_name=file_name,
             mime_type=mime_type,
             file=uploaded,
+            is_view_once=is_view_once,
         )
         
         try:
@@ -988,6 +992,8 @@ def upload_file(request):
                 'mime_type': msg.mime_type,
                 'timestamp': msg.timestamp.isoformat(),
                 'file_id': msg.id,
+                'is_view_once': msg.is_view_once,
+                'view_once_opened': False,
             }
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(room_group, payload)
@@ -1030,6 +1036,7 @@ def upload_file(request):
             file=uploaded,
             is_delivered=is_self_chat,
             is_read=is_self_chat,
+            is_view_once=is_view_once,
         )
     
         # Automatically unhide users when messaging resumes
@@ -1039,8 +1046,6 @@ def upload_file(request):
                 receiver.profile.hidden_users.remove(request.user.profile)
             except Exception:
                 pass
-
-
 
     return JsonResponse({
         'status': 'ok',
@@ -1053,6 +1058,8 @@ def upload_file(request):
         'mime_type': msg.mime_type,
         'timestamp': msg.timestamp.isoformat(),
         'has_file': True,
+        'is_view_once': getattr(msg, 'is_view_once', False),
+        'view_once_opened': False,
     }, status=201)
 
 
@@ -1099,6 +1106,9 @@ def download_file(request, file_id):
         if not msg:
             return JsonResponse({'error': 'File not found or access denied.'}, status=404)
 
+        if getattr(msg, 'is_view_once', False) and getattr(msg, 'view_once_opened', False):
+            return JsonResponse({'error': 'This view-once media has already expired.'}, status=410)
+
         if not msg.file:
             return JsonResponse({'error': 'No file stored for this message.'}, status=404)
 
@@ -1120,6 +1130,10 @@ def download_file(request, file_id):
                 content_type = 'image/webp'
             elif safe_display_name.lower().endswith('.mp4'):
                 content_type = 'video/mp4'
+            elif safe_display_name.lower().endswith('.webm'):
+                content_type = 'video/webm'
+            elif safe_display_name.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a')):
+                content_type = 'audio/mpeg'
             else:
                 content_type = 'application/octet-stream'
 
@@ -1305,6 +1319,85 @@ def download_file(request, file_id):
         import traceback
         traceback.print_exc()
         return JsonResponse({'error': f'Failed to load file: {str(exc)}'}, status=500)
+
+
+# ---------------------------------------------------------------------------
+# Mark View-Once Opened
+# ---------------------------------------------------------------------------
+@login_required
+@require_POST
+def mark_view_once_opened(request, message_id):
+    """
+    Marks a view-once media message as opened.
+    Permanently unlinks and purges the physical file from storage to guarantee ephemeral privacy.
+    Notifies both sender and recipient via real-time WebSocket.
+    """
+    msg = Message.objects.filter(pk=message_id).first()
+    is_group = False
+
+    if not msg:
+        from .models import GroupMessage
+        msg = GroupMessage.objects.filter(pk=message_id).first()
+        is_group = True
+
+    if not msg:
+        return JsonResponse({'error': 'Message not found.'}, status=404)
+
+    # Permission check: must be participant
+    if is_group:
+        if not msg.group.memberships.filter(user=request.user).exists():
+            return JsonResponse({'error': 'Permission denied.'}, status=403)
+    else:
+        if request.user != msg.sender and request.user != msg.receiver:
+            return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    if not getattr(msg, 'is_view_once', False):
+        return JsonResponse({'error': 'Message is not a view-once message.'}, status=400)
+
+    if not getattr(msg, 'view_once_opened', False):
+        msg.view_once_opened = True
+        msg.view_once_opened_at = timezone.now()
+        
+        # Unlink and delete physical file to guarantee privacy
+        if msg.file:
+            try:
+                storage_path = msg.file.path if hasattr(msg.file, 'path') else None
+                msg.file.delete(save=False)
+                if storage_path and os.path.exists(storage_path):
+                    try:
+                        os.remove(storage_path)
+                    except OSError:
+                        pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("Error deleting view-once file: %s", e)
+        
+        msg.save(update_fields=['view_once_opened', 'view_once_opened_at', 'file'])
+
+        # Broadcast via Channel Layer to update clients in real-time
+        try:
+            channel_layer = get_channel_layer()
+            payload = {
+                'type': 'view_once_opened',
+                'message_id': message_id,
+                'opened_by': request.user.username,
+                'is_group': is_group,
+            }
+            if is_group:
+                async_to_sync(channel_layer.group_send)(f'group_chat_{msg.group.id}', payload)
+            else:
+                async_to_sync(channel_layer.group_send)(f'user_chat_{msg.sender.id}', payload)
+                if msg.receiver and msg.receiver != msg.sender:
+                    async_to_sync(channel_layer.group_send)(f'user_chat_{msg.receiver.id}', payload)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("Failed to broadcast view_once_opened: %s", exc)
+
+    return JsonResponse({
+        'status': 'success',
+        'message_id': message_id,
+        'view_once_opened': True,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -2724,6 +2817,8 @@ def group_message_history(request, group_id):
     result = []
     for msg in messages_page:
         is_deleted = (msg.message == 'This message has been deleted.' and not msg.file)
+        is_vo = getattr(msg, 'is_view_once', False)
+        is_vo_opened = getattr(msg, 'view_once_opened', False)
         entry = {
             'id': msg.id,
             'sender': msg.sender.username if msg.sender else None,
@@ -2735,8 +2830,10 @@ def group_message_history(request, group_id):
             'encryption_iv': getattr(msg, 'encryption_iv', ''),
             'timestamp': msg.timestamp.isoformat(),
             'is_deleted_for_all': is_deleted,
+            'is_view_once': is_vo,
+            'view_once_opened': is_vo_opened,
         }
-        if msg.file and not is_deleted:
+        if msg.file and not is_deleted and not (is_vo and is_vo_opened):
             entry['has_file'] = True
             entry['file_id'] = msg.id
             entry['original_filename'] = msg.original_filename or msg.file_name or ''

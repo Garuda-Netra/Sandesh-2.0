@@ -37,6 +37,7 @@ urlpatterns = [
     # Professional message deletion
     path('api/message/<int:message_id>/remove-my-view/', views.remove_from_my_view, name='remove_from_my_view'),
     path('api/message/<int:message_id>/delete-for-all/', views.delete_for_all, name='delete_for_all'),
+    path('api/message/<int:message_id>/view-once-opened/', views.mark_view_once_opened, name='mark_view_once_opened'),
     # Clear all chat history
     path('api/clear-chat/<str:username>/', views.clear_chat, name='clear_chat'),
     

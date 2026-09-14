@@ -315,6 +315,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'mime_type': data.get('mime_type', 'application/octet-stream'),
             'timestamp': data.get('timestamp', ''),
             'has_file': True,
+            'is_view_once': bool(data.get('is_view_once', False)),
+            'view_once_opened': False,
         }
 
         target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
@@ -435,6 +437,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'message_id': event['message_id'],
             'removal_scope': event.get('removal_scope'),
             'removed_by': event.get('removed_by'),
+        }))
+
+    async def view_once_opened(self, event):
+        """Relay view-once opened events to connected clients in real time."""
+        await self.send(text_data=json.dumps({
+            'type': 'view_once_opened',
+            'message_id': event['message_id'],
+            'opened_by': event.get('opened_by'),
+            'is_group': event.get('is_group', False),
         }))
 
     async def chat_setting_update(self, event):

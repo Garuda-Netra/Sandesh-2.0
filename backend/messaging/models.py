@@ -117,6 +117,21 @@ class Message(models.Model):
         help_text='Base64-encoded AES-GCM initialization vector'
     )
 
+    # ── View Once (Disappearing Media) ────────────────────────────────────
+    is_view_once = models.BooleanField(
+        default=False,
+        help_text='View once media that disappears permanently after viewing'
+    )
+    view_once_opened = models.BooleanField(
+        default=False,
+        help_text='True once opened by recipient'
+    )
+    view_once_opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp when view-once media was opened'
+    )
+
     class Meta:
         ordering = ['timestamp']
         verbose_name = 'Message'
@@ -493,6 +508,21 @@ class GroupMessage(models.Model):
         blank=True,
         default='',
         help_text='Base64-encoded AES-GCM initialization vector'
+    )
+
+    # ── View Once (Disappearing Media) ────────────────────────────────────
+    is_view_once = models.BooleanField(
+        default=False,
+        help_text='View once media that disappears permanently after viewing'
+    )
+    view_once_opened = models.BooleanField(
+        default=False,
+        help_text='True once opened'
+    )
+    view_once_opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp when view-once media was opened'
     )
 
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
