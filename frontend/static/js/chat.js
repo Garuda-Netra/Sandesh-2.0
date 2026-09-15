@@ -3781,7 +3781,7 @@ SDH.Chat = (() => {
     let roleBadge = '';
     if (roleLower === 'owner') {
       roleBadge = `
-        <span class="sdh-member-tag-owner inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm">
+        <span class="sdh-member-tag-owner inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide bg-amber-500/10 text-amber-400 dark:text-amber-300 border border-amber-500/20">
           <svg class="w-2.5 h-2.5 text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
           </svg>
@@ -3789,7 +3789,7 @@ SDH.Chat = (() => {
         </span>`;
     } else if (roleLower === 'admin') {
       roleBadge = `
-        <span class="sdh-member-tag-admin inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 shadow-sm">
+        <span class="sdh-member-tag-admin inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wide bg-purple-500/10 text-purple-400 dark:text-purple-300 border border-purple-500/20">
           <svg class="w-2.5 h-2.5 text-purple-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944z" clip-rule="evenodd"/>
           </svg>
@@ -3797,7 +3797,7 @@ SDH.Chat = (() => {
         </span>`;
     } else {
       roleBadge = `
-        <span class="sdh-member-tag-member inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium tracking-wide bg-white/5 text-slate-400 border border-white/10">
+        <span class="sdh-member-tag-member text-[11px] font-medium text-slate-400 dark:text-slate-400">
           Member
         </span>`;
     }
@@ -3830,20 +3830,20 @@ SDH.Chat = (() => {
     const displayName = isMe ? 'You' : (m.display_name || m.username);
 
     return `
-      <div class="sdh-member-card flex items-center justify-between p-2 sm:p-2.5 rounded-xl group">
+      <div class="sdh-member-card flex items-center justify-between py-2 px-2.5 rounded-lg group transition-colors">
         <div class="flex items-center gap-2.5 sm:gap-3 cursor-pointer flex-1 min-w-0" 
              onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${escapeHtml(m.username)}', ${m.user_id})">
           <div class="relative shrink-0">
             ${m.avatar_url ?
-              `<img src="${escapeHtml(m.avatar_url)}" class="w-9 h-9 rounded-full object-cover ring-1 ring-white/10 shadow-sm" alt="${escapeHtml(displayName)}" />` :
-              `<div class="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600/30 to-purple-800/40 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-200 shadow-inner">${initial}</div>`
+              `<img src="${escapeHtml(m.avatar_url)}" class="w-8 h-8 rounded-full object-cover ring-1 ring-white/10" alt="${escapeHtml(displayName)}" />` :
+              `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600/30 to-purple-800/40 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-200">${initial}</div>`
             }
-            <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0c0a1d] dark:ring-[#0c0a1d] ${m.is_online ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-slate-500/80'}"></span>
+            <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0c0a1d] dark:ring-[#0c0a1d] ${m.is_online ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]' : 'bg-slate-500/80'}"></span>
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-1.5 min-w-0">
-              <p class="sdh-member-name text-[13px] font-bold truncate text-slate-100 group-hover:text-purple-300 transition-colors">${escapeHtml(displayName)}</p>
-              ${isMe ? `<span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">You</span>` : ''}
+              <p class="sdh-member-name text-[13px] font-semibold truncate text-slate-100 group-hover:text-purple-300 transition-colors">${escapeHtml(displayName)}</p>
+              ${isMe ? `<span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 shrink-0">You</span>` : ''}
             </div>
             <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
               ${roleBadge}
@@ -3855,7 +3855,7 @@ SDH.Chat = (() => {
         ${canRemove ? `
           <button type="button" 
                   onclick="event.stopPropagation(); SDH.Chat.removeGroupMember(${groupId}, ${m.user_id})" 
-                  class="ml-2 text-[11px] font-bold px-2.5 py-1 text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 hover:border-rose-600 rounded-lg transition-all duration-150 flex items-center gap-1 shrink-0 active:scale-95 shadow-sm"
+                  class="ml-2 text-[11px] font-semibold px-2 py-1 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-md transition-all duration-150 flex items-center gap-1 shrink-0 active:scale-95"
                   title="Remove member">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -4085,9 +4085,12 @@ SDH.Chat = (() => {
       const isPendingRequest = Boolean(data.has_pending_request || options.isPendingFriendRequest);
       const reqId = data.request_id || options.requestId;
 
+      const defaultActions = document.getElementById('upmDefaultActions');
+
       if (isPendingRequest && reqId) {
         // Disable messaging and calling capabilities because they are not confirmed friends yet
         if (messageBtn) messageBtn.classList.add('hidden');
+        if (defaultActions) defaultActions.classList.add('hidden');
         if (pendingSection) pendingSection.classList.remove('hidden');
 
         // Sensitive details remain strictly hidden
@@ -4127,6 +4130,7 @@ SDH.Chat = (() => {
           };
         }
       } else {
+        if (defaultActions) defaultActions.classList.remove('hidden');
         if (pendingSection) pendingSection.classList.add('hidden');
         if (messageBtn) {
           messageBtn.classList.remove('hidden');
@@ -4558,7 +4562,13 @@ SDH.Chat = (() => {
       }
     } catch (e) { }
 
-    if (window.SDH?.E2E?.getGroupKey) {
+    if (window.SDH?.E2E?.ensureGroupKeyDistributed) {
+      try {
+        await window.SDH.E2E.ensureGroupKeyDistributed(groupId);
+      } catch (e2eGroupErr) {
+        console.warn('[E2EE] Group key prefetch warning:', e2eGroupErr);
+      }
+    } else if (window.SDH?.E2E?.getGroupKey) {
       try {
         await window.SDH.E2E.getGroupKey(groupId);
       } catch (e2eGroupErr) {

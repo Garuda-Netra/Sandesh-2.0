@@ -11,7 +11,6 @@ Environment variables (via python-decouple):
 """
 
 import os
-import json
 from pathlib import Path
 from decouple import Config, RepositoryEnv, Csv
 import dj_database_url
@@ -231,6 +230,7 @@ USE_TZ = True
 # ---------------------------------------------------------------------------
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 STATICFILES_DIRS = [BASE_DIR.parent / 'frontend' / 'static']
 
 MEDIA_URL = '/media/'
@@ -322,11 +322,6 @@ CLERK_PUBLISHABLE_KEY = config('CLERK_PUBLISHABLE_KEY', default='')
 CLERK_SECRET_KEY = config('CLERK_SECRET_KEY', default='')
 
 AUTH_USER_MODEL = 'auth.User'
-
-AUTHENTICATION_BACKENDS = [
-    'users.backends.EmailPhoneUsernameBackend',
-    'django.contrib.auth.backends.ModelBackend',
-]
 
 # ---------------------------------------------------------------------------
 # Session

@@ -12,7 +12,7 @@ import base64
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.http import JsonResponse, FileResponse, Http404, HttpResponseNotAllowed
+from django.http import JsonResponse, FileResponse, HttpResponseNotAllowed
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_protect
 from django.db.models import Q
@@ -238,13 +238,22 @@ def chat_view(request):
     my_settings = UserSettings.get_for_user(request.user)
     my_profile = getattr(request.user, 'profile', None)
 
+    # Batch fetch blocked-by relationships and user settings in O(1) queries to eliminate N+1 queries
+    who_blocked_me_user_ids = set(my_profile.blocked_by.values_list('user_id', flat=True)) if my_profile else set()
+    user_settings_map = {
+        s.user_id: s for s in UserSettings.objects.filter(user_id__in=visible_ids)
+    }
+
     for u in users:
-        is_chat_blocked, _ = _is_chat_blocked(request.user, u)
+        is_blocked_by_me = u.id in blocked_user_ids
+        is_blocked_by_them = u.id in who_blocked_me_user_ids
+        is_chat_blocked = is_blocked_by_me or is_blocked_by_them
+
         try:
             profile = u.profile
             is_online = profile.is_online
             last_seen = profile.last_seen  # datetime object for template filters
-        except UserProfile.DoesNotExist:
+        except (UserProfile.DoesNotExist, AttributeError):
             profile = None
             is_online = False
             last_seen = None
@@ -253,17 +262,14 @@ def chat_view(request):
             show_online = False
             show_last_seen = None
         else:
-            u_settings = UserSettings.get_for_user(u)
+            u_settings = user_settings_map.get(u.id) or UserSettings(user=u)
 
             # Last seen visibility
             can_see_last_seen = True
             if u_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY or my_settings.last_seen_visibility == UserSettings.LAST_SEEN_NOBODY:
                 can_see_last_seen = False
             elif u_settings.last_seen_visibility == UserSettings.LAST_SEEN_CONTACTS:
-                if my_profile and profile:
-                    can_see_last_seen = Friendship.are_friends(my_profile, profile)
-                else:
-                    can_see_last_seen = False
+                can_see_last_seen = (u.id in friend_user_ids)
 
             # Online visibility
             can_see_online = True
@@ -278,7 +284,7 @@ def chat_view(request):
             'is_online': show_online,
             'last_seen': show_last_seen,
             'is_self_chat': False,
-            'is_blocked': u.id in blocked_user_ids,
+            'is_blocked': is_blocked_by_me,
             'is_chat_blocked': is_chat_blocked,
             'is_friend': u.id in friend_user_ids,
             'is_locked': u.id in locked_user_ids,
@@ -387,8 +393,10 @@ def message_history(request, username):
     page = _positive_int(request.GET.get('page'), 1)
     per_page = _positive_int(request.GET.get('per_page'), 50, max_value=100)
 
-    # Purge expired messages immediately before reading
-    Message.objects.filter(expires_at__lt=timezone.now()).delete()
+    # Purge expired messages only if any expired exist
+    now = timezone.now()
+    if Message.objects.filter(expires_at__isnull=False, expires_at__lt=now).exists():
+        Message.objects.filter(expires_at__isnull=False, expires_at__lt=now).delete()
 
     messages_qs = (
         Message.objects
@@ -402,6 +410,7 @@ def message_history(request, username):
         )
         # "Remove from My View" — hide only for the requesting user
         .exclude(hidden_for_users=request.user)
+        .select_related('sender__profile', 'receiver__profile', 'replied_moment')
         .order_by('-timestamp')
     )
 
@@ -1294,7 +1303,10 @@ def download_file(request, file_id):
             # Fallback to redirect if streaming failed but a remote URL exists
             if remote_urls:
                 from django.shortcuts import redirect
-                return redirect(remote_urls[0])
+                # Prioritize signed URLs if available
+                signed_urls = [u for u in remote_urls if 'signature=' in u]
+                target_url = signed_urls[0] if signed_urls else remote_urls[0]
+                return redirect(target_url)
 
         if not file_handle:
             return JsonResponse({'error': 'File data missing or inaccessible on server.'}, status=404)
@@ -1732,12 +1744,10 @@ def get_moments(request):
         .values_list('user_id', flat=True)
     ) if friend_profile_ids else set()
 
-    visible_friend_ids = set()
-    if friend_user_ids:
-        for u in User.objects.filter(id__in=friend_user_ids):
-            blocked, _ = _is_chat_blocked(request.user, u)
-            if not blocked:
-                visible_friend_ids.add(u.id)
+    # Compute visible friend IDs with O(1) in-memory set lookups
+    blocked_user_ids = set(my_profile.blocked_users.values_list('user_id', flat=True))
+    who_blocked_me_user_ids = set(my_profile.blocked_by.values_list('user_id', flat=True))
+    visible_friend_ids = friend_user_ids - (blocked_user_ids | who_blocked_me_user_ids)
 
     now = timezone.now()
 
@@ -1751,9 +1761,15 @@ def get_moments(request):
         (Q(privacy_type=Moment.PRIVACY_ONLY) & Q(privacy_users=request.user))
     )
 
-    active_moments = Moment.objects.filter(
-        (own_moments_q | friends_moments_q) & Q(expires_at__gt=now)
-    ).distinct().order_by('user_id', 'timestamp')
+    active_moments = (
+        Moment.objects.filter(
+            (own_moments_q | friends_moments_q) & Q(expires_at__gt=now)
+        )
+        .distinct()
+        .select_related('user__profile')
+        .prefetch_related('viewers__profile', 'privacy_users')
+        .order_by('user_id', 'timestamp')
+    )
 
     # Group by user
     grouped = {}
@@ -2788,7 +2804,7 @@ def group_message_history(request, group_id):
     page = _positive_int(request.GET.get('page'), 1)
     per_page = _positive_int(request.GET.get('per_page'), 50, max_value=100)
 
-    messages_qs = GroupMessage.objects.filter(group=group)
+    messages_qs = GroupMessage.objects.filter(group=group).select_related('sender')
     messages_qs = messages_qs.filter(timestamp__gte=membership.joined_at)
     if membership.cleared_at:
         messages_qs = messages_qs.filter(timestamp__gt=membership.cleared_at)

@@ -465,48 +465,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'group_id': event.get('group_id'),
         }))
 
-    async def friend_request(self, event):
-        """Relay friend request event to the client."""
-        await self.send(text_data=json.dumps({
-            'type': 'friend_request',
-            'sender': event['sender'],
-        }))
-
-    async def friend_request_accepted(self, event):
-        """Relay friend request accepted event so sender and receiver update sidebar."""
-        await self.send(text_data=json.dumps({
-            'type': 'friend_request_accepted',
-            'new_friend': event.get('new_friend'),
-            'user_id': event.get('user_id'),
-        }))
-
-    async def friend_request_rejected(self, event):
-        """Relay friend request rejected event so sender updates sidebar."""
-        await self.send(text_data=json.dumps({
-            'type': 'friend_request_rejected',
-            'rejected_by': event.get('rejected_by'),
-        }))
-
-    async def group_invite(self, event):
-        """Relays a group invite notification to the user."""
-        await self.send(text_data=json.dumps({
-            'type': 'group_invite',
-            'invite_id': event['invite_id'],
-            'group_id': event['group_id'],
-            'group_name': event['group_name'],
-            'inviter': event['inviter'],
-        }))
-
-    async def group_deleted(self, event):
-        """Relays a group deletion notification to the user."""
-        await self.send(text_data=json.dumps({
-            'type': 'group_deleted',
-            'group_id': event['group_id'],
-            'group_name': event['group_name'],
-            'deleted_by': event['deleted_by'],
-            'reason': event.get('reason'),
-        }))
-
     async def new_moment(self, event):
         """Relay a new moment to the connected client."""
         await self.send(text_data=json.dumps({
@@ -536,26 +494,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'type': 'moment_reacted',
             'moment_id': event['moment_id'],
             'reaction': event['reaction']
-        }))
-
-    async def user_blocked(self, event):
-        """Relay a user blocked event to the client."""
-        await self.send(text_data=json.dumps({
-            'type': 'user_blocked',
-            'blocker_id': event['blocker_id'],
-            'blocker_username': event['blocker_username'],
-            'blocked_id': event['blocked_id'],
-            'blocked_username': event['blocked_username']
-        }))
-
-    async def user_unblocked(self, event):
-        """Relay a user unblocked event to the client."""
-        await self.send(text_data=json.dumps({
-            'type': 'user_unblocked',
-            'unblocker_id': event['unblocker_id'],
-            'unblocker_username': event['unblocker_username'],
-            'unblocked_id': event['unblocked_id'],
-            'unblocked_username': event['unblocked_username']
         }))
 
     # ---- Utilities ---------------------------------------------------------

@@ -2,7 +2,6 @@
 Custom storage classes for Sandesh 2.0.
 """
 
-import os
 from cloudinary_storage.storage import MediaCloudinaryStorage, RESOURCE_TYPES
 
 

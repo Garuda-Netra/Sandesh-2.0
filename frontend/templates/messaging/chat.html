@@ -2348,7 +2348,7 @@
           </div>
 
           <!-- Group Members List (Hidden by default, shown for groups) -->
-          <div id="upmMembersSection" class="hidden mt-3 pt-3 border-t sdh-profile-divider">
+          <div id="upmMembersSection" class="hidden mt-3 pt-3 border-t border-white/[0.08] dark:border-white/[0.08]">
             <div class="flex items-center justify-between mb-2.5 px-0.5">
               <span class="text-[10px] font-bold uppercase tracking-widest sdh-profile-card-label flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2358,17 +2358,17 @@
               </span>
               <span id="upmMembersCount" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 dark:text-purple-300 border border-purple-500/20"></span>
             </div>
-            <div id="upmMembersList" class="space-y-1.5">
+            <div id="upmMembersList" class="space-y-1">
                <!-- Populated dynamically by JS -->
             </div>
           </div>
         </div>
 
         <!-- ── Pending Request Actions (Clean & Professional) ── -->
-        <div id="upmPendingRequestSection" class="hidden mt-3 pt-3 border-t sdh-profile-divider">
+        <div id="upmPendingRequestSection" class="hidden mt-3 pt-3 border-t border-white/[0.08] dark:border-white/[0.08]">
           <div class="flex gap-2.5">
             <button id="upmAcceptBtn"
-              class="sdh-liquid-action-btn btn-liquid-accept flex-1 !py-2.5 !text-xs justify-center font-bold tracking-wide shadow-md" aria-label="Accept friend request">
+              class="sdh-liquid-action-btn btn-liquid-accept flex-1 !py-2.5 !text-xs justify-center font-bold tracking-wide shadow-sm" aria-label="Accept friend request">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
               </svg>
@@ -3197,7 +3197,7 @@
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
 <script src="{% static 'js/e2eCrypto.js' %}?v=1.0"></script>
 <script src="{% static 'js/chatLock.js' %}?v=1.0"></script>
-<script src="{% static 'js/chat.js' %}?v=5.0"></script>
+<script src="{% static 'js/chat.js' %}?v=5.1"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.2"></script>
 <script src="{% static 'js/userSearch.js' %}?v=3.2"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->
@@ -3544,6 +3544,8 @@
     } catch (e) {
       console.error('[NDM] initializeChat error:', e);
     }
+
+
 
     // Helper: Reset conversation panel to Home empty state & connect global WS
     function resetToHomeState() {

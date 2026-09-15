@@ -7,11 +7,7 @@ if configured through environment variables.
 
 from __future__ import annotations
 
-import json
-import random
 import re
-import urllib.error
-import urllib.request
 from typing import Iterable
 
 from django.conf import settings
