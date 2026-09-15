@@ -1891,7 +1891,7 @@ SDH.Chat = (() => {
 
   function _buildViewOnceIconSvg({ opened = false, sizeClass = 'w-7 h-7', extraClass = '' } = {}) {
     const dash = opened ? 'stroke-dasharray="3.5 2.5"' : '';
-    const fillOp = opened ? '0.12' : '0.18';
+    const fillOp = opened ? '0' : '0.12';
     return `<svg class="${sizeClass} ${extraClass} flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <circle cx="12" cy="12" r="9.5" stroke-width="2" fill="currentColor" fill-opacity="${fillOp}" ${dash} />
       <path d="M10.8 10.5 L13.2 8 V16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
@@ -3334,6 +3334,7 @@ SDH.Chat = (() => {
       const banner = document.getElementById('notifPrompt');
       if (banner) banner.classList.replace('hidden', 'flex');
     }
+    updateViewOnceBtn();
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -4613,29 +4614,38 @@ SDH.Chat = (() => {
   function updateViewOnceBtn() {
     const btn = document.getElementById('viewOnceBtn');
     if (!btn) return;
+    const hasMedia = pendingFiles && pendingFiles.length > 0;
+    if (!hasMedia) {
+      btn.classList.add('hidden');
+      btn.style.display = 'none';
+      isViewOnceActive = false;
+      return;
+    }
+
+    // Media/file selected: reveal button (just like WhatsApp)
+    btn.classList.remove('hidden');
+    btn.style.display = 'inline-flex';
+
     if (isViewOnceActive) {
       btn.classList.add('active');
-      btn.title = 'View Once is ON: Media will disappear after being viewed once';
+      btn.title = 'View Once is ON: Recipient can only view this media once';
     } else {
       btn.classList.remove('active');
-      btn.title = 'View Once: Click to send a photo or video that can only be viewed once';
+      btn.title = 'View Once: Click to send as view once (disappears after viewing)';
     }
   }
 
   function toggleViewOnce() {
-    const hasMedia = pendingFiles.some(f => f.file && f.file.type && (f.file.type.startsWith('image/') || f.file.type.startsWith('video/')));
-    if (!hasMedia && !isViewOnceActive) {
-      isViewOnceActive = true;
-      updateViewOnceBtn();
-      const picker = document.getElementById('viewOnceFileInput') || document.getElementById('fileInput');
-      if (picker) picker.click();
-      return;
-    }
+    const hasMedia = pendingFiles && pendingFiles.length > 0;
+    if (!hasMedia) return;
+
     isViewOnceActive = !isViewOnceActive;
     updateViewOnceBtn();
     renderFilePreviews();
     if (isViewOnceActive) {
-      showToast('View Once enabled for this media', 'info');
+      showToast('Photo/video set to View Once', 'info');
+    } else {
+      showToast('View Once turned off', 'info');
     }
   }
 
