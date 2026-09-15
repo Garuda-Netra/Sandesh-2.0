@@ -3825,8 +3825,8 @@ SDH.Chat = (() => {
     avatarImg.src = '';
 
     // Reset dynamic border glows
-    avatarWrapper.style.borderColor = 'rgba(168,85,247,0.3)';
-    avatarWrapper.style.boxShadow = '0 0 20px rgba(168,85,247,0.15)';
+    avatarWrapper.style.borderColor = '';
+    avatarWrapper.style.boxShadow = '';
     statusDot.className = 'w-2 h-2 rounded-full sdh-pulse-dot bg-purple-500';
     statusText.textContent = 'Offline';
     statusText.className = 'text-[11px] font-semibold text-divine-muted';
@@ -3983,8 +3983,6 @@ SDH.Chat = (() => {
           if (pillDot) {
             pillDot.className = 'w-2 h-2 rounded-full bg-emerald-500 sdh-pulse-dot';
           }
-          avatarWrapper.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-          avatarWrapper.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.25)';
           lastSeenEl.textContent = 'Active now';
         } else {
           statusDot.className = 'w-3.5 h-3.5 rounded-full bg-slate-400 dark:bg-slate-500';
@@ -3995,8 +3993,6 @@ SDH.Chat = (() => {
           if (pillDot) {
             pillDot.className = 'w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500';
           }
-          avatarWrapper.style.borderColor = 'rgba(168, 85, 247, 0.3)';
-          avatarWrapper.style.boxShadow = '0 0 20px rgba(168, 85, 247, 0.15)';
           if (isBlocked) {
             lastSeenEl.textContent = 'Blocked';
           } else if (data.last_seen) {

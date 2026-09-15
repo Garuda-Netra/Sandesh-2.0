@@ -2193,18 +2193,17 @@
      USER PROFILE — Luxury Profile Dashboard (Light & Dark)
 ══════════════════════════════════════════════════════════════ -->
 <div id="userProfileModal"
-  class="hidden fixed inset-0 z-[60] overflow-y-auto custom-scrollbar transition-all duration-300"
-  style="background: rgba(4, 3, 15, 0.72); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);"
+  class="sdh-profile-backdrop hidden fixed inset-0 z-[60] overflow-y-auto custom-scrollbar transition-all duration-300"
   onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="flex min-h-full items-center justify-center p-4 sm:p-6" onclick="if(event.target===this)document.getElementById('userProfileModal').classList.add('hidden')">
 
     <div class="sdh-profile-modal-card relative w-full max-w-[420px] rounded-[28px] overflow-hidden animate-msg-appear shadow-2xl">
 
       <!-- ── Header Cover Banner (Harmony in Light & Dark) ── -->
-      <div class="sdh-profile-cover relative h-28 w-full overflow-hidden">
+      <div class="sdh-profile-cover relative h-32 w-full overflow-hidden">
         <div class="sdh-profile-cover-mesh absolute inset-0"></div>
-        <div class="absolute -top-12 -left-12 w-44 h-44 bg-purple-500/25 rounded-full blur-[50px] pointer-events-none"></div>
-        <div class="absolute -bottom-10 -right-10 w-52 h-52 bg-indigo-500/25 rounded-full blur-[60px] pointer-events-none"></div>
+        <div class="sdh-profile-glow-1 absolute -top-12 -left-12 w-48 h-48 rounded-full pointer-events-none"></div>
+        <div class="sdh-profile-glow-2 absolute -bottom-10 -right-10 w-56 h-56 rounded-full pointer-events-none"></div>
 
         <!-- Top Right Floating Close Button (X) -->
         <button type="button" onclick="document.getElementById('userProfileModal').classList.add('hidden')"
@@ -3200,7 +3199,7 @@
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
 <script src="{% static 'js/e2eCrypto.js' %}?v=1.0"></script>
 <script src="{% static 'js/chatLock.js' %}?v=1.0"></script>
-<script src="{% static 'js/chat.js' %}?v=4.7"></script>
+<script src="{% static 'js/chat.js' %}?v=4.8"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.2"></script>
 <script src="{% static 'js/userSearch.js' %}?v=3.2"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->
