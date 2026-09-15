@@ -2004,16 +2004,6 @@ SDH.Chat = (() => {
                     </svg>
                   </span>
                 </div>
-                <!-- Save Button (Top Right) -->
-                <button type="button"
-                        onclick="event.stopPropagation(); SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'image/jpeg')}',buttonEl:this})"
-                        class="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-black/65 hover:bg-black/85 text-white/95 backdrop-blur-md border border-white/20 shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 text-xs z-10 select-none cursor-pointer"
-                        title="Save image">
-                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                  </svg>
-                  <span class="text-[10px] font-semibold tracking-wide">Save</span>
-                </button>
               </div>
               <div class="flex items-center justify-between gap-2 mt-1.5 px-2.5 py-1.5 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/10 w-full min-w-0 box-border">
                 <div class="flex items-center gap-1.5 min-w-0 flex-1 cursor-pointer"
@@ -2025,9 +2015,9 @@ SDH.Chat = (() => {
                 </div>
                 <button type="button"
                         onclick="SDH.FileUpload.downloadFile({messageId:${fid},fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'image/jpeg')}',buttonEl:this})"
-                        class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-divine-gold/15 hover:bg-divine-gold/25 text-divine-gold text-[11px] font-semibold transition-all flex-shrink-0 select-none cursor-pointer active:scale-95"
+                        class="sdh-file-download-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex-shrink-0 select-none cursor-pointer active:scale-95 shadow-sm"
                         title="Download ${escapeHtml(originalFilename)}">
-                  <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                   </svg>
                   <span>Download</span>
@@ -2075,7 +2065,7 @@ SDH.Chat = (() => {
                   <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                   </svg>
-                  <span>Save</span>
+                  <span>Download</span>
                 </button>
               </div>
             </div>`;
