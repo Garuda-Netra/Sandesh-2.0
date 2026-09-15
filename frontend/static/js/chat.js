@@ -3126,14 +3126,26 @@ SDH.Chat = (() => {
     renderEmojiGrid(activeEmojiCategory);
   }
 
+  const CATEGORY_NAMES = {
+    all: 'All',
+    happy: 'Happy',
+    upset: 'Upset',
+    love: 'Love',
+    gestures: 'Hands',
+    cool: 'Cool'
+  };
+
   function filterEmojiCategory(category, btnElement) {
     activeEmojiCategory = category;
     if (btnElement && btnElement.parentElement) {
       btnElement.parentElement.querySelectorAll('.sdh-emoji-cat-btn').forEach(btn => {
-        btn.className = 'sdh-emoji-cat-btn px-2.5 py-1 rounded-lg font-medium text-[11px] whitespace-nowrap bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-transparent transition-all';
         btn.classList.remove('active');
       });
-      btnElement.className = 'sdh-emoji-cat-btn active px-2.5 py-1 rounded-lg font-semibold text-[11px] whitespace-nowrap bg-purple-500/30 text-purple-200 border border-purple-400/40 shadow-sm transition-all';
+      btnElement.classList.add('active');
+    }
+    const titleEl = document.getElementById('emojiCategoryTitle');
+    if (titleEl) {
+      titleEl.textContent = CATEGORY_NAMES[category] || category;
     }
     renderEmojiGrid(category);
   }
