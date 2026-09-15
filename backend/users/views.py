@@ -994,13 +994,26 @@ def friend_requests_view(request):
     except UserProfile.DoesNotExist:
         return JsonResponse({'incoming': [], 'outgoing': []})
 
-    incoming = list(
+    incoming_qs = (
         FriendRequest.objects
         .filter(to_user=my_profile, status=FriendRequest.STATUS_PENDING)
         .select_related('from_user__user')
         .order_by('-created_at')
-        .values_list('id', 'from_user__user__id', 'from_user__user__username', 'created_at')
     )
+    incoming = []
+    for fr in incoming_qs:
+        u = fr.from_user.user
+        p = fr.from_user
+        avatar_url = p.avatar.url if (p.avatar and p.avatar.name) else None
+        incoming.append({
+            'id': fr.id,
+            'user_id': u.id,
+            'username': u.username,
+            'display_name': p.display_name or u.username,
+            'avatar_url': avatar_url,
+            'created_at': fr.created_at.isoformat() if fr.created_at else None,
+        })
+
     outgoing = list(
         FriendRequest.objects
         .filter(from_user=my_profile, status=FriendRequest.STATUS_PENDING)
@@ -1010,11 +1023,7 @@ def friend_requests_view(request):
     )
 
     return JsonResponse({
-        'incoming': [
-            {'id': r[0], 'user_id': r[1], 'username': r[2],
-             'created_at': r[3].isoformat() if r[3] else None}
-            for r in incoming
-        ],
+        'incoming': incoming,
         'outgoing': [
             {'id': r[0], 'user_id': r[1], 'username': r[2],
              'created_at': r[3].isoformat() if r[3] else None}
@@ -1216,17 +1225,33 @@ def user_profile_api(request, username):
 
     avatar_url = target_profile.avatar.url if target_profile.avatar else None
 
-    # For non-friends, hide sensitive info including online status
+    fr = None
+    has_pending_request = False
+    if not is_friend and target_user != request.user:
+        fr = FriendRequest.objects.filter(
+            from_user=target_profile, to_user=my_profile, status=FriendRequest.STATUS_PENDING
+        ).first()
+        has_pending_request = fr is not None
+
+    # For pending friend requests (like Instagram), allow viewing bio, avatar, and joined date,
+    # but strictly hide sensitive info (email, phone, real-time online status) and disable messaging/calls.
+    can_view_bio = is_friend or has_pending_request
+    can_view_contact = is_friend
+    can_view_status = is_friend
+
     return JsonResponse({
         'username': target_user.username,
-        'display_name': target_profile.display_name,
-        'bio': target_profile.bio if is_friend else '',
-        'phone_number': target_profile.phone_number if is_friend else '',
-        'email': target_user.email if is_friend else '',
+        'display_name': target_profile.display_name or target_user.username,
+        'bio': target_profile.bio if can_view_bio else '',
+        'phone_number': target_profile.phone_number if can_view_contact else '',
+        'email': target_user.email if can_view_contact else '',
         'avatar_url': avatar_url,
-        'is_online': target_profile.is_online if is_friend else False,
-        'last_seen': target_profile.last_seen.isoformat() if (is_friend and target_profile.last_seen) else None,
+        'is_online': target_profile.is_online if can_view_status else False,
+        'last_seen': target_profile.last_seen.isoformat() if (can_view_status and target_profile.last_seen) else None,
         'date_joined': target_user.date_joined.strftime('%B %Y') if target_user.date_joined else None,
+        'is_friend': is_friend,
+        'has_pending_request': has_pending_request,
+        'request_id': fr.id if fr else None,
     })
 
 # ---------------------------------------------------------------------------

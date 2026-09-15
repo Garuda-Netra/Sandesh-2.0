@@ -3469,25 +3469,45 @@ SDH.Chat = (() => {
 
       if (list) {
         list.innerHTML = incoming.map(fr => `
-            <div class="flex items-center gap-2 py-2 px-2 rounded-xl transition-all duration-200 hover:bg-white/[0.04] border border-white/[0.05] bg-white/[0.02]" data-fr-id="${fr.id}">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold select-none shadow-inner flex-shrink-0"
-                style="background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(129,140,248,0.2)); color: #c084fc; border: 1px solid rgba(168,85,247,0.3);">
-                ${escapeHtml((fr.username || '?')[0].toUpperCase())}
+            <div class="p-2.5 rounded-2xl transition-all duration-200 hover:bg-white/[0.04] border border-white/[0.06] bg-white/[0.02] shadow-sm space-y-2.5 group" data-fr-id="${fr.id}">
+              <!-- Clickable Profile Header (Instagram style) -->
+              <div class="flex items-center gap-2.5 cursor-pointer select-none"
+                   onclick="SDH.Chat.showUserProfile('${escapeHtml(fr.username)}', ${fr.user_id || 'null'}, { isPendingFriendRequest: true, requestId: ${fr.id} })"
+                   title="Click to view @${escapeHtml(fr.username)}'s profile">
+                <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold select-none shadow-md flex-shrink-0 relative overflow-hidden"
+                  style="background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(129,140,248,0.22)); color: #c084fc; border: 1.5px solid rgba(168,85,247,0.35);">
+                  ${fr.avatar_url ? `<img src="${escapeHtml(fr.avatar_url)}" class="w-full h-full object-cover" />` : escapeHtml((fr.display_name || fr.username || '?')[0].toUpperCase())}
+                </div>
+                <div class="flex flex-col min-w-0 flex-1">
+                  <div class="flex items-center gap-1">
+                    <span class="text-xs font-bold truncate leading-tight group-hover:text-purple-400 transition-colors" style="color:var(--c-text)">
+                      ${escapeHtml(fr.display_name || fr.username)}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-1 text-[10px] text-divine-muted truncate mt-0.5">
+                    <span class="font-medium text-purple-400/90">@${escapeHtml(fr.username)}</span>
+                    <span>•</span>
+                    <span class="text-divine-muted/70 group-hover:text-divine-gold transition-colors flex items-center gap-0.5">
+                      View Profile
+                      <svg class="w-2.5 h-2.5 inline group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div class="flex flex-col min-w-0 flex-1 mr-1">
-                <span class="text-xs font-semibold truncate leading-tight" style="color:var(--c-text)">${escapeHtml(fr.username)}</span>
-                <span class="text-[10px] text-divine-muted leading-tight mt-0.5 truncate whitespace-nowrap">wants to connect</span>
-              </div>
-              <div class="flex items-center gap-1.5 shrink-0">
+
+              <!-- Liquid Action Buttons -->
+              <div class="flex items-center gap-2 pt-0.5">
                 <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'accept', this)"
-                  class="sdh-liquid-action-btn btn-liquid-accept" aria-label="Accept friend request">
+                  class="sdh-liquid-action-btn btn-liquid-accept flex-1 !py-1.5 justify-center" aria-label="Accept friend request">
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                   </svg>
                   <span>Accept</span>
                 </button>
                 <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'reject', this)"
-                  class="sdh-liquid-action-btn btn-liquid-reject" aria-label="Reject friend request">
+                  class="sdh-liquid-action-btn btn-liquid-reject flex-1 !py-1.5 justify-center" aria-label="Reject friend request">
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                   </svg>
@@ -3647,7 +3667,7 @@ SDH.Chat = (() => {
     }
   }
 
-  async function showUserProfile(username, userId) {
+  async function showUserProfile(username, userId, options = {}) {
     if (!username) return;
     if (username === window.SDH_DATA.currentUser) return;
 
@@ -3672,7 +3692,13 @@ SDH.Chat = (() => {
     const lastSeenEl = document.getElementById('upmLastSeen');
     const messageBtn = document.getElementById('upmMessageBtn');
     const inviteBtnInit = document.getElementById('upmInviteMemberBtn');
+    const pendingSection = document.getElementById('upmPendingRequestSection');
+    const upmAcceptBtn = document.getElementById('upmAcceptBtn');
+    const upmRejectBtn = document.getElementById('upmRejectBtn');
+
     if (inviteBtnInit) inviteBtnInit.classList.add('hidden');
+    if (pendingSection) pendingSection.classList.add('hidden');
+    if (messageBtn) messageBtn.classList.remove('hidden');
 
     // Set skeleton / loading states
     displayNameEl.textContent = 'Loading...';
@@ -3859,11 +3885,54 @@ SDH.Chat = (() => {
         }
       }
 
-      // Wire message button
-      messageBtn.onclick = () => {
-        modal.classList.add('hidden');
-        selectUser(data.username, userId);
-      };
+      // Check if this user is a pending friend request (Instagram-style preview mode)
+      const isPendingRequest = Boolean(data.has_pending_request || options.isPendingFriendRequest);
+      const reqId = data.request_id || options.requestId;
+
+      if (isPendingRequest && reqId) {
+        // Disable messaging and calling capabilities because they are not confirmed friends yet
+        if (messageBtn) messageBtn.classList.add('hidden');
+        if (pendingSection) pendingSection.classList.remove('hidden');
+
+        // Sensitive details remain strictly hidden
+        emailEl.textContent = '🔒 Hidden until connected';
+        phoneEl.textContent = '🔒 Hidden until connected';
+        statusDot.className = 'w-2 h-2 rounded-full bg-purple-400 animate-pulse';
+        statusText.textContent = 'Pending Request';
+        statusText.className = 'text-[11px] font-bold uppercase tracking-widest text-purple-400';
+        lastSeenEl.textContent = 'Sent a request';
+
+        // Wire modal Accept button
+        if (upmAcceptBtn) {
+          upmAcceptBtn.disabled = false;
+          upmAcceptBtn.onclick = async () => {
+            upmAcceptBtn.disabled = true;
+            if (upmRejectBtn) upmRejectBtn.disabled = true;
+            await respondFriendRequest(reqId, 'accept', upmAcceptBtn);
+            modal.classList.add('hidden');
+          };
+        }
+
+        // Wire modal Reject button
+        if (upmRejectBtn) {
+          upmRejectBtn.disabled = false;
+          upmRejectBtn.onclick = async () => {
+            if (upmAcceptBtn) upmAcceptBtn.disabled = true;
+            upmRejectBtn.disabled = true;
+            await respondFriendRequest(reqId, 'reject', upmRejectBtn);
+            modal.classList.add('hidden');
+          };
+        }
+      } else {
+        if (pendingSection) pendingSection.classList.add('hidden');
+        if (messageBtn) {
+          messageBtn.classList.remove('hidden');
+          messageBtn.onclick = () => {
+            modal.classList.add('hidden');
+            selectUser(data.username, userId);
+          };
+        }
+      }
 
     } catch (err) {
       console.error('[Chat] showUserProfile error:', err);

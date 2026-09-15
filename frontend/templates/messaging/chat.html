@@ -2317,8 +2317,38 @@
       </div>
       </div>
 
-      <!-- ── Actions ── -->
-      <div class="flex gap-2 sm:gap-3 mt-8">
+      <!-- ── Pending Request Banner & Actions (Instagram-style profile preview) ── -->
+      <div id="upmPendingRequestSection" class="hidden mt-6 pt-4 border-t border-divine-border/30 space-y-3">
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+            <span class="text-xs font-semibold text-purple-300">Sent you a friend request</span>
+          </div>
+          <span class="text-[10px] text-divine-muted uppercase tracking-wider font-semibold">Pending Approval</span>
+        </div>
+        <p class="text-[11px] text-divine-muted leading-relaxed px-1">
+          Accept this request to unlock direct messaging, voice & video calling, and moments.
+        </p>
+        <div class="flex gap-2.5 pt-1">
+          <button id="upmAcceptBtn"
+            class="sdh-liquid-action-btn btn-liquid-accept flex-1 !py-2.5 !text-xs justify-center" aria-label="Accept friend request">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+            <span>Accept Request</span>
+          </button>
+          <button id="upmRejectBtn"
+            class="sdh-liquid-action-btn btn-liquid-reject flex-1 !py-2.5 !text-xs justify-center" aria-label="Reject friend request">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            <span>Reject</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Standard Actions ── -->
+      <div id="upmDefaultActions" class="flex gap-2 sm:gap-3 mt-8">
         <button onclick="document.getElementById('userProfileModal').classList.add('hidden')"
           class="flex-1 py-2.5 px-2 sm:px-3 rounded-xl text-[13px] font-bold tracking-wide text-rose-500 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-rose-500/20 whitespace-nowrap">
           Close
@@ -3124,7 +3154,7 @@
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
 <script src="{% static 'js/e2eCrypto.js' %}?v=1.0"></script>
 <script src="{% static 'js/chatLock.js' %}?v=1.0"></script>
-<script src="{% static 'js/chat.js' %}?v=4.3"></script>
+<script src="{% static 'js/chat.js' %}?v=4.4"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.2"></script>
 <script src="{% static 'js/userSearch.js' %}?v=3.2"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->
