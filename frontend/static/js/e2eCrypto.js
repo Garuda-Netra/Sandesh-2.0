@@ -309,17 +309,18 @@
 
   /**
    * Retrieves or initializes the AES-256 Group Key for a specific group.
+   * If forceServerCheck is true, skips local caches and queries the server.
    */
-  async function getGroupKey(groupId) {
+  async function getGroupKey(groupId, forceServerCheck = false) {
     const gid = String(groupId);
-    if (groupKeyCache[gid]) {
+    if (!forceServerCheck && groupKeyCache[gid]) {
       return groupKeyCache[gid];
     }
 
     const localStoreKey = `sdh_gk_${currentUsername}_${gid}`;
     const storedKeyB64 = localStorage.getItem(localStoreKey);
 
-    if (storedKeyB64) {
+    if (!forceServerCheck && storedKeyB64) {
       try {
         const rawKeyBuffer = base64ToArrayBuffer(storedKeyB64);
         const groupCryptoKey = await window.crypto.subtle.importKey(
@@ -375,7 +376,23 @@
       console.warn(`[E2EE] Could not fetch group key for ${gid}:`, fetchErr);
     }
 
-    // No existing key on server: generate a brand new AES-256 group key
+    // Check if any other member has a key on the server before generating a new one
+    try {
+      const membersRes = await fetch(`/messaging/api/groups/${gid}/e2e-member-keys/`);
+      if (membersRes.ok) {
+        const membersData = await membersRes.json();
+        const existingKeys = (membersData.members || []).some(m => m.has_group_key);
+        if (existingKeys) {
+          // A group key already exists among group members; avoid generating a divergent key.
+          console.log(`[E2EE] Group key exists for group ${gid}, waiting for key sync.`);
+          return null;
+        }
+      }
+    } catch (checkErr) {
+      console.warn(`[E2EE] Could not verify existing group keys:`, checkErr);
+    }
+
+    // No existing key on server: brand new group. Generate fresh AES-256 group key
     try {
       const rawKeyBytes = window.crypto.getRandomValues(new Uint8Array(32)); // 256-bit
       const rawB64 = arrayBufferToBase64(rawKeyBytes);
@@ -392,9 +409,9 @@
       groupRawCache[gid] = rawB64;
       localStorage.setItem(localStoreKey, rawB64);
 
-      // Distribute encrypted group key to all current group members
-      distributeGroupKey(gid, rawB64).catch(err => {
-        console.warn(`[E2EE] Group key distribution error for ${gid}:`, err);
+      // Distribute encrypted group key to all members who have public keys
+      distributeGroupKey(gid, rawB64, true).catch(err => {
+        console.warn(`[E2EE] Initial group key distribution error for ${gid}:`, err);
       });
 
       return groupCryptoKey;
@@ -407,7 +424,7 @@
   /**
    * Encrypts the raw group key for each group member and uploads to server.
    */
-  async function distributeGroupKey(groupId, rawKeyB64) {
+  async function distributeGroupKey(groupId, rawKeyB64, forceUploadAll = false) {
     const gid = String(groupId);
     if (!rawKeyB64) {
       rawKeyB64 = groupRawCache[gid] || localStorage.getItem(`sdh_gk_${currentUsername}_${gid}`);
@@ -423,8 +440,8 @@
       const keysToUpload = [];
 
       for (const member of members) {
-        // If member already has a key, we can skip unless rekeying
-        if (member.has_group_key && member.username !== currentUsername) continue;
+        // Skip members who already have the key unless forceUploadAll is set
+        if (!forceUploadAll && member.has_group_key && member.username !== currentUsername) continue;
 
         let pubKey = member.public_key;
         if (!pubKey && member.username === currentUsername) {
@@ -466,8 +483,11 @@
     const gid = String(groupId);
     const rawB64 = groupRawCache[gid] || localStorage.getItem(`sdh_gk_${currentUsername}_${gid}`);
     if (rawB64) {
-      await distributeGroupKey(gid, rawB64);
+      await distributeGroupKey(gid, rawB64, false);
     } else {
+      await getGroupKey(gid);
+    }
+  }
       await getGroupKey(gid);
     }
   }
@@ -507,7 +527,7 @@
   }
 
   /**
-   * Decrypts a group message.
+   * Decrypts a group message with auto-retry and key refresh.
    */
   async function decryptGroupMessage(ciphertextB64, ivB64, groupId) {
     if (!ciphertextB64 || !ivB64) {
@@ -517,22 +537,43 @@
       return '🔒 [Encrypted group message]';
     }
 
+    const gid = String(groupId);
     try {
-      const groupKey = await getGroupKey(groupId);
+      let groupKey = await getGroupKey(gid);
       if (!groupKey) {
-        return '🔒 [Encrypted group message - Missing key]';
+        // Attempt a fresh fetch from server once
+        groupKey = await getGroupKey(gid, true);
+        if (!groupKey) {
+          return '🔒 [Encrypted group message - Missing key]';
+        }
       }
 
       const iv = base64ToArrayBuffer(ivB64);
       const ciphertext = base64ToArrayBuffer(ciphertextB64);
 
-      const decryptedBuffer = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: new Uint8Array(iv) },
-        groupKey,
-        ciphertext
-      );
-
-      return textDecoder.decode(decryptedBuffer);
+      try {
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: new Uint8Array(iv) },
+          groupKey,
+          ciphertext
+        );
+        return textDecoder.decode(decryptedBuffer);
+      } catch (decErr) {
+        // Tag mismatch or wrong key: force re-fetch latest group key from server and retry once
+        delete groupKeyCache[gid];
+        delete groupRawCache[gid];
+        localStorage.removeItem(`sdh_gk_${currentUsername}_${gid}`);
+        const freshKey = await getGroupKey(gid, true);
+        if (freshKey) {
+          const retryBuffer = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: new Uint8Array(iv) },
+            freshKey,
+            ciphertext
+          );
+          return textDecoder.decode(retryBuffer);
+        }
+        throw decErr;
+      }
     } catch (err) {
       console.warn(`[E2EE] Group decryption failed for group ${groupId}:`, err);
       return '🔒 [Encrypted group message]';

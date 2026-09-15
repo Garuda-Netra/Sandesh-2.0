@@ -93,14 +93,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Mark unread messages from the other user as delivered
         newly_delivered_ids = await self.mark_and_get_newly_delivered()
         for msg_id in newly_delivered_ids:
-            await self.channel_layer.group_send(
-                self.room_group,
-                {
-                    'type': 'broadcast_message_status',
-                    'message_id': msg_id,
-                    'status': 'delivered',
-                }
-            )
+            for grp in {self.room_group, f'user_chat_{self.other_user_id}', f'user_chat_{self.me.id}'}:
+                await self.channel_layer.group_send(
+                    grp,
+                    {
+                        'type': 'broadcast_message_status',
+                        'message_id': msg_id,
+                        'status': 'delivered',
+                    }
+                )
 
         # Broadcast Active status to ALL connected users
         await self.channel_layer.group_send(
@@ -191,6 +192,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.handle_typing(data)
         elif msg_type == 'delivered_receipt':
             await self.handle_delivered_receipt(data)
+        elif msg_type == 'group_delivered_receipt':
+            await self.handle_group_delivered_receipt(data)
         elif msg_type == 'read_receipt':
             await self.handle_read_receipt(data)
         elif msg_type == 'ping':
@@ -351,8 +354,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_id = data.get('message_id')
         if not message_id:
             return
-        await self.mark_message_delivered(int(message_id))
-        target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
+        sender_id = await self.mark_message_delivered_and_get_sender(int(message_id))
+        target_sender_id = sender_id or getattr(self, 'other_user_id', None)
+        target_groups = {f"user_chat_{self.me.id}"}
+        if target_sender_id:
+            target_groups.add(f"user_chat_{target_sender_id}")
+        if hasattr(self, 'room_group'):
+            target_groups.add(self.room_group)
         for grp in target_groups:
             await self.channel_layer.group_send(
                 grp,
@@ -362,6 +370,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'status': 'delivered',
                 }
             )
+
+    async def handle_group_delivered_receipt(self, data: dict):
+        """Receiver notifies group members/sender that a group message was delivered."""
+        message_id = data.get('message_id')
+        group_id = data.get('group_id') or getattr(self, 'group_id', None)
+        if not message_id:
+            return
+        await self._record_group_message_delivery(int(message_id), group_id)
+        sender_id, status, gid = await self._compute_group_message_status(int(message_id), group_id)
+        if sender_id:
+            for grp in {f"user_chat_{sender_id}", f"group_chat_{gid}" if gid else None}:
+                if grp:
+                    await self.channel_layer.group_send(
+                        grp,
+                        {
+                            'type': 'group_message_status',
+                            'message_id': int(message_id),
+                            'group_id': gid,
+                            'status': status,
+                        }
+                    )
 
     async def handle_read_receipt(self, data: dict):
         can_send_receipt = await self._check_read_receipts_enabled()
@@ -419,6 +448,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'message_status',
             'message_id': event['message_id'],
+            'status': event['status'],
+        }))
+
+    async def group_message_status(self, event):
+        """Relay group message status events (sent / delivered / read) to client."""
+        await self.send(text_data=json.dumps({
+            'type': 'group_message_status',
+            'message_id': event['message_id'],
+            'group_id': event.get('group_id'),
             'status': event['status'],
         }))
 
@@ -827,20 +865,38 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def mark_message_delivered(self, message_id: int):
         from .models import Message
+        from django.utils import timezone
         try:
             Message.objects.filter(
                 pk=message_id,
                 receiver=self.me,
                 is_delivered=False,
-            ).update(is_delivered=True)
+            ).update(is_delivered=True, delivered_at=timezone.now())
         except Exception as exc:
             logger.warning(f'[WS] mark_message_delivered error: {exc}')
+
+    @database_sync_to_async
+    def mark_message_delivered_and_get_sender(self, message_id: int):
+        from .models import Message
+        from django.utils import timezone
+        try:
+            msg = Message.objects.filter(pk=message_id, receiver=self.me).first()
+            if msg:
+                if not msg.is_delivered:
+                    msg.is_delivered = True
+                    msg.delivered_at = timezone.now()
+                    msg.save(update_fields=['is_delivered', 'delivered_at'])
+                return msg.sender_id
+        except Exception as exc:
+            logger.warning(f'[WS] mark_message_delivered_and_get_sender error: {exc}')
+        return None
 
     @database_sync_to_async
     def mark_and_get_newly_delivered(self) -> list:
         """Marks all undelivered messages sent to me from other_user as delivered.
         Returns the list of IDs that were just marked."""
         from .models import Message
+        from django.utils import timezone
         try:
             other = User.objects.filter(username=self.other_username).first()
             if not other:
@@ -853,7 +909,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 ).values_list('id', flat=True)
             )
             if ids:
-                Message.objects.filter(pk__in=ids).update(is_delivered=True)
+                Message.objects.filter(pk__in=ids).update(is_delivered=True, delivered_at=timezone.now())
             return ids
         except Exception as exc:
             logger.warning(f'[WS] mark_and_get_newly_delivered error: {exc}')
@@ -863,8 +919,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def mark_messages_read_get_ids(self) -> list:
         """Marks all unread messages from other_user as read and returns their IDs."""
         from .models import Message
+        from django.utils import timezone
         try:
             other = User.objects.get(username=self.other_username)
+            now = timezone.now()
             ids = list(
                 Message.objects.filter(
                     sender=other,
@@ -873,10 +931,117 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 ).values_list('id', flat=True)
             )
             if ids:
-                Message.objects.filter(pk__in=ids).update(is_delivered=True, is_read=True)
+                Message.objects.filter(pk__in=ids).update(
+                    is_delivered=True,
+                    delivered_at=now,
+                    is_read=True,
+                    read_at=now,
+                )
             return ids
         except Exception:
             return []
+
+    @database_sync_to_async
+    def mark_all_pending_delivered_for_user(self) -> dict:
+        """Finds all undelivered messages across all senders for self.me, marks them delivered,
+        and returns a dict of {sender_id: [msg_ids]} so senders can be notified."""
+        from .models import Message
+        from django.utils import timezone
+        try:
+            now = timezone.now()
+            undelivered = list(
+                Message.objects.filter(
+                    receiver=self.me,
+                    is_delivered=False,
+                ).values('id', 'sender_id')
+            )
+            if not undelivered:
+                return {}
+            msg_ids = [m['id'] for m in undelivered]
+            Message.objects.filter(id__in=msg_ids).update(is_delivered=True, delivered_at=now)
+            
+            by_sender = {}
+            for m in undelivered:
+                s_id = m['sender_id']
+                by_sender.setdefault(s_id, []).append(m['id'])
+            return by_sender
+        except Exception as exc:
+            logger.warning(f'[WS] mark_all_pending_delivered_for_user error: {exc}')
+            return {}
+
+    @database_sync_to_async
+    def _mark_all_pending_group_messages_delivered(self) -> list:
+        from .models import GroupMessage, GroupMembership, GroupMessageDelivery
+        from django.utils import timezone
+        try:
+            my_group_ids = list(GroupMembership.objects.filter(user=self.me).values_list('group_id', flat=True))
+            if not my_group_ids:
+                return []
+            messages = GroupMessage.objects.filter(
+                group_id__in=my_group_ids
+            ).exclude(
+                sender=self.me
+            ).exclude(
+                delivery_receipts__user=self.me
+            )
+            now = timezone.now()
+            results = []
+            deliveries = []
+            for msg in messages:
+                deliveries.append(GroupMessageDelivery(message=msg, user=self.me, delivered_at=now))
+                results.append((msg.id, msg.group_id, msg.sender_id))
+            if deliveries:
+                GroupMessageDelivery.objects.bulk_create(deliveries, ignore_conflicts=True)
+            return results
+        except Exception as exc:
+            logger.warning(f'[WS] _mark_all_pending_group_messages_delivered error: {exc}')
+            return []
+
+    @database_sync_to_async
+    def _record_group_message_delivery(self, message_id, group_id=None):
+        from .models import GroupMessage, GroupMessageDelivery
+        from django.utils import timezone
+        gid = group_id or getattr(self, 'group_id', None)
+        try:
+            kwargs = {'id': message_id}
+            if gid:
+                kwargs['group_id'] = gid
+            msg = GroupMessage.objects.filter(**kwargs).first()
+            if msg and msg.sender_id != self.me.id:
+                GroupMessageDelivery.objects.get_or_create(
+                    message=msg, user=self.me, defaults={'delivered_at': timezone.now()}
+                )
+                return msg.sender_id, msg.group_id
+        except Exception as exc:
+            logger.error(f'[WS-Group] record_group_message_delivery error: {exc}')
+        return None, None
+
+    @database_sync_to_async
+    def _compute_group_message_status(self, message_id, group_id=None):
+        from .models import GroupMessage, GroupMembership, GroupMessageRead, GroupMessageDelivery
+        gid = group_id or getattr(self, 'group_id', None)
+        try:
+            kwargs = {'id': message_id}
+            if gid:
+                kwargs['group_id'] = gid
+            msg = GroupMessage.objects.filter(**kwargs).first()
+            if not msg:
+                return None, 'sent', None
+            
+            total_members = GroupMembership.objects.filter(group_id=msg.group_id).exclude(user_id=msg.sender_id).count()
+            read_count = GroupMessageRead.objects.filter(message_id=message_id).exclude(user_id=msg.sender_id).count()
+            delivery_count = GroupMessageDelivery.objects.filter(message_id=message_id).exclude(user_id=msg.sender_id).count()
+
+            if read_count >= total_members and total_members > 0:
+                status = 'read'
+            elif delivery_count > 0 or read_count > 0:
+                status = 'delivered'
+            else:
+                status = 'sent'
+            return msg.sender_id, status, msg.group_id
+        except Exception as exc:
+            logger.error(f'[WS-Group] compute_group_message_status error: {exc}')
+            return None, 'sent', None
 
     # ── Personal Group Handlers ────────────────────────────────────────────────
 
@@ -1117,6 +1282,23 @@ class GroupChatConsumer(ChatConsumer):
         await self.accept()
         logger.info(f'[WS-Group] {self.me.username} connected to group {self.group_id}')
 
+        # Mark all pending group messages as read and delivered for this user, and broadcast status
+        try:
+            updated_statuses = await self._mark_all_pending_group_messages_read(self.group_id)
+            for m_id, sender_id, status in updated_statuses:
+                for grp in {f"user_chat_{sender_id}", self.room_group}:
+                    await self.channel_layer.group_send(
+                        grp,
+                        {
+                            'type': 'group_message_status',
+                            'message_id': m_id,
+                            'group_id': self.group_id,
+                            'status': status,
+                        }
+                    )
+        except Exception as exc:
+            logger.warning(f'[WS-Group] Error auto-marking read on connect: {exc}')
+
     async def disconnect(self, code):
         if hasattr(self, 'room_group'):
             await self.channel_layer.group_discard(self.room_group, self.channel_name)
@@ -1147,6 +1329,8 @@ class GroupChatConsumer(ChatConsumer):
             await self.handle_typing(data)
         elif msg_type == 'mark_read':
             await self.handle_mark_read(data)
+        elif msg_type == 'group_delivered_receipt':
+            await self.handle_group_delivered_receipt(data)
         elif msg_type == 'ping':
             await self._verify_and_restore_online_status()
             await self.send(text_data=json.dumps({'type': 'pong'}))
@@ -1224,6 +1408,19 @@ class GroupChatConsumer(ChatConsumer):
                 'username': self.me.username,
             }
         )
+
+        sender_id, status, gid = await self._compute_group_message_status(message_id, self.group_id)
+        if sender_id:
+            for grp in {f"user_chat_{sender_id}", self.room_group}:
+                await self.channel_layer.group_send(
+                    grp,
+                    {
+                        'type': 'group_message_status',
+                        'message_id': int(message_id),
+                        'group_id': gid or self.group_id,
+                        'status': status,
+                    }
+                )
 
 
     # ---- Broadcast relays ----
@@ -1328,6 +1525,55 @@ class GroupChatConsumer(ChatConsumer):
         except Exception as exc:
             logger.error(f'[WS-Group] mark_read error: {exc}')
 
+    @database_sync_to_async
+    def _mark_all_pending_group_messages_read(self, group_id):
+        from .models import GroupMessage, GroupMessageRead, GroupMessageDelivery, GroupMembership
+        from django.db.models import Count
+        unread_msgs = list(
+            GroupMessage.objects.filter(group_id=group_id)
+            .exclude(sender=self.me)
+            .exclude(read_receipts__user=self.me)
+            .values_list('id', 'sender_id')
+        )
+        if not unread_msgs:
+            return []
+
+        reads_to_create = [
+            GroupMessageRead(message_id=m_id, user=self.me)
+            for m_id, _ in unread_msgs
+        ]
+        GroupMessageRead.objects.bulk_create(reads_to_create, ignore_conflicts=True)
+
+        delivs_to_create = [
+            GroupMessageDelivery(message_id=m_id, user=self.me)
+            for m_id, _ in unread_msgs
+        ]
+        GroupMessageDelivery.objects.bulk_create(delivs_to_create, ignore_conflicts=True)
+
+        total_members = GroupMembership.objects.filter(group_id=group_id).count()
+        other_members = max(0, total_members - 1)
+
+        results = []
+        msg_ids = [m_id for m_id, _ in unread_msgs]
+        annotated = (
+            GroupMessage.objects.filter(id__in=msg_ids)
+            .annotate(
+                read_cnt=Count('read_receipts', distinct=True),
+                deliv_cnt=Count('delivery_receipts', distinct=True),
+            )
+        )
+        for msg in annotated:
+            if msg.read_cnt >= other_members and other_members > 0:
+                st = 'read'
+            elif msg.deliv_cnt > 0 or msg.read_cnt > 0:
+                st = 'delivered'
+            else:
+                st = 'sent'
+            if msg.sender_id:
+                results.append((msg.id, msg.sender_id, st))
+
+        return results
+
 
 # ---------------------------------------------------------------------------
 # 4. NotificationConsumer
@@ -1376,6 +1622,34 @@ class NotificationConsumer(ChatConsumer):
             }
         )
 
+        # Deliver all pending direct messages to this user
+        pending_by_sender = await self.mark_all_pending_delivered_for_user()
+        for s_id, m_ids in pending_by_sender.items():
+            for m_id in m_ids:
+                await self.channel_layer.group_send(
+                    f'user_chat_{s_id}',
+                    {
+                        'type': 'broadcast_message_status',
+                        'message_id': m_id,
+                        'status': 'delivered',
+                    }
+                )
+
+        # Deliver all pending group messages to this user
+        undelivered_groups = await self._mark_all_pending_group_messages_delivered()
+        for m_id, gid, sender_id in undelivered_groups:
+            _, status, _ = await self._compute_group_message_status(m_id, gid)
+            if sender_id:
+                await self.channel_layer.group_send(
+                    f'user_chat_{sender_id}',
+                    {
+                        'type': 'group_message_status',
+                        'message_id': m_id,
+                        'group_id': gid,
+                        'status': status,
+                    }
+                )
+
         # Send current online presence snapshot to self
         online_users = await self.get_all_online_users_presence()
         for pres in online_users:
@@ -1400,8 +1674,13 @@ class NotificationConsumer(ChatConsumer):
     async def receive(self, text_data=None, bytes_data=None):
         try:
             data = json.loads(text_data)
-            if data.get('type') == 'ping':
+            msg_type = data.get('type')
+            if msg_type == 'ping':
                 await self._verify_and_restore_online_status()
                 await self.send(text_data=json.dumps({'type': 'pong'}))
+            elif msg_type == 'delivered_receipt':
+                await self.handle_delivered_receipt(data)
+            elif msg_type == 'group_delivered_receipt':
+                await self.handle_group_delivered_receipt(data)
         except Exception:
             pass

@@ -3,7 +3,7 @@ Messaging Admin
 """
 
 from django.contrib import admin
-from .models import Message, CallLog, Group, GroupMembership, GroupMessage, GroupE2EKey
+from .models import Message, CallLog, Group, GroupMembership, GroupMessage, GroupMessageRead, GroupMessageDelivery, GroupE2EKey
 
 
 @admin.register(Message)

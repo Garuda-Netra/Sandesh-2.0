@@ -85,7 +85,9 @@ class Message(models.Model):
 
     # Delivery / read tracking (updated via WebSocket signals)
     is_delivered = models.BooleanField(default=False)
+    delivered_at = models.DateTimeField(null=True, blank=True, db_index=True)
     is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     # Soft-delete: hide from both parties (legacy)
     deleted_by_sender = models.BooleanField(default=False)
@@ -558,6 +560,27 @@ class GroupMessageRead(models.Model):
 
     def __str__(self):
         return f'{self.user.username} read {self.message.id} at {self.read_at:%Y-%m-%d %H:%M}'
+
+
+class GroupMessageDelivery(models.Model):
+    """
+    Tracks which users have received (delivered) a specific group message.
+    """
+    message = models.ForeignKey(GroupMessage, on_delete=models.CASCADE, related_name='delivery_receipts')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='delivered_group_messages')
+    delivered_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        unique_together = ('message', 'user')
+        verbose_name = 'Group Message Delivery Receipt'
+        verbose_name_plural = 'Group Message Delivery Receipts'
+        indexes = [
+            models.Index(fields=['message', 'user']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} received {self.message.id} at {self.delivered_at:%Y-%m-%d %H:%M}'
+
 
 
 class GroupE2EKey(models.Model):

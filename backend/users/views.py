@@ -610,10 +610,185 @@ def unfriend_view(request):
     async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', event_data)
     async_to_sync(channel_layer.group_send)(f'user_chat_{target_user.id}', event_data)
 
+    # Auto-remove from shared groups where no friends remain
+    try:
+        _sync_groups_after_unfriend(request.user, target_user)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Error during _sync_groups_after_unfriend: %s", exc)
+
     return JsonResponse({
         'status': 'unfriended',
         'target_user_id': target_user.id,
     })
+
+
+def _sync_groups_after_unfriend(user_a, user_b):
+    """
+    When user_a and user_b unfriend each other:
+    Check all groups that both user_a and user_b were members of.
+    For each user (user_a, user_b), if they have NO OTHER friends in that group:
+    Auto-remove them from the group.
+    - Clean up their GroupE2EKey.
+    - If the user being removed is the group owner:
+        - If other members exist: transfer ownership to the first admin (or first member).
+        - If no members remain: delete the group.
+    - Create a system message in the group: "{username} was removed from the group (no mutual friends remain)."
+    - Broadcast WebSocket notifications:
+        - user_chat_{user.id}: 'group_deleted' with reason='removed'
+        - group_chat_{group.id}: 'group_system_message' and 'group_member_update' (action='removed')
+    """
+    from messaging.models import Group, GroupMembership, GroupMessage, GroupE2EKey
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+
+    # Find groups where both users currently have memberships
+    shared_group_ids = list(
+        GroupMembership.objects.filter(user=user_a)
+        .filter(group__memberships__user=user_b)
+        .values_list('group_id', flat=True)
+        .distinct()
+    )
+    if not shared_group_ids:
+        return
+
+    try:
+        prof_a = user_a.profile
+        friends_a_prof_ids = Friendship.get_friend_profile_ids(prof_a)
+        friends_a_user_ids = set(UserProfile.objects.filter(id__in=friends_a_prof_ids).values_list('user_id', flat=True))
+    except Exception:
+        friends_a_user_ids = set()
+
+    try:
+        prof_b = user_b.profile
+        friends_b_prof_ids = Friendship.get_friend_profile_ids(prof_b)
+        friends_b_user_ids = set(UserProfile.objects.filter(id__in=friends_b_prof_ids).values_list('user_id', flat=True))
+    except Exception:
+        friends_b_user_ids = set()
+
+    for gid in shared_group_ids:
+        group = Group.objects.filter(id=gid).first()
+        if not group:
+            continue
+
+        # Check user_a: other members in group (excluding user_a)
+        other_members_for_a = set(
+            GroupMembership.objects.filter(group=group)
+            .exclude(user=user_a)
+            .values_list('user_id', flat=True)
+        )
+        has_friends_a = bool(other_members_for_a & friends_a_user_ids)
+
+        # Check user_b: other members in group (excluding user_b)
+        other_members_for_b = set(
+            GroupMembership.objects.filter(group=group)
+            .exclude(user=user_b)
+            .values_list('user_id', flat=True)
+        )
+        has_friends_b = bool(other_members_for_b & friends_b_user_ids)
+
+        users_to_remove = []
+        if not has_friends_a:
+            users_to_remove.append(user_a)
+        if not has_friends_b:
+            users_to_remove.append(user_b)
+
+        for u in users_to_remove:
+            mem = GroupMembership.objects.filter(group=group, user=u).first()
+            if not mem:
+                continue
+
+            u_id = u.id
+            u_name = u.username
+            was_owner = (mem.role == GroupMembership.ROLE_OWNER)
+
+            # 1. Clean up GroupE2EKey
+            GroupE2EKey.objects.filter(group=group, user=u).delete()
+
+            # 2. Handle ownership or removal
+            if was_owner:
+                other_admins = group.memberships.filter(role=GroupMembership.ROLE_ADMIN).exclude(user=u)
+                other_members = group.memberships.exclude(user=u)
+                if other_members.exists():
+                    new_owner = other_admins.first() or other_members.first()
+                    new_owner.role = GroupMembership.ROLE_OWNER
+                    new_owner.save()
+                    mem.delete()
+                    sys_transfer = GroupMessage.objects.create(
+                        group=group, sender=None,
+                        message=f'{new_owner.user.username} is the new group owner.',
+                        message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+                        is_system_message=True,
+                    )
+                    async_to_sync(channel_layer.group_send)(
+                        f'group_chat_{group.id}',
+                        {
+                            'type': 'group_system_message',
+                            'message_id': sys_transfer.id,
+                            'message': sys_transfer.message,
+                            'timestamp': sys_transfer.timestamp.isoformat(),
+                        }
+                    )
+                else:
+                    # Last member -> delete the group
+                    mem.delete()
+                    group_name = group.name
+                    group.delete()
+                    async_to_sync(channel_layer.group_send)(
+                        f'user_chat_{u_id}',
+                        {
+                            'type': 'group_deleted',
+                            'group_id': gid,
+                            'group_name': group_name,
+                            'reason': 'disbanded',
+                        }
+                    )
+                    break
+            else:
+                mem.delete()
+
+            # 3. Create system message
+            sys_msg = GroupMessage.objects.create(
+                group=group, sender=None,
+                message=f'{u_name} was removed from the group (no mutual friends remain).',
+                message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
+                is_system_message=True,
+            )
+            group.save()
+
+            # 4. Notify removed user over WebSocket
+            async_to_sync(channel_layer.group_send)(
+                f'user_chat_{u_id}',
+                {
+                    'type': 'group_deleted',
+                    'group_id': group.id,
+                    'group_name': group.name,
+                    'reason': 'removed',
+                }
+            )
+
+            # 5. Broadcast to remaining group members
+            async_to_sync(channel_layer.group_send)(
+                f'group_chat_{group.id}',
+                {
+                    'type': 'group_system_message',
+                    'message_id': sys_msg.id,
+                    'message': sys_msg.message,
+                    'timestamp': sys_msg.timestamp.isoformat(),
+                }
+            )
+            async_to_sync(channel_layer.group_send)(
+                f'group_chat_{group.id}',
+                {
+                    'type': 'group_member_update',
+                    'action': 'removed',
+                    'group_id': group.id,
+                    'user_id': u_id,
+                    'username': u_name,
+                    'member_count': group.memberships.count(),
+                }
+            )
 
 
 from django.views.decorators.cache import never_cache

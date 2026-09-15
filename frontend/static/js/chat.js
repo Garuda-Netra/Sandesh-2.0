@@ -158,6 +158,8 @@ SDH.Chat = (() => {
       case 'delivered': _setMsgStatus(data.message_id, 'delivered'); break;
       case 'read_receipt': _markAllSentAsRead(); break;
       case 'message_status': _setMsgStatus(data.message_id, data.status); break;
+      case 'group_message_status': _setMsgStatus(data.message_id, data.status); break;
+      case 'message_read': _setMsgStatus(data.message_id, 'read'); break;
       case 'presence': handlePresence(data); break;
       case 'message_removed': handleMessageRemoved(data); break;
       case 'chat_cleared': handleChatCleared(data); break;
@@ -658,6 +660,22 @@ SDH.Chat = (() => {
       _moveContactToTop(chatTarget);
     }
 
+    // Immediately send delivered receipt upon message arrival on this client device
+    if (!isFromMe && data.message_id && SDH.WS && SDH.WS.isOpen()) {
+      if (isGroupMsg || data.group_id) {
+        SDH.WS.sendMessage({
+          type: 'group_delivered_receipt',
+          message_id: data.message_id,
+          group_id: data.group_id
+        });
+      } else {
+        SDH.WS.sendMessage({
+          type: 'delivered_receipt',
+          message_id: data.message_id
+        });
+      }
+    }
+
     if (activeUser !== chatTarget) {
       if (!isFromMe) {
         unreadCounts[chatTarget] = (unreadCounts[chatTarget] || 0) + 1;
@@ -728,9 +746,9 @@ SDH.Chat = (() => {
       }
     }
 
-    if (SDH.WS.isOpen()) {
+    // Since message is actively being viewed, send read receipt
+    if (SDH.WS && SDH.WS.isOpen() && !isFromMe) {
       if (!activeUser.startsWith('group_')) {
-        SDH.WS.sendMessage({ type: 'delivered_receipt', message_id: data.message_id });
         if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
           SDH.WS.sendMessage({ type: 'read_receipt' });
         }
@@ -756,12 +774,39 @@ SDH.Chat = (() => {
         showToast(`${data.username} joined ${data.group_name || 'the group'}!`, 'info');
       }
       _refreshSidebar();
+    } else if (data.action === 'removed') {
+      const isMe = (data.user_id === window.SDH_DATA?.currentUserId || data.username === window.SDH_DATA?.currentUser);
+      if (isMe) {
+        showToast(`You have been removed from ${data.group_name || 'the group'}.`, 'warning');
+        if (activeUser === `group_${data.group_id}`) {
+          activeUser = null;
+          activeUserId = null;
+          document.getElementById('inputBar')?.classList.add('hidden');
+          const container = document.getElementById('messagesContainer');
+          if (container) container.innerHTML = '<div class="flex items-center justify-center py-16 text-divine-muted/60 text-sm font-medium">You are no longer a member of this group.</div>';
+          document.getElementById('userProfileModal')?.classList.add('hidden');
+        }
+        _refreshSidebar();
+        return;
+      } else {
+        const row = document.getElementById(`upm-member-row-${data.group_id}-${data.user_id}`);
+        if (row) {
+          row.style.transition = 'all 0.25s ease';
+          row.style.opacity = '0';
+          row.style.transform = 'scale(0.95)';
+          setTimeout(() => row.remove(), 250);
+        }
+        const countBadge = document.getElementById('upmMembersCount');
+        if (countBadge && data.member_count !== undefined) {
+          countBadge.textContent = `(${data.member_count})`;
+        }
+      }
     }
     if (activeUser && activeUser.startsWith('group_')) {
       const gid = activeUser.split('_')[1];
       if (data.group_id == gid || (data.group_id === undefined)) {
         const modal = document.getElementById('userProfileModal');
-        if (modal && !modal.classList.contains('hidden')) {
+        if (modal && !modal.classList.contains('hidden') && data.action !== 'removed') {
           SDH.Chat.showGroupProfile(gid);
         }
       }
@@ -2440,13 +2485,13 @@ SDH.Chat = (() => {
    */
   function _tickHtml(status) {
     if (status === 'read') {
-      return '<span style="color:#FF9933;font-size:11px;letter-spacing:-1px;">✓✓</span>';
+      return '<span class="inline-flex items-center font-bold tracking-tighter text-[11px]" style="color:#FF9933 !important;" title="Read">✓✓</span>';
     }
     if (status === 'delivered') {
-      return '<span style="color:rgba(255,255,255,0.55);font-size:11px;letter-spacing:-1px;">✓✓</span>';
+      return '<span class="inline-flex items-center font-bold tracking-tighter text-[11px]" style="color:#94a3b8 !important;" title="Delivered">✓✓</span>';
     }
     if (status === 'sent') {
-      return '<span style="color:rgba(255,255,255,0.55);font-size:11px;">✓</span>';
+      return '<span class="inline-flex items-center text-[11px]" style="color:#94a3b8 !important;" title="Sent">✓</span>';
     }
     return '';
   }
@@ -2759,7 +2804,14 @@ SDH.Chat = (() => {
     _setDefaultHeaderStatus();
 
     closeSidebar();
-    if (!_isSelfChat(username)) SDH.WebRTC?.setRemoteUser(username);
+    if (!_isSelfChat(username)) {
+      SDH.WebRTC?.setRemoteUser(username);
+      if (SDH.WS && SDH.WS.isOpen()) {
+        if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+          SDH.WS.sendMessage({ type: 'read_receipt' });
+        }
+      }
+    }
     Notif.requestPermission();
   }
 
@@ -3830,7 +3882,7 @@ SDH.Chat = (() => {
     const displayName = isMe ? 'You' : (m.display_name || m.username);
 
     return `
-      <div class="sdh-member-card flex items-center justify-between py-2 px-2.5 rounded-lg group transition-colors">
+      <div id="upm-member-row-${groupId}-${m.user_id}" class="sdh-member-card flex items-center justify-between py-2 px-2.5 rounded-lg group transition-colors">
         <div class="flex items-center gap-2.5 sm:gap-3 cursor-pointer flex-1 min-w-0" 
              onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${escapeHtml(m.username)}', ${m.user_id})">
           <div class="relative shrink-0">
@@ -3988,6 +4040,8 @@ SDH.Chat = (() => {
       } else {
         const membersSection = document.getElementById('upmMembersSection');
         if (membersSection) membersSection.classList.add('hidden');
+        const contactSection = document.getElementById('upmContactSection');
+        if (contactSection) contactSection.classList.remove('hidden');
 
         const profileApiBase = window.SDH_DATA?.userProfileApiUrl || '/api/profile/';
         const response = await fetch(`${profileApiBase}${encodeURIComponent(username)}/`);
@@ -4014,19 +4068,28 @@ SDH.Chat = (() => {
       displayNameEl.textContent = data.display_name || (isGroup ? 'Group Chat' : data.username);
       usernameEl.textContent = isGroup ? `Group Chat` : `@${data.username}`;
 
-      // Update bio
-      bioEl.textContent = data.bio ? data.bio : (isGroup ? 'No description provided.' : 'No biography provided.');
-      if (!data.bio || data.bio === 'No description provided.') {
+      // Update bio & sensitive contacts (strictly protected for non-friends)
+      const isMe = data.username === (window.SDH_DATA?.currentUser || '');
+      const isNotFriend = (!isGroup && !isMe && data.is_friend === false);
+
+      if (isNotFriend) {
+        bioEl.textContent = data.bio || '🔒 Private (Friends only)';
         bioEl.classList.add('text-divine-muted');
         bioEl.classList.remove('text-divine-text');
+        emailEl.textContent = '🔒 Friends only';
+        phoneEl.textContent = '🔒 Friends only';
       } else {
-        bioEl.classList.remove('text-divine-muted');
-        bioEl.classList.add('text-divine-text');
+        bioEl.textContent = data.bio ? data.bio : (isGroup ? 'No description provided.' : 'No biography provided.');
+        if (!data.bio || data.bio === 'No description provided.') {
+          bioEl.classList.add('text-divine-muted');
+          bioEl.classList.remove('text-divine-text');
+        } else {
+          bioEl.classList.remove('text-divine-muted');
+          bioEl.classList.add('text-divine-text');
+        }
+        emailEl.textContent = data.email || 'No email shared';
+        phoneEl.textContent = data.phone_number || 'Not specified';
       }
-
-      // Update contacts
-      emailEl.textContent = data.email || 'No email shared';
-      phoneEl.textContent = data.phone_number || 'Not specified';
 
       // Update dates
       joinedEl.textContent = data.date_joined ? `Joined ${data.date_joined}` : 'Joined —';
@@ -4133,11 +4196,15 @@ SDH.Chat = (() => {
         if (defaultActions) defaultActions.classList.remove('hidden');
         if (pendingSection) pendingSection.classList.add('hidden');
         if (messageBtn) {
-          messageBtn.classList.remove('hidden');
-          messageBtn.onclick = () => {
-            modal.classList.add('hidden');
-            selectUser(data.username, userId);
-          };
+          if (isNotFriend) {
+            messageBtn.classList.add('hidden');
+          } else {
+            messageBtn.classList.remove('hidden');
+            messageBtn.onclick = () => {
+              modal.classList.add('hidden');
+              selectUser(data.username, userId);
+            };
+          }
         }
       }
 
@@ -4587,6 +4654,9 @@ SDH.Chat = (() => {
 
     if (SDH.WS) {
       SDH.WS.connectWebSocket(groupId, true); // true for isGroup
+      if (SDH.WS.isOpen()) {
+        SDH.WS.sendMessage({ type: 'mark_read' });
+      }
     }
   }
 
@@ -4621,8 +4691,12 @@ SDH.Chat = (() => {
 
     const pendingSectionInit = document.getElementById('upmPendingRequestSection');
     const membersSectionInit = document.getElementById('upmMembersSection');
+    const contactSectionInit = document.getElementById('upmContactSection');
+    const msgBtnInit = document.getElementById('upmMessageBtn');
     if (pendingSectionInit) pendingSectionInit.classList.add('hidden');
     if (membersSectionInit) membersSectionInit.classList.add('hidden');
+    if (contactSectionInit) contactSectionInit.classList.add('hidden');
+    if (msgBtnInit) msgBtnInit.classList.add('hidden');
 
     modal.classList.remove('hidden');
 
@@ -4687,6 +4761,11 @@ SDH.Chat = (() => {
 
   async function removeGroupMember(groupId, userId) {
     if (!confirm('Are you sure you want to remove this member?')) return;
+    const row = document.getElementById(`upm-member-row-${groupId}-${userId}`);
+    if (row) {
+      row.style.opacity = '0.5';
+      row.style.pointerEvents = 'none';
+    }
     try {
       const res = await fetch(`/messaging/api/groups/${groupId}/members/remove/`, {
         method: 'POST',
@@ -4700,9 +4779,23 @@ SDH.Chat = (() => {
         const j = await res.json().catch(e => { });
         throw new Error(j?.error || 'Failed to remove member');
       }
+      const data = await res.json().catch(() => ({}));
+      if (row) {
+        row.style.transition = 'all 0.25s ease';
+        row.style.opacity = '0';
+        row.style.transform = 'scale(0.95)';
+        setTimeout(() => row.remove(), 250);
+      }
+      const countBadge = document.getElementById('upmMembersCount');
+      if (countBadge && data.member_count !== undefined) {
+        countBadge.textContent = `(${data.member_count})`;
+      }
       showToast('Member removed successfully', 'success');
-      showGroupProfile(groupId);
     } catch (err) {
+      if (row) {
+        row.style.opacity = '1';
+        row.style.pointerEvents = 'auto';
+      }
       showToast(err.message, 'error');
     }
   }

@@ -2378,22 +2378,33 @@ def group_info(request, group_id):
 @login_required
 @require_GET
 def group_message_reads(request, message_id):
-    """Get list of users who have read a specific group message."""
+    """Get list of users who have read and received a specific group message."""
     msg = get_object_or_404(GroupMessage, id=message_id)
-    # Check if current user is in the group
     if not GroupMembership.objects.filter(group=msg.group, user=request.user).exists():
         return JsonResponse({'error': 'Not a member of this group.'}, status=403)
         
     reads = GroupMessageRead.objects.filter(message=msg).select_related('user', 'user__profile')
     readers = []
+    read_user_ids = set()
     for r in reads:
+        read_user_ids.add(r.user_id)
         readers.append({
             'username': r.user.username,
             'read_at': r.read_at.isoformat(),
             'avatar_url': r.user.profile.avatar.url if hasattr(r.user, 'profile') and r.user.profile.avatar else '',
         })
+
+    from .models import GroupMessageDelivery
+    delivs = GroupMessageDelivery.objects.filter(message=msg).exclude(user_id__in=read_user_ids).select_related('user', 'user__profile')
+    delivered_to = []
+    for d in delivs:
+        delivered_to.append({
+            'username': d.user.username,
+            'delivered_at': d.delivered_at.isoformat(),
+            'avatar_url': d.user.profile.avatar.url if hasattr(d.user, 'profile') and d.user.profile.avatar else '',
+        })
         
-    return JsonResponse({'readers': readers})
+    return JsonResponse({'readers': readers, 'delivered_to': delivered_to})
 
 
 @login_required
@@ -2630,6 +2641,11 @@ def group_remove_member(request, group_id):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
     target_id = data.get('user_id')
+    try:
+        target_id = int(target_id)
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Invalid user ID.'}, status=400)
+
     target_membership = GroupMembership.objects.filter(group=group, user_id=target_id).first()
     if not target_membership:
         return JsonResponse({'error': 'User is not a member.'}, status=404)
@@ -2644,9 +2660,15 @@ def group_remove_member(request, group_id):
 
     username = target_membership.user.username
     target_id_for_ws = target_membership.user_id
+
+    # 1. Clean up E2E group key for removed member
+    GroupE2EKey.objects.filter(group=group, user_id=target_id_for_ws).delete()
+
+    # 2. Delete membership
     target_membership.delete()
 
-    GroupMessage.objects.create(
+    # 3. Create system message
+    sys_msg = GroupMessage.objects.create(
         group=group, sender=request.user,
         message=f'{username} was removed by {request.user.username}.',
         message_type=GroupMessage.MESSAGE_TYPE_SYSTEM,
@@ -2671,7 +2693,32 @@ def group_remove_member(request, group_id):
         }
     )
 
-    return JsonResponse({'status': 'ok', 'removed': username})
+    # Broadcast system message to all remaining active group members
+    async_to_sync(channel_layer.group_send)(
+        f'group_chat_{group.id}',
+        {
+            'type': 'group_system_message',
+            'message_id': sys_msg.id,
+            'message': sys_msg.message,
+            'timestamp': sys_msg.timestamp.isoformat(),
+        }
+    )
+
+    # Broadcast member list update to active group members
+    async_to_sync(channel_layer.group_send)(
+        f'group_chat_{group.id}',
+        {
+            'type': 'group_member_update',
+            'action': 'removed',
+            'group_id': group.id,
+            'user_id': target_id_for_ws,
+            'username': username,
+            'removed_by': request.user.username,
+            'member_count': group.memberships.count(),
+        }
+    )
+
+    return JsonResponse({'status': 'ok', 'removed': username, 'user_id': target_id_for_ws, 'member_count': group.memberships.count()})
 
 
 @login_required
@@ -2804,20 +2851,9 @@ def group_message_history(request, group_id):
     page = _positive_int(request.GET.get('page'), 1)
     per_page = _positive_int(request.GET.get('per_page'), 50, max_value=100)
 
-    messages_qs = GroupMessage.objects.filter(group=group).select_related('sender')
-    messages_qs = messages_qs.filter(timestamp__gte=membership.joined_at)
-    if membership.cleared_at:
-        messages_qs = messages_qs.filter(timestamp__gt=membership.cleared_at)
-    
-    messages_qs = messages_qs.order_by('-timestamp')
-    total = messages_qs.count()
-    start = (page - 1) * per_page
-    end = start + per_page
-    messages_page = list(reversed(messages_qs[start:end]))
-
-    # Mark unread group messages as read for this user
-    from .models import GroupMessageRead
-    unread_msg_ids = (
+    # Mark unread group messages as read and delivered for this user
+    from .models import GroupMessageRead, GroupMessageDelivery
+    unread_msg_ids = list(
         GroupMessage.objects.filter(group=group)
         .exclude(sender=request.user)
         .exclude(read_receipts__user=request.user)
@@ -2830,11 +2866,51 @@ def group_message_history(request, group_id):
         ]
         GroupMessageRead.objects.bulk_create(reads_to_create, ignore_conflicts=True)
 
+    undelivered_msg_ids = list(
+        GroupMessage.objects.filter(group=group)
+        .exclude(sender=request.user)
+        .exclude(delivery_receipts__user=request.user)
+        .values_list('id', flat=True)
+    )
+    if undelivered_msg_ids:
+        delivs_to_create = [
+            GroupMessageDelivery(message_id=mid, user=request.user)
+            for mid in undelivered_msg_ids
+        ]
+        GroupMessageDelivery.objects.bulk_create(delivs_to_create, ignore_conflicts=True)
+
+    messages_qs = GroupMessage.objects.filter(group=group)
+    if membership.cleared_at:
+        messages_qs = messages_qs.filter(timestamp__gt=membership.cleared_at)
+    messages_qs = messages_qs.order_by('-timestamp')
+
+    from django.db.models import Count
+    messages_qs = messages_qs.annotate(
+        read_cnt=Count('read_receipts', distinct=True),
+        deliv_cnt=Count('delivery_receipts', distinct=True),
+    )
+
+    total = messages_qs.count()
+    start = (page - 1) * per_page
+    end = start + per_page
+    messages_page = list(reversed(messages_qs[start:end]))
+
+    total_recipients = max(0, group.memberships.count() - 1)
+
     result = []
     for msg in messages_page:
         is_deleted = (msg.message == 'This message has been deleted.' and not msg.file)
         is_vo = getattr(msg, 'is_view_once', False)
         is_vo_opened = getattr(msg, 'view_once_opened', False)
+        is_from_me = (msg.sender_id == request.user.id)
+
+        if is_from_me:
+            is_read = (getattr(msg, 'read_cnt', 0) >= total_recipients and total_recipients > 0)
+            is_delivered = (getattr(msg, 'deliv_cnt', 0) > 0 or getattr(msg, 'read_cnt', 0) > 0)
+        else:
+            is_read = True
+            is_delivered = True
+
         entry = {
             'id': msg.id,
             'sender': msg.sender.username if msg.sender else None,
@@ -2845,6 +2921,8 @@ def group_message_history(request, group_id):
             'is_encrypted': getattr(msg, 'is_encrypted', False),
             'encryption_iv': getattr(msg, 'encryption_iv', ''),
             'timestamp': msg.timestamp.isoformat(),
+            'is_delivered': is_delivered,
+            'is_read': is_read,
             'is_deleted_for_all': is_deleted,
             'is_view_once': is_vo,
             'view_once_opened': is_vo_opened,
