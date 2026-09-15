@@ -3393,11 +3393,11 @@ SDH.Chat = (() => {
             <!-- Action Buttons: Deny & Allow -->
             <div class="flex items-center gap-3 mt-6">
               <button type="button" onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'decline')"
-                class="flex-1 py-2.5 px-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-semibold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-red-500/30 active:scale-[0.98]">
+                class="flex-1 sdh-btn-liquid-reject !py-2.5 !text-sm">
                 Deny
               </button>
               <button type="button" onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'accept')"
-                class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500/50 active:scale-[0.98]">
+                class="flex-1 sdh-btn-liquid-accept !py-2.5 !text-sm">
                 Allow
               </button>
             </div>
@@ -3475,12 +3475,10 @@ SDH.Chat = (() => {
                 ${escapeHtml((fr.username || '?')[0].toUpperCase())}
               </div>
               <span class="text-xs font-medium flex-1 truncate" style="color:var(--c-text)">${escapeHtml(fr.username)}</span>
-              <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'accept')" class="text-[10px] font-semibold px-2 py-1 rounded-lg transition-colors"
-                style="background:rgba(74,222,128,0.15);color:rgba(74,222,128,0.9);">
+              <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'accept')" class="sdh-btn-liquid-accept">
                 Accept
               </button>
-              <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'reject')" class="text-[10px] font-semibold px-2 py-1 rounded-lg transition-colors"
-                style="background:rgba(239,68,68,0.1);color:rgba(239,68,68,0.7);">
+              <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'reject')" class="sdh-btn-liquid-reject">
                 Reject
               </button>
             </div>
