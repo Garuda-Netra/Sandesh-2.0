@@ -1725,26 +1725,68 @@
 
 
 <!-- ══════════════════════════════════════════════════════════════
-     EMOJI PICKER (lightweight)
+     EMOJI PICKER (Liquid Glass & Categorized)
 ══════════════════════════════════════════════════════════════ -->
-<div id="emojiPicker" class="sdh-emoji-picker hidden fixed z-40 p-3 rounded-2xl flex flex-col gap-2"
-  style="bottom:80px; right:24px; width:280px;">
-  <!-- Emoji Picker Header -->
-  <div class="flex justify-between items-center pb-2 mb-2 border-b border-white/10 select-none">
-    <span class="text-xs font-bold text-divine-gold uppercase tracking-wider">Select Emoji</span>
-    <button onclick="SDH.Chat.toggleEmojiPicker()" class="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-500/20 text-white/50 hover:text-red-500 transition-colors duration-150" title="Close Emoji Picker">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div id="emojiPicker"
+  class="sdh-emoji-picker hidden fixed z-50 p-3.5 rounded-2xl flex flex-col gap-2.5 shadow-2xl border border-white/10 backdrop-blur-2xl animate-msg-appear select-none"
+  style="bottom: 84px; right: 16px; width: min(380px, calc(100vw - 28px)); max-height: 420px;">
+  
+  <!-- Header with Title, Category Count & Liquid Close Button -->
+  <div class="flex items-center justify-between pb-2 border-b border-white/10">
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-bold uppercase tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-indigo-300 to-fuchsia-400">
+        Emoji Picker
+      </span>
+      <span id="emojiPickerCount" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/70">
+        200+
+      </span>
+    </div>
+
+    <!-- Liquid Close Button -->
+    <button type="button" onclick="SDH.Chat.toggleEmojiPicker()"
+      class="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-rose-500/20 text-white/70 hover:text-rose-400 border border-white/10 hover:border-rose-500/30 transition-all duration-200 hover:scale-105 active:scale-95 group text-xs font-medium"
+      title="Close Emoji Picker (Esc)" aria-label="Close emoji picker">
+      <span class="text-[11px]">Close</span>
+      <kbd class="text-[9px] px-1 py-0.5 rounded bg-white/10 text-white/50 group-hover:text-rose-300 font-mono hidden sm:inline-block">Esc</kbd>
+      <svg class="w-3.5 h-3.5 transition-transform group-hover:rotate-90 duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
   </div>
-  <!-- Emoji Grid -->
-  <div id="emojiGrid" class="grid grid-cols-8 gap-1"></div>
+
+  <!-- Category Filter Pills Bar (Responsive & Smooth Horizontal Scroll) -->
+  <div id="emojiCategoryTabs" class="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 text-xs">
+    <button type="button" onclick="SDH.Chat.filterEmojiCategory('all', this)"
+      class="sdh-emoji-cat-btn active px-2.5 py-1 rounded-lg font-semibold text-[11px] whitespace-nowrap bg-purple-500/30 text-purple-200 border border-purple-400/40 shadow-sm transition-all">
+      ✨ All
+    </button>
+    <button type="button" onclick="SDH.Chat.filterEmojiCategory('happy', this)"
+      class="sdh-emoji-cat-btn px-2.5 py-1 rounded-lg font-medium text-[11px] whitespace-nowrap bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-transparent transition-all">
+      😊 Happy
+    </button>
+    <button type="button" onclick="SDH.Chat.filterEmojiCategory('upset', this)"
+      class="sdh-emoji-cat-btn px-2.5 py-1 rounded-lg font-medium text-[11px] whitespace-nowrap bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-transparent transition-all">
+      😢 Upset
+    </button>
+    <button type="button" onclick="SDH.Chat.filterEmojiCategory('love', this)"
+      class="sdh-emoji-cat-btn px-2.5 py-1 rounded-lg font-medium text-[11px] whitespace-nowrap bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-transparent transition-all">
+      ❤️ Love
+    </button>
+    <button type="button" onclick="SDH.Chat.filterEmojiCategory('gestures', this)"
+      class="sdh-emoji-cat-btn px-2.5 py-1 rounded-lg font-medium text-[11px] whitespace-nowrap bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-transparent transition-all">
+      👍 Hands
+    </button>
+    <button type="button" onclick="SDH.Chat.filterEmojiCategory('cool', this)"
+      class="sdh-emoji-cat-btn px-2.5 py-1 rounded-lg font-medium text-[11px] whitespace-nowrap bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-transparent transition-all">
+      🔥 Cool
+    </button>
+  </div>
+
+  <!-- Scrollable Emoji Grid Area -->
+  <div id="emojiScrollArea" class="overflow-y-auto custom-scrollbar flex-1 max-h-60 pr-1">
+    <div id="emojiGrid" class="grid grid-cols-7 sm:grid-cols-8 gap-1.5 justify-items-center"></div>
+  </div>
 </div>
-<script>
-  document.getElementById('emojiGrid').innerHTML = ["😊", "😂", "❤️", "🔥", "⚡", "🙏", "✨", "🌙", "🌟", "💫", "🎵", "🎶", "👑", "🦋", "🌺", "🙌", "😍", "🤣", "😎", "💎", "🚀", "🌈", "🎯", "🔮", "💡", "⚔️", "🛡️", "🌸", "🎉", "💥", "🤦", "🌹", "🤦‍♂️"]
-    .map(e => `<button class="sdh-emoji-btn w-8 h-8 flex items-center justify-center rounded-xl text-lg" onclick="SDH.Chat.insertEmoji('${e}')">${e}</button>`).join('');
-</script>
 
 
 <!-- ══════════════════════════════════════════════════════════════
@@ -3154,7 +3196,7 @@
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
 <script src="{% static 'js/e2eCrypto.js' %}?v=1.0"></script>
 <script src="{% static 'js/chatLock.js' %}?v=1.0"></script>
-<script src="{% static 'js/chat.js' %}?v=4.4"></script>
+<script src="{% static 'js/chat.js' %}?v=4.5"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.2"></script>
 <script src="{% static 'js/userSearch.js' %}?v=3.2"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->

@@ -3083,24 +3083,121 @@ SDH.Chat = (() => {
   }
 
 
-  // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
-  //  Emoji picker
-  // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
-  function toggleEmojiPicker() { document.getElementById('emojiPicker')?.classList.toggle('hidden'); }
+  // ─────────────────────────────────────────────────────────────
+  //  Emoji Picker (Categorized & Dynamic)
+  // ─────────────────────────────────────────────────────────────
+  const EMOJI_CATEGORIES = {
+    happy: [
+      "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "🥲", "🥹",
+      "☺️", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘",
+      "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤩", "🥳",
+      "😎", "🤗", "🤠", "😸", "😹", "😻", "😺", "😼", "💃", "🕺",
+      "✨", "🎉", "🎊", "🥂", "🍾", "🎈", "🌞", "🌻"
+    ],
+    upset: [
+      "😢", "😭", "🥺", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣",
+      "😖", "😫", "😩", "😿", "💔", "🥀", "🩹", "🌧️", "🌧", "🖤",
+      "🪦", "😶‍🌫️", "🫂", "🤦", "🤦‍♂️", "🤦‍♀️", "🫥", "😠", "😡", "🤬",
+      "😤", "😮‍💨", "😪", "😥", "😰", "😨", "😱", "🥶", "🥵", "🤕",
+      "🤒", "🤢", "🤮", "🤐", "🤧", "🥴", "😵", "😵‍💫", "🥱", "😓",
+      "😒", "🙄", "😬", "😮", "😯", "😧", "🤯", "💀", "☠️"
+    ],
+    love: [
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔",
+      "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "💌",
+      "💋", "🫶", "💐", "🌹", "🌷", "🌸", "🌺", "💍", "🕊️", "🏩"
+    ],
+    gestures: [
+      "👍", "👎", "👏", "🙌", "🫶", "🤝", "👊", "✊", "🤛", "🤜",
+      "✌️", "🤞", "🤟", "🤘", "🤙", "👋", "🫡", "🙏", "✍️", "💪",
+      "🧠", "👀", "👁️", "👂", "👃", "👣", "🗣️", "🫰", "👌", "🤌"
+    ],
+    cool: [
+      "🔥", "✨", "⚡", "💯", "🎉", "🚀", "💎", "👑", "🏆", "🌟",
+      "💫", "🌙", "☀️", "🌈", "🎯", "🔮", "💡", "🛡️", "⚔️", "💣",
+      "💥", "☕", "🍕", "🍔", "🍿", "🎵", "🎶", "🎸", "🎮", "🕹️",
+      "📱", "💻", "🦋", "🦄", "🍀", "🕶️", "🦾", "👾", "🤖"
+    ]
+  };
+
+  let activeEmojiCategory = 'all';
+
+  function initEmojiPicker() {
+    renderEmojiGrid(activeEmojiCategory);
+  }
+
+  function filterEmojiCategory(category, btnElement) {
+    activeEmojiCategory = category;
+    if (btnElement && btnElement.parentElement) {
+      btnElement.parentElement.querySelectorAll('.sdh-emoji-cat-btn').forEach(btn => {
+        btn.className = 'sdh-emoji-cat-btn px-2.5 py-1 rounded-lg font-medium text-[11px] whitespace-nowrap bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-transparent transition-all';
+        btn.classList.remove('active');
+      });
+      btnElement.className = 'sdh-emoji-cat-btn active px-2.5 py-1 rounded-lg font-semibold text-[11px] whitespace-nowrap bg-purple-500/30 text-purple-200 border border-purple-400/40 shadow-sm transition-all';
+    }
+    renderEmojiGrid(category);
+  }
+
+  function renderEmojiGrid(category = 'all') {
+    const grid = document.getElementById('emojiGrid');
+    if (!grid) return;
+
+    let emojis = [];
+    if (category === 'all') {
+      const set = new Set();
+      Object.values(EMOJI_CATEGORIES).forEach(arr => arr.forEach(e => set.add(e)));
+      emojis = Array.from(set);
+    } else if (EMOJI_CATEGORIES[category]) {
+      emojis = EMOJI_CATEGORIES[category];
+    } else {
+      emojis = EMOJI_CATEGORIES.happy;
+    }
+
+    const countBadge = document.getElementById('emojiPickerCount');
+    if (countBadge) {
+      countBadge.textContent = `${emojis.length}`;
+    }
+
+    grid.innerHTML = emojis
+      .map(e => `<button type="button" class="sdh-emoji-btn" onclick="SDH.Chat.insertEmoji('${e}')" title="${e}" aria-label="Emoji ${e}">${e}</button>`)
+      .join('');
+  }
+
+  function toggleEmojiPicker() {
+    const picker = document.getElementById('emojiPicker');
+    if (picker) {
+      const isHidden = picker.classList.contains('hidden');
+      if (isHidden) {
+        initEmojiPicker();
+      }
+      picker.classList.toggle('hidden');
+    }
+  }
 
   function insertEmoji(emoji) {
     const input = document.getElementById('messageInput');
     if (input) {
       const pos = input.selectionStart ?? input.value.length;
       input.value = input.value.slice(0, pos) + emoji + input.value.slice(pos);
-      input.focus(); input.setSelectionRange(pos + emoji.length, pos + emoji.length);
+      input.focus();
+      input.setSelectionRange(pos + emoji.length, pos + emoji.length);
     }
   }
 
   document.addEventListener('click', (e) => {
     const picker = document.getElementById('emojiPicker');
-    if (picker && !picker.contains(e.target) && !e.target.closest('[onclick*="toggleEmojiPicker"]'))
+    if (picker && !picker.contains(e.target) && !e.target.closest('[onclick*="toggleEmojiPicker"]')) {
       picker.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const picker = document.getElementById('emojiPicker');
+      if (picker && !picker.classList.contains('hidden')) {
+        picker.classList.add('hidden');
+      }
+    }
   });
 
   // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
@@ -4839,6 +4936,8 @@ SDH.Chat = (() => {
     openSidebar,
     closeSidebar,
     toggleEmojiPicker,
+    filterEmojiCategory,
+    initEmojiPicker,
     insertEmoji,
     registerTempMessage,
     loadUnreadCounts,
