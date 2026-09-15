@@ -45,17 +45,30 @@ SDH.Chat = (() => {
   //  Browser Notification
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // ── Audio & Title Notifications ─────────────────────────────
+  let _sharedAudioCtx = null;
+  function _getAudioContext() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      if (!_sharedAudioCtx) {
+        _sharedAudioCtx = new AudioCtx();
+      }
+      if (_sharedAudioCtx.state === 'suspended') {
+        _sharedAudioCtx.resume().catch(() => {});
+      }
+      return _sharedAudioCtx;
+    } catch {
+      return null;
+    }
+  }
+
   function playNotificationSound() {
     if (window.SDH_SETTINGS && window.SDH_SETTINGS.message_sound_enabled === false) {
       return;
     }
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
+      const ctx = _getAudioContext();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -76,10 +89,8 @@ SDH.Chat = (() => {
       return;
     }
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      if (ctx.state === 'suspended') ctx.resume();
+      const ctx = _getAudioContext();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -729,14 +740,14 @@ SDH.Chat = (() => {
     }
   }
 
-  function appendSystemMessage(text) {
-    const container = document.getElementById('messagesContainer');
+  function appendSystemMessage(text, targetContainer = null) {
+    const container = targetContainer || document.getElementById('messagesContainer');
     if (!container) return;
     const sep = document.createElement('div');
     sep.className = 'flex justify-center my-3 select-none';
     sep.innerHTML = `<span class="text-[11px] font-medium px-4 py-1.5 bg-divine-deep rounded-full border border-divine-gold/30 text-divine-gold/90">${escapeHtml(text)}</span>`;
     container.appendChild(sep);
-    scrollToBottom();
+    if (!targetContainer) scrollToBottom();
   }
 
   function handleGroupMemberUpdate(data) {
@@ -1030,34 +1041,26 @@ SDH.Chat = (() => {
     } catch (err) { showToast('Could not delete message: ' + err.message, 'error'); }
   }
 
-  // Close open dropdowns on outside click
+  // Close open dropdowns and menus on outside click (single unified delegated listener)
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.msg-menu-wrap')) {
       _closeAllMsgMenus();
     }
-  }, false);
-
-  // Close open user-context dropdowns on outside click
-  document.addEventListener('click', (e) => {
     if (!e.target.closest('.user-ctx-wrap') && !e.target.closest('.user-ctx-dropdown')) {
       _closeAllUserMenus();
     }
-  }, false);
-
-  // Close open kebab dropdown on outside click
-  document.addEventListener('click', (e) => {
     if (!e.target.closest('#kebabMenuWrapper')) {
       const dropdown = document.getElementById('kebabDropdown');
-      if (dropdown) {
-        dropdown.classList.add('hidden');
-      }
+      if (dropdown) dropdown.classList.add('hidden');
     }
-
-    // Close sidebar kebabs on outside click
     if (!e.target.closest('.sdh-sidebar-kebab')) {
       document.querySelectorAll('[id^="sidebarKebab-"]').forEach(el => el.classList.add('hidden'));
     }
-  }, false);
+    const picker = document.getElementById('emojiPicker');
+    if (picker && !picker.contains(e.target) && !e.target.closest('[onclick*="toggleEmojiPicker"]')) {
+      picker.classList.add('hidden');
+    }
+  }, { passive: true });
 
   // ═════════════════════════════════════════════════════════════════════
   //  "Remove from My List" — sidebar user context menu
@@ -1722,10 +1725,10 @@ SDH.Chat = (() => {
     .replace(/\r/g, '')
     .replace(/\n/g, ' ');
 
-  function appendMessage(opts) {
-    const container = document.getElementById('messagesContainer');
+  function appendMessage(opts, targetContainer = null) {
+    const container = targetContainer || document.getElementById('messagesContainer');
     if (!container) return;
-    document.getElementById('emptyState')?.remove();
+    if (!targetContainer) document.getElementById('emptyState')?.remove();
 
     const {
       sender, isFromMe, content, messageType,
@@ -2465,17 +2468,7 @@ SDH.Chat = (() => {
     });
   }
 
-  function appendSystemMessage(text) {
-    const container = document.getElementById('messagesContainer');
-    if (!container) return;
-    container.insertAdjacentHTML('beforeend', `
-        <div class="flex justify-center my-4">
-          <span class="px-3 py-1 rounded-full bg-divine-surface text-divine-muted text-xs font-medium border border-divine-border">
-            ${escapeHtml(text)}
-          </span>
-        </div>`);
-    scrollToBottom();
-  }
+
 
   //  Typing indicator
   // ──────────────────────────────────────────────────────────────────────────
@@ -2770,11 +2763,7 @@ SDH.Chat = (() => {
     Notif.requestPermission();
   }
 
-  function handleChatSettingUpdate(data) {
-    if (data.sender === activeUser && data.retention_days) {
-      appendSystemMessage(`Retention set to ${data.retention_days} days.`);
-    }
-  }
+
 
   // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
   //  Load history
@@ -2815,6 +2804,7 @@ SDH.Chat = (() => {
         return;
       }
 
+      const fragment = document.createDocumentFragment();
       for (const msg of data.messages) {
         const isFromMe = msg.sender === window.SDH_DATA.currentUser;
         // Deleted-for-all messages render as a placeholder; no menu shown
@@ -2836,8 +2826,9 @@ SDH.Chat = (() => {
           repliedMoment: msg.replied_moment,
           isViewOnce: Boolean(msg.is_view_once),
           viewOnceOpened: Boolean(msg.view_once_opened),
-        });
+        }, fragment);
       }
+      if (container) container.appendChild(fragment);
 
       _setDefaultHeaderStatus();
       scrollToBottom(true);
@@ -3186,12 +3177,7 @@ SDH.Chat = (() => {
     }
   }
 
-  document.addEventListener('click', (e) => {
-    const picker = document.getElementById('emojiPicker');
-    if (picker && !picker.contains(e.target) && !e.target.closest('[onclick*="toggleEmojiPicker"]')) {
-      picker.classList.add('hidden');
-    }
-  });
+
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -3280,13 +3266,19 @@ SDH.Chat = (() => {
   // Call this once on load
   document.addEventListener('DOMContentLoaded', _initScrollOptimization);
 
+  let _scrollRaf = null;
   function scrollToBottom(instant = false) {
     const el = document.getElementById('messagesContainer');
     if (!el) return;
+    if (_scrollRaf) {
+      cancelAnimationFrame(_scrollRaf);
+      _scrollRaf = null;
+    }
     if (instant) {
       el.scrollTop = el.scrollHeight;
     } else {
-      requestAnimationFrame(() => {
+      _scrollRaf = requestAnimationFrame(() => {
+        _scrollRaf = null;
         el.scrollTo({
           top: el.scrollHeight,
           behavior: 'smooth'
@@ -3766,6 +3758,115 @@ SDH.Chat = (() => {
     }
   }
 
+  function _sortGroupMembers(members) {
+    if (!Array.isArray(members)) return [];
+    const roleWeights = { owner: 1, admin: 2, member: 3 };
+    return [...members].sort((a, b) => {
+      const wA = roleWeights[(a.role || 'member').toLowerCase()] || 4;
+      const wB = roleWeights[(b.role || 'member').toLowerCase()] || 4;
+      if (wA !== wB) return wA - wB;
+      const nameA = (a.display_name || a.username || '').toLowerCase();
+      const nameB = (b.display_name || b.username || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }
+
+  function _renderGroupMemberCard(m, groupId, isAdminOrOwner) {
+    const isMe = (m.user_id && m.user_id === window.SDH_DATA?.userId) ||
+                 (m.username === window.SDH_DATA?.currentUser);
+    const canRemove = Boolean(isAdminOrOwner && !isMe && m.role !== 'owner');
+    const roleLower = (m.role || 'member').toLowerCase();
+
+    // High-end role badge with contextual icon
+    let roleBadge = '';
+    if (roleLower === 'owner') {
+      roleBadge = `
+        <span class="sdh-member-tag-owner inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm">
+          <svg class="w-2.5 h-2.5 text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+          </svg>
+          Owner
+        </span>`;
+    } else if (roleLower === 'admin') {
+      roleBadge = `
+        <span class="sdh-member-tag-admin inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 shadow-sm">
+          <svg class="w-2.5 h-2.5 text-purple-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944z" clip-rule="evenodd"/>
+          </svg>
+          Admin
+        </span>`;
+    } else {
+      roleBadge = `
+        <span class="sdh-member-tag-member inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium tracking-wide bg-white/5 text-slate-400 border border-white/10">
+          Member
+        </span>`;
+    }
+
+    // Modern status indicator
+    let statusHtml = '';
+    if (m.state === 'invited') {
+      statusHtml = `
+        <span class="sdh-member-status-text inline-flex items-center gap-1 text-[11px] font-medium text-amber-400/90">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Invited
+        </span>`;
+    } else if (m.is_online) {
+      statusHtml = `
+        <span class="sdh-member-status-text inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active
+        </span>`;
+    } else if (m.last_seen) {
+      statusHtml = `
+        <span class="sdh-member-status-text inline-flex items-center gap-1 text-[11px] text-slate-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-slate-500/60"></span> Last seen ${_relativeTime(m.last_seen)}
+        </span>`;
+    } else {
+      statusHtml = `
+        <span class="sdh-member-status-text inline-flex items-center gap-1 text-[11px] text-slate-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-slate-500/60"></span> Offline
+        </span>`;
+    }
+
+    const initial = (m.username || 'U')[0].toUpperCase();
+    const displayName = isMe ? 'You' : (m.display_name || m.username);
+
+    return `
+      <div class="sdh-member-card flex items-center justify-between p-2 sm:p-2.5 rounded-xl group">
+        <div class="flex items-center gap-2.5 sm:gap-3 cursor-pointer flex-1 min-w-0" 
+             onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${escapeHtml(m.username)}', ${m.user_id})">
+          <div class="relative shrink-0">
+            ${m.avatar_url ?
+              `<img src="${escapeHtml(m.avatar_url)}" class="w-9 h-9 rounded-full object-cover ring-1 ring-white/10 shadow-sm" alt="${escapeHtml(displayName)}" />` :
+              `<div class="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600/30 to-purple-800/40 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-200 shadow-inner">${initial}</div>`
+            }
+            <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0c0a1d] dark:ring-[#0c0a1d] ${m.is_online ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-slate-500/80'}"></span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <p class="sdh-member-name text-[13px] font-bold truncate text-slate-100 group-hover:text-purple-300 transition-colors">${escapeHtml(displayName)}</p>
+              ${isMe ? `<span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">You</span>` : ''}
+            </div>
+            <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              ${roleBadge}
+              <span class="text-white/20 dark:text-white/20 text-[10px]">•</span>
+              ${statusHtml}
+            </div>
+          </div>
+        </div>
+        ${canRemove ? `
+          <button type="button" 
+                  onclick="event.stopPropagation(); SDH.Chat.removeGroupMember(${groupId}, ${m.user_id})" 
+                  class="ml-2 text-[11px] font-bold px-2.5 py-1 text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 hover:border-rose-600 rounded-lg transition-all duration-150 flex items-center gap-1 shrink-0 active:scale-95 shadow-sm"
+                  title="Remove member">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+            <span>Remove</span>
+          </button>
+        ` : ''}
+      </div>
+    `;
+  }
+
   async function showUserProfile(username, userId, options = {}) {
     if (!username) return;
     if (username === window.SDH_DATA.currentUser) return;
@@ -3792,11 +3893,13 @@ SDH.Chat = (() => {
     const messageBtn = document.getElementById('upmMessageBtn');
     const inviteBtnInit = document.getElementById('upmInviteMemberBtn');
     const pendingSection = document.getElementById('upmPendingRequestSection');
+    const membersSectionInit = document.getElementById('upmMembersSection');
     const upmAcceptBtn = document.getElementById('upmAcceptBtn');
     const upmRejectBtn = document.getElementById('upmRejectBtn');
 
     if (inviteBtnInit) inviteBtnInit.classList.add('hidden');
     if (pendingSection) pendingSection.classList.add('hidden');
+    if (membersSectionInit) membersSectionInit.classList.add('hidden');
     if (messageBtn) messageBtn.classList.remove('hidden');
 
     // Set skeleton / loading states
@@ -3859,28 +3962,13 @@ SDH.Chat = (() => {
           const myMember = groupData.members.find(m => m.username === window.SDH_DATA.currentUser);
           const isAdminOrOwner = myMember && (myMember.role === 'owner' || myMember.role === 'admin');
 
-          membersList.innerHTML = groupData.members.map(m => {
-            const isMe = m.username === window.SDH_DATA.currentUser;
-            const canRemove = isAdminOrOwner && !isMe && m.role !== 'owner';
-            return `
-              <div class="flex items-center justify-between hover:bg-white/5 p-2 rounded-xl transition-colors">
-                <div class="flex items-center gap-3 cursor-pointer flex-1 min-w-0" onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${m.username}', ${m.user_id})">
-                  ${m.avatar_url ?
-                `<img src="${m.avatar_url}" class="w-8 h-8 rounded-full object-cover bg-divine-surface" />` :
-                `<div class="w-8 h-8 rounded-full bg-divine-surface border border-divine-border flex items-center justify-center text-xs font-bold text-divine-text shrink-0">${m.username[0].toUpperCase()}</div>`
-              }
-                  <div class="flex-1 min-w-0">
-                    <p class="text-[13px] font-bold truncate text-divine-text">${isMe ? 'You' : (m.display_name || m.username)}</p>
-                    <p class="text-[10px] uppercase tracking-widest text-divine-gold truncate">
-                      ${m.role}
-                      <span class="mx-1 opacity-50 capitalize normal-case font-normal text-divine-muted">•</span>
-                      <span class="normal-case tracking-normal font-medium ${m.is_online ? 'text-green-500' : 'text-divine-muted/70'}">${m.state === 'invited' ? 'Invited' : (m.is_online ? 'Active' : (m.last_seen ? 'Last seen ' + _relativeTime(m.last_seen) : 'Offline'))}</span>
-                    </p>
-                  </div>
-                </div>
-                ${canRemove ? `<button onclick="SDH.Chat.removeGroupMember(${groupId}, ${m.user_id})" class="ml-2 text-red-400 hover:text-red-300 text-[11px] font-bold px-2.5 py-1.5 bg-red-400/10 hover:bg-red-400/20 rounded-lg transition-colors border border-red-400/20 whitespace-nowrap">Remove</button>` : ''}
-              </div>
-            `}).join('');
+          const countBadge = document.getElementById('upmMembersCount');
+          if (countBadge) {
+            countBadge.textContent = `${groupData.members.length} member${groupData.members.length === 1 ? '' : 's'}`;
+          }
+
+          const sortedMembers = _sortGroupMembers(groupData.members);
+          membersList.innerHTML = sortedMembers.map(m => _renderGroupMemberCard(m, groupId, isAdminOrOwner)).join('');
 
           // Unhide Invite Member button for all members
           const inviteBtn = document.getElementById('upmInviteMemberBtn');
@@ -4521,6 +4609,11 @@ SDH.Chat = (() => {
     if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
     if (statusText) { statusText.textContent = 'Group Chat'; statusText.className = 'text-[11px] font-semibold text-green-400'; }
 
+    const pendingSectionInit = document.getElementById('upmPendingRequestSection');
+    const membersSectionInit = document.getElementById('upmMembersSection');
+    if (pendingSectionInit) pendingSectionInit.classList.add('hidden');
+    if (membersSectionInit) membersSectionInit.classList.add('hidden');
+
     modal.classList.remove('hidden');
 
     try {
@@ -4545,8 +4638,12 @@ SDH.Chat = (() => {
       const membersListEl = document.getElementById('upmMembersList');
       if (membersSection && membersListEl && data.members) {
         membersSection.classList.remove('hidden');
-        membersListEl.innerHTML = '';
         const isAdminOrOwner = data.my_role === 'owner' || data.my_role === 'admin';
+
+        const countBadge = document.getElementById('upmMembersCount');
+        if (countBadge) {
+          countBadge.textContent = `${data.members.length} member${data.members.length === 1 ? '' : 's'}`;
+        }
 
         const inviteBtn = document.getElementById('upmInviteMemberBtn');
         if (inviteBtn) {
@@ -4561,30 +4658,8 @@ SDH.Chat = (() => {
           }
         }
 
-        data.members.forEach(member => {
-          const isMe = member.user_id === window.SDH_DATA.userId;
-          const canRemove = isAdminOrOwner && !isMe && member.role !== 'owner';
-          const div = document.createElement('div');
-          div.className = 'flex items-center justify-between hover:bg-white/5 p-2 rounded-xl transition-colors mb-2';
-          div.innerHTML = `
-              <div class="flex items-center gap-3 cursor-pointer flex-1 min-w-0" onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${member.username}', ${member.user_id})">
-                ${member.avatar_url ?
-              `<img src="${member.avatar_url}" class="w-8 h-8 rounded-full object-cover bg-divine-surface" />` :
-              `<div class="w-8 h-8 rounded-full bg-divine-surface border border-divine-border flex items-center justify-center text-xs font-bold text-divine-text shrink-0">${member.username[0].toUpperCase()}</div>`
-            }
-                <div class="flex-1 min-w-0">
-                  <p class="text-[13px] font-bold truncate text-divine-text">${isMe ? 'You' : (member.display_name || member.username)}</p>
-                  <p class="text-[10px] uppercase tracking-widest text-divine-gold truncate">
-                    ${member.role}
-                    <span class="mx-1 opacity-50 capitalize normal-case font-normal text-divine-muted">•</span>
-                    <span class="normal-case tracking-normal font-medium ${member.is_online ? 'text-green-500' : 'text-divine-muted/70'}">${member.state === 'invited' ? 'Invited' : (member.is_online ? 'Active' : (member.last_seen ? 'Last seen ' + _relativeTime(member.last_seen) : 'Offline'))}</span>
-                  </p>
-                </div>
-              </div>
-              ${canRemove ? `<button onclick="SDH.Chat.removeGroupMember(${data.id}, ${member.user_id})" class="ml-2 text-red-400 hover:text-red-300 text-[11px] font-bold px-2.5 py-1.5 bg-red-400/10 hover:bg-red-400/20 rounded-lg transition-colors border border-red-400/20 whitespace-nowrap">Remove</button>` : ''}
-            `;
-          membersListEl.appendChild(div);
-        });
+        const sortedMembers = _sortGroupMembers(data.members);
+        membersListEl.innerHTML = sortedMembers.map(member => _renderGroupMemberCard(member, data.id || groupId, isAdminOrOwner)).join('');
       }
 
       const disbandBtn = document.getElementById('disbandGroupBtn');
@@ -4751,6 +4826,7 @@ SDH.Chat = (() => {
         return;
       }
 
+      const fragment = document.createDocumentFragment();
       for (const msg of data.messages) {
         const isFromMe = msg.sender === window.SDH_DATA.currentUser;
         const effectiveType = msg.is_system_message ? 'system' : msg.message_type;
@@ -4768,7 +4844,7 @@ SDH.Chat = (() => {
               sysMsg = sysMsg.substring(0, sysMsg.length - suffix.length) + " by You.";
             }
           }
-          appendSystemMessage(sysMsg);
+          appendSystemMessage(sysMsg, fragment);
           continue;
         }
 
@@ -4792,9 +4868,10 @@ SDH.Chat = (() => {
           isRead: true,
           isViewOnce: Boolean(msg.is_view_once),
           viewOnceOpened: Boolean(msg.view_once_opened),
-        });
+        }, fragment);
       }
-      scrollToBottom();
+      if (container) container.appendChild(fragment);
+      scrollToBottom(true);
     } catch (err) {
       showToast('Failed to load group history.', 'error');
     }
@@ -5039,7 +5116,6 @@ SDH.Chat = (() => {
     openRetentionModal,
     closeRetentionModal,
     saveRetentionSetting,
-    showToast,
     getActiveUser: () => activeUser,
     getActiveUserId: () => activeUserId,
     _resetConversationPanel,

@@ -99,12 +99,13 @@
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap"
     rel="stylesheet" />
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="{% static 'css/custom.css' %}?v=16" />
+  <link rel="stylesheet" href="{% static 'css/custom.css' %}?v=17" />
 
   <style>
     /* Theme Transition API */
@@ -1384,11 +1385,17 @@
     </div>
   </div>
   {% if user.is_authenticated %}
-  <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
+  <script>
+    if (!window.SDH?.WS) {
+      const s = document.createElement('script');
+      s.src = "{% static 'js/websocket.js' %}?v=2.1";
+      document.head.appendChild(s);
+    }
+  </script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       var p = window.location.pathname;
-      if (!p.startsWith('/chat/') && !p.startsWith('/call/') && !p.startsWith('/webrtc/')) {
+      if (!p.startsWith('/messaging/chat') && !p.startsWith('/messaging/call') && !p.startsWith('/chat/') && !p.startsWith('/call/') && !p.startsWith('/webrtc/')) {
         if (window.SDH && window.SDH.WS) {
           window.SDH.WS.connectWebSocket('global');
         }
