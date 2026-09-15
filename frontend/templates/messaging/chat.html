@@ -2189,236 +2189,235 @@
 <!-- ══════════════════════════════════════════════════════════════
      USER PROFILE — Premium Cosmic Modal
 ══════════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════════════
+     USER PROFILE — Luxury Profile Dashboard (Light & Dark)
+══════════════════════════════════════════════════════════════ -->
 <div id="userProfileModal"
-  class="hidden fixed inset-0 z-[60] overflow-y-auto custom-scrollbar transition-all duration-500"
-  style="background:rgba(5, 5, 10, 0.75); backdrop-filter:blur(16px);"
+  class="hidden fixed inset-0 z-[60] overflow-y-auto custom-scrollbar transition-all duration-300"
+  style="background: rgba(4, 3, 15, 0.72); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);"
   onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="flex min-h-full items-center justify-center p-4 sm:p-6" onclick="if(event.target===this)document.getElementById('userProfileModal').classList.add('hidden')">
 
-  <div
-    class="relative w-full max-w-[420px] rounded-3xl overflow-hidden animate-msg-appear shadow-2xl border border-divine-border bg-divine-card backdrop-blur-3xl">
+    <div class="sdh-profile-modal-card relative w-full max-w-[420px] rounded-[28px] overflow-hidden animate-msg-appear shadow-2xl">
 
-    <!-- ── Header Gradient Mesh ── -->
-    <div
-      class="relative h-24 w-full bg-gradient-to-br from-divine-card via-divine-surface to-divine-card overflow-hidden border-b border-divine-border/30">
-      <div
-        class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20 mix-blend-overlay">
-      </div>
-      <div class="absolute -top-24 -left-24 w-48 h-48 bg-purple-600/20 rounded-full blur-[60px] animate-pulse"></div>
-      <div class="absolute -bottom-24 -right-24 w-64 h-64 bg-indigo-600/20 rounded-full blur-[70px] animate-pulse"
-        style="animation-delay: 1.5s;"></div>
+      <!-- ── Header Cover Banner (Harmony in Light & Dark) ── -->
+      <div class="sdh-profile-cover relative h-28 w-full overflow-hidden">
+        <div class="sdh-profile-cover-mesh absolute inset-0"></div>
+        <div class="absolute -top-12 -left-12 w-44 h-44 bg-purple-500/25 rounded-full blur-[50px] pointer-events-none"></div>
+        <div class="absolute -bottom-10 -right-10 w-52 h-52 bg-indigo-500/25 rounded-full blur-[60px] pointer-events-none"></div>
 
-      <!-- Close button -->
-      <button onclick="document.getElementById('userProfileModal').classList.add('hidden')"
-        class="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-all border border-transparent hover:border-divine-border backdrop-blur-md z-20"
-        title="Close">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-      </button>
-    </div>
-
-    <!-- ── Content Area ── -->
-    <div class="px-8 pb-8 pt-0 relative z-10">
-
-      <!-- Avatar Section -->
-      <div class="flex flex-col items-center -mt-12 mb-6 text-center relative">
-        <!-- Avatar Wrapper -->
-        <div id="upmAvatarWrapper"
-          class="w-24 h-24 rounded-full p-1.5 bg-divine-card relative group shadow-2xl mb-4 transition-transform duration-500 hover:scale-105 border border-divine-border/50 cursor-pointer" onclick="SDH.Chat.openAvatarViewer()">
-          <!-- Animated rotating gradient border effect -->
-          <div
-            class="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500/50 via-indigo-500/50 to-fuchsia-500/50 animate-[spin_4s_linear_infinite] opacity-50 group-hover:opacity-80 transition-opacity blur-[3px] -z-10">
-          </div>
-
-          <div class="relative w-full h-full rounded-full overflow-hidden bg-divine-surface border border-divine-border/30">
-            <div id="upmAvatarText"
-              class="w-full h-full flex items-center justify-center text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-fuchsia-300 to-indigo-300 select-none">
-              —
-            </div>
-            <img id="upmAvatarImg" src="" alt="Avatar" class="w-full h-full object-cover hidden" />
-          </div>
-
-          <!-- Online indicator attached to avatar -->
-          <div id="upmStatusDotWrapper" class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-divine-card flex items-center justify-center">
-            <span id="upmStatusDot"
-              class="w-3 h-3 rounded-full bg-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.8)]"></span>
-          </div>
-        </div>
-
-        <!-- Display Name -->
-        <h3 id="upmDisplayName"
-          class="text-2xl font-black tracking-tight text-divine-text drop-shadow-sm">
-          —
-        </h3>
-
-        <!-- Username & Status -->
-        <div id="upmStatusTextContainer" class="flex items-center gap-2 mt-1.5">
-          <p id="upmUsername" class="text-sm font-medium text-fuchsia-400 tracking-wide">
-            @—
-          </p>
-          <span class="text-divine-muted">•</span>
-          <span id="upmStatusText" class="text-[11px] font-bold uppercase tracking-widest text-divine-muted">
-            Offline
-          </span>
-        </div>
+        <!-- Top Right Floating Close Button (X) -->
+        <button type="button" onclick="document.getElementById('userProfileModal').classList.add('hidden')"
+          class="sdh-profile-top-close absolute top-3.5 right-3.5 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-all z-20 group"
+          title="Close (Esc)" aria-label="Close profile">
+          <svg class="w-4 h-4 transition-transform group-hover:rotate-90 duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
       </div>
 
-      <!-- ── Info Cards & Members (Scrollable Area) ── -->
-      <div class="overflow-y-auto custom-scrollbar max-h-[35vh] pr-3 -mr-3 mb-6 space-y-4">
-      <div class="space-y-4">
+      <!-- ── Content Area ── -->
+      <div class="px-6 pb-6 pt-0 relative z-10">
 
-        <!-- Bio Card -->
-        <div
-          class="p-5 rounded-2xl bg-divine-surface border border-divine-border/20 relative overflow-hidden group hover:bg-divine-surface/80 hover:border-purple-500/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
-          <div
-            class="absolute -right-4 -bottom-6 text-8xl opacity-10 font-serif select-none pointer-events-none text-purple-400 group-hover:text-purple-500 transition-colors duration-500 group-hover:scale-110 group-hover:-rotate-12">
-            “</div>
+        <!-- Avatar & Identity Section -->
+        <div class="flex flex-col items-center -mt-14 mb-4 text-center relative">
+          <!-- Avatar Wrapper -->
+          <div id="upmAvatarWrapper"
+            class="sdh-profile-avatar-wrapper w-24 h-24 rounded-full p-1 relative group cursor-pointer"
+            onclick="SDH.Chat.openAvatarViewer()" title="View full photo">
+            
+            <!-- Rotating aura ring -->
+            <div class="sdh-profile-avatar-aura absolute inset-0 rounded-full blur-[3px] -z-10 animate-[spin_6s_linear_infinite]"></div>
 
-          <div class="flex items-center gap-3 mb-2">
-            <div
-              class="w-8 h-8 rounded-full bg-purple-500/5 flex items-center justify-center text-purple-400/80 group-hover:bg-purple-500/10 group-hover:text-purple-300 transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
+            <div class="sdh-profile-avatar-inner relative w-full h-full rounded-full overflow-hidden flex items-center justify-center">
+              <div id="upmAvatarText"
+                class="sdh-profile-avatar-text w-full h-full flex items-center justify-center text-3xl font-black select-none">
+                —
+              </div>
+              <img id="upmAvatarImg" src="" alt="Avatar" class="w-full h-full object-cover hidden" />
             </div>
-            <p
-              class="text-[10px] font-bold uppercase tracking-widest text-divine-muted group-hover:text-purple-400/80 transition-colors">
-              Biography</p>
+
+            <!-- Online / Offline indicator attached to avatar -->
+            <div id="upmStatusDotWrapper" class="sdh-profile-status-badge absolute bottom-0.5 right-0.5 w-6 h-6 rounded-full flex items-center justify-center">
+              <span id="upmStatusDot" class="w-3.5 h-3.5 rounded-full"></span>
+            </div>
           </div>
 
-          <p id="upmBio" class="text-sm text-divine-text leading-relaxed pl-[44px]">
-            No biography provided.
-          </p>
+          <!-- Display Name -->
+          <h3 id="upmDisplayName" class="sdh-profile-name text-xl sm:text-2xl font-black tracking-tight mt-2.5">
+            —
+          </h3>
+
+          <!-- Username & Status Pill Bar -->
+          <div id="upmStatusTextContainer" class="flex items-center justify-center gap-2 mt-2 flex-wrap">
+            <div class="sdh-profile-username-pill flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold">
+              <span id="upmUsername">@—</span>
+            </div>
+            <div id="upmStatusPill" class="sdh-profile-status-pill flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider">
+              <span id="upmStatusPillDot" class="w-2 h-2 rounded-full"></span>
+              <span id="upmStatusText">Offline</span>
+            </div>
+          </div>
         </div>
 
-        <!-- Account Info Grid (Email + Phone Number) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <!-- Email Card -->
-          <div
-            class="p-4 rounded-2xl bg-divine-surface border border-divine-border/20 group hover:bg-divine-surface/80 hover:border-indigo-500/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
-            <div class="flex items-center gap-2.5 mb-2">
-              <div
-                class="w-7 h-7 rounded-full shrink-0 bg-indigo-500/10 flex items-center justify-center text-indigo-500/80 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-colors">
+        <!-- ── Info Cards (Scrollable Area) ── -->
+        <div class="overflow-y-auto custom-scrollbar max-h-[38vh] pr-1 space-y-3 mb-5">
+
+          <!-- Biography Card -->
+          <div class="sdh-profile-card p-4 rounded-2xl relative overflow-hidden transition-all duration-200">
+            <div class="flex items-center gap-2 mb-1.5">
+              <div class="w-6 h-6 rounded-lg sdh-profile-card-icon flex items-center justify-center">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <p
-                class="text-[10px] font-bold uppercase tracking-widest text-divine-muted group-hover:text-indigo-400/80 transition-colors">
-                Email</p>
+              <span class="sdh-profile-card-label text-[10px] font-bold uppercase tracking-wider">
+                About
+              </span>
             </div>
-            <p id="upmEmail" class="text-[13px] text-divine-text font-medium truncate pl-[38px]">
-              —
+            <p id="upmBio" class="sdh-profile-bio-text text-sm leading-relaxed pl-8">
+              No biography provided.
             </p>
           </div>
 
-          <!-- Phone Card -->
-          <div
-            class="p-4 rounded-2xl bg-divine-surface border border-divine-border/20 group hover:bg-divine-surface/80 hover:border-fuchsia-500/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
-            <div class="flex items-center gap-2.5 mb-2">
-              <div
-                class="w-7 h-7 rounded-full shrink-0 bg-fuchsia-500/10 flex items-center justify-center text-fuchsia-500/80 group-hover:bg-fuchsia-500/20 group-hover:text-fuchsia-400 transition-colors">
+          <!-- Contact Details Card (Email & Phone - Sleek Unified Card) -->
+          <div class="sdh-profile-card p-4 rounded-2xl space-y-3 transition-all duration-200">
+            <!-- Email Row -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-7 h-7 rounded-lg sdh-profile-card-icon-indigo flex items-center justify-center flex-shrink-0">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div class="min-w-0">
+                  <p class="sdh-profile-card-label text-[10px] font-bold uppercase tracking-wider">Email</p>
+                  <p id="upmEmail" class="sdh-profile-card-val text-[13px] font-medium truncate select-text">
+                    —
+                  </p>
+                </div>
+              </div>
+              <!-- Quick Copy Email Button -->
+              <button type="button" onclick="SDH.Chat.copyProfileEmail(this)"
+                class="sdh-profile-copy-btn p-1.5 rounded-lg transition-all flex-shrink-0"
+                title="Copy email">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Subtle Divider -->
+            <div class="sdh-profile-divider h-px w-full"></div>
+
+            <!-- Phone Row -->
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-7 h-7 rounded-lg sdh-profile-card-icon-fuchsia flex items-center justify-center flex-shrink-0">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
               </div>
-              <p
-                class="text-[10px] font-bold uppercase tracking-widest text-divine-muted group-hover:text-fuchsia-400/80 transition-colors">
-                Phone</p>
+              <div class="min-w-0">
+                <p class="sdh-profile-card-label text-[10px] font-bold uppercase tracking-wider">Phone</p>
+                <p id="upmPhone" class="sdh-profile-card-val text-[13px] font-medium truncate select-text">
+                  Not specified
+                </p>
+              </div>
             </div>
-            <p id="upmPhone" class="text-[13px] text-divine-text font-medium truncate pl-[38px]">
-              Not specified
-            </p>
+          </div>
+
+          <!-- Meta Pills (Joined & Last Seen) -->
+          <div class="flex items-center justify-between gap-2 px-1 text-[11px] font-medium">
+            <span id="upmJoined" class="sdh-profile-meta-pill flex items-center gap-1.5 px-2.5 py-1 rounded-lg">
+              <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Joined —
+            </span>
+            <span id="upmLastSeen" class="sdh-profile-meta-pill flex items-center gap-1.5 px-2.5 py-1 rounded-lg">
+              <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Last seen —
+            </span>
+          </div>
+
+          <!-- Group Members List (Hidden by default, shown for groups) -->
+          <div id="upmMembersSection" class="hidden mt-3 pt-3 border-t sdh-profile-divider">
+            <p class="text-[10px] font-bold uppercase tracking-widest sdh-profile-card-label mb-2">Group Members</p>
+            <div id="upmMembersList" class="space-y-1.5">
+               <!-- Populated dynamically by JS -->
+            </div>
           </div>
         </div>
 
-
-
-        <!-- Footer Meta (Friend since/joined info) -->
-        <div
-          class="flex justify-between items-center text-[10px] text-divine-muted px-2 pt-3 select-none uppercase tracking-widest font-semibold">
-          <span id="upmJoined" class="flex items-center gap-1.5"><svg class="w-3 h-3 opacity-60" fill="none"
-              stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg> Joined —</span>
-          <span id="upmLastSeen" class="flex items-center gap-1.5">Last seen — <svg class="w-3 h-3 opacity-60"
-              fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg></span>
-        </div>
-
-      </div>
-
-      <!-- Group Members List (Hidden by default, shown for groups) -->
-      <div id="upmMembersSection" class="hidden mt-4 pt-4 border-t border-divine-border/20">
-        <p class="text-[10px] font-bold uppercase tracking-widest text-divine-muted mb-3">Group Members</p>
-        <div id="upmMembersList" class="space-y-2">
-           <!-- Populated dynamically by JS -->
-        </div>
-      </div>
-      </div>
-
-      <!-- ── Pending Request Banner & Actions (Instagram-style profile preview) ── -->
-      <div id="upmPendingRequestSection" class="hidden mt-6 pt-4 border-t border-divine-border/30 space-y-3">
-        <div class="flex items-center justify-between px-1">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-            <span class="text-xs font-semibold text-purple-300">Sent you a friend request</span>
+        <!-- ── Pending Request Banner & Actions (Instagram-style preview mode) ── -->
+        <div id="upmPendingRequestSection" class="hidden mt-4 pt-3 border-t sdh-profile-divider space-y-2.5">
+          <div class="flex items-center justify-between px-1">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+              <span class="text-xs font-semibold text-purple-400 dark:text-purple-300">Sent you a friend request</span>
+            </div>
+            <span class="text-[10px] sdh-profile-card-label uppercase tracking-wider font-semibold">Pending</span>
           </div>
-          <span class="text-[10px] text-divine-muted uppercase tracking-wider font-semibold">Pending Approval</span>
+          <p class="text-[11px] sdh-profile-card-label leading-relaxed px-1">
+            Accept this request to unlock direct messaging, voice & video calling, and moments.
+          </p>
+          <div class="flex gap-2.5 pt-1">
+            <button id="upmAcceptBtn"
+              class="sdh-liquid-action-btn btn-liquid-accept flex-1 !py-2.5 !text-xs justify-center" aria-label="Accept friend request">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span>Accept Request</span>
+            </button>
+            <button id="upmRejectBtn"
+              class="sdh-liquid-action-btn btn-liquid-reject flex-1 !py-2.5 !text-xs justify-center" aria-label="Reject friend request">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              <span>Reject</span>
+            </button>
+          </div>
         </div>
-        <p class="text-[11px] text-divine-muted leading-relaxed px-1">
-          Accept this request to unlock direct messaging, voice & video calling, and moments.
-        </p>
-        <div class="flex gap-2.5 pt-1">
-          <button id="upmAcceptBtn"
-            class="sdh-liquid-action-btn btn-liquid-accept flex-1 !py-2.5 !text-xs justify-center" aria-label="Accept friend request">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-            </svg>
-            <span>Accept Request</span>
+
+        <!-- ── Standard Actions (Close & Message / Invite) ── -->
+        <div id="upmDefaultActions" class="flex gap-2.5 mt-2">
+          <!-- Elegant Secondary Close Button -->
+          <button type="button" onclick="document.getElementById('userProfileModal').classList.add('hidden')"
+            class="sdh-profile-close-btn flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-150 active:scale-95"
+            aria-label="Close profile">
+            Close
           </button>
-          <button id="upmRejectBtn"
-            class="sdh-liquid-action-btn btn-liquid-reject flex-1 !py-2.5 !text-xs justify-center" aria-label="Reject friend request">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+
+          <!-- Invite Member Button (for groups) -->
+          <button type="button" id="upmInviteMemberBtn" onclick="SDH.Chat.openInviteMemberModal()"
+            class="hidden flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold tracking-wide text-white bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 shadow-md shadow-fuchsia-500/20 hover:shadow-fuchsia-500/40 hover:-translate-y-0.5 transition-all duration-200 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            <span>Reject</span>
+            Invite
+          </button>
+
+          <!-- High-End Liquid Message Button -->
+          <button type="button" id="upmMessageBtn"
+            class="sdh-profile-msg-btn flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold tracking-wide text-white transition-all duration-200 active:scale-95 flex items-center justify-center gap-1.5 whitespace-nowrap shadow-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            Message
           </button>
         </div>
-      </div>
 
-      <!-- ── Standard Actions ── -->
-      <div id="upmDefaultActions" class="flex gap-2 sm:gap-3 mt-8">
-        <button onclick="document.getElementById('userProfileModal').classList.add('hidden')"
-          class="flex-1 py-2.5 px-2 sm:px-3 rounded-xl text-[13px] font-bold tracking-wide text-rose-500 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-rose-500/20 whitespace-nowrap">
-          Close
-        </button>
-        <button id="upmInviteMemberBtn" onclick="SDH.Chat.openInviteMemberModal()"
-          class="hidden flex-1 py-2.5 px-2 sm:px-3 rounded-xl text-[13px] font-bold tracking-wide text-white bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 shadow-[0_4px_15px_rgba(217,70,239,0.2)] hover:shadow-[0_6px_20px_rgba(217,70,239,0.4)] hover:-translate-y-0.5 transition-all duration-300 border border-fuchsia-500/20 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 flex items-center justify-center gap-1.5 whitespace-nowrap">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Invite Member
-        </button>
-        <button id="upmMessageBtn"
-          class="flex-1 py-2.5 px-2 sm:px-3 rounded-xl text-[13px] font-bold tracking-wide text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-[0_4px_15px_rgba(124,58,237,0.2)] hover:shadow-[0_6px_20px_rgba(124,58,237,0.4)] hover:-translate-y-0.5 transition-all duration-300 border border-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500/50 flex items-center justify-center gap-1.5 whitespace-nowrap">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-          Message
-        </button>
       </div>
-
     </div>
-  </div>
   </div>
 </div>
 <!-- ══════════════════════════════════════════════════════════════
@@ -3201,7 +3200,7 @@
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
 <script src="{% static 'js/e2eCrypto.js' %}?v=1.0"></script>
 <script src="{% static 'js/chatLock.js' %}?v=1.0"></script>
-<script src="{% static 'js/chat.js' %}?v=4.6"></script>
+<script src="{% static 'js/chat.js' %}?v=4.7"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.2"></script>
 <script src="{% static 'js/userSearch.js' %}?v=3.2"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->

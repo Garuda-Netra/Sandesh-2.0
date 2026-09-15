@@ -3971,19 +3971,32 @@ SDH.Chat = (() => {
       } else {
         if (statusWrapper) statusWrapper.classList.remove('hidden');
         if (statusTextContainer) statusTextContainer.classList.remove('hidden');
+        const pill = document.getElementById('upmStatusPill');
+        const pillDot = document.getElementById('upmStatusPillDot');
+
         if (data.is_online && !isBlocked) {
-          statusDot.className = 'w-2 h-2 rounded-full sdh-pulse-dot bg-green-500';
-          statusText.textContent = 'Active';
-          statusText.className = 'text-[11px] font-bold uppercase tracking-widest text-green-400';
-          avatarWrapper.style.borderColor = 'rgba(74,222,128,0.5)';
-          avatarWrapper.style.boxShadow = '0 0 25px rgba(74,222,128,0.25)';
+          statusDot.className = 'w-3.5 h-3.5 rounded-full sdh-pulse-dot bg-emerald-500';
+          statusText.textContent = 'Active now';
+          if (pill) {
+            pill.className = 'sdh-profile-status-pill flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25';
+          }
+          if (pillDot) {
+            pillDot.className = 'w-2 h-2 rounded-full bg-emerald-500 sdh-pulse-dot';
+          }
+          avatarWrapper.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+          avatarWrapper.style.boxShadow = '0 0 25px rgba(16, 185, 129, 0.25)';
           lastSeenEl.textContent = 'Active now';
         } else {
-          statusDot.className = 'w-2 h-2 rounded-full bg-purple-500/50';
+          statusDot.className = 'w-3.5 h-3.5 rounded-full bg-slate-400 dark:bg-slate-500';
           statusText.textContent = isBlocked ? 'Blocked' : 'Offline';
-          statusText.className = 'text-[11px] font-bold uppercase tracking-widest text-divine-muted';
-          avatarWrapper.style.borderColor = 'rgba(168,85,247,0.3)';
-          avatarWrapper.style.boxShadow = '0 0 20px rgba(168,85,247,0.15)';
+          if (pill) {
+            pill.className = 'sdh-profile-status-pill flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20';
+          }
+          if (pillDot) {
+            pillDot.className = 'w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500';
+          }
+          avatarWrapper.style.borderColor = 'rgba(168, 85, 247, 0.3)';
+          avatarWrapper.style.boxShadow = '0 0 20px rgba(168, 85, 247, 0.15)';
           if (isBlocked) {
             lastSeenEl.textContent = 'Blocked';
           } else if (data.last_seen) {
@@ -4006,9 +4019,16 @@ SDH.Chat = (() => {
         // Sensitive details remain strictly hidden
         emailEl.textContent = '🔒 Hidden until connected';
         phoneEl.textContent = '🔒 Hidden until connected';
-        statusDot.className = 'w-2 h-2 rounded-full bg-purple-400 animate-pulse';
+        statusDot.className = 'w-3.5 h-3.5 rounded-full bg-purple-400 animate-pulse';
         statusText.textContent = 'Pending Request';
-        statusText.className = 'text-[11px] font-bold uppercase tracking-widest text-purple-400';
+        const pill = document.getElementById('upmStatusPill');
+        const pillDot = document.getElementById('upmStatusPillDot');
+        if (pill) {
+          pill.className = 'sdh-profile-status-pill flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/25';
+        }
+        if (pillDot) {
+          pillDot.className = 'w-2 h-2 rounded-full bg-purple-400 animate-pulse';
+        }
         lastSeenEl.textContent = 'Sent a request';
 
         // Wire modal Accept button
@@ -4050,6 +4070,23 @@ SDH.Chat = (() => {
       bioEl.classList.add('text-red-400/80');
       showToast(err.message || 'Could not load profile details.', 'error');
     }
+  }
+
+  function copyProfileEmail(btn) {
+    const emailEl = document.getElementById('upmEmail');
+    if (!emailEl) return;
+    const text = emailEl.textContent.trim();
+    if (!text || text === '—' || text.startsWith('🔒') || text === 'No email shared') return;
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Email copied to clipboard', 'info');
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`;
+        setTimeout(() => { btn.innerHTML = orig; }, 1800);
+      }
+    }).catch(() => {
+      showToast('Failed to copy', 'error');
+    });
   }
 
   /** Triggered by clicking the active chat header */
@@ -4991,6 +5028,7 @@ SDH.Chat = (() => {
     openAvatarViewer,
     showUserProfile,
     showActiveUserProfile,
+    copyProfileEmail,
     // Group Invites
     respondGroupInvite,
     openCreateGroupModal,
