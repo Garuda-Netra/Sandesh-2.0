@@ -876,18 +876,18 @@
     </div>
 
     <!-- Friend request notifications -->
-    <div id="friendRequestsPanel" class="hidden flex-shrink-0 border-b border-divine-border/50">
-      <div class="px-4 py-2.5 bg-divine-gold/10">
-        <div class="flex items-center gap-2 mb-2">
-          <svg class="w-3.5 h-3.5 flex-shrink-0 text-divine-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div id="friendRequestsPanel" class="hidden flex-shrink-0 border-b border-divine-border/60">
+      <div class="px-3.5 py-2.5 bg-gradient-to-b from-purple-500/10 to-transparent">
+        <div class="flex items-center gap-2 mb-2 px-1">
+          <svg class="w-3.5 h-3.5 flex-shrink-0 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
           </svg>
-          <span class="text-xs font-semibold text-divine-gold">Friend Requests</span>
+          <span class="text-xs font-semibold tracking-wide text-purple-400">Friend Requests</span>
           <span id="frCountBadge"
-            class="hidden text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full bg-divine-gold text-divine-deep"></span>
+            class="hidden text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-sm"></span>
         </div>
-        <div id="friendRequestsList" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+        <div id="friendRequestsList" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
       </div>
     </div>
 
@@ -1651,10 +1651,10 @@
           <p class="text-xs text-white/70 mt-1.5"><span id="videoUpgradeRequester" class="font-semibold text-white">User</span> wants to switch to a video call with camera.</p>
         </div>
         <div class="flex gap-3 pt-2">
-          <button type="button" onclick="SDH.WebRTC.rejectVideoUpgrade()" class="flex-1 sdh-btn-liquid-reject !py-2.5 !text-xs">
+          <button type="button" onclick="SDH.WebRTC.rejectVideoUpgrade()" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-all">
             Decline
           </button>
-          <button type="button" onclick="SDH.WebRTC.acceptVideoUpgrade()" class="flex-1 sdh-btn-liquid-accept !py-2.5 !text-xs gap-1.5">
+          <button type="button" onclick="SDH.WebRTC.acceptVideoUpgrade()" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.868v6.264a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
             <span>Accept</span>
           </button>
@@ -3124,7 +3124,7 @@
 <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
 <script src="{% static 'js/e2eCrypto.js' %}?v=1.0"></script>
 <script src="{% static 'js/chatLock.js' %}?v=1.0"></script>
-<script src="{% static 'js/chat.js' %}?v=4.1"></script>
+<script src="{% static 'js/chat.js' %}?v=4.3"></script>
 <script src="{% static 'js/webrtc.js' %}?v=2.2"></script>
 <script src="{% static 'js/userSearch.js' %}?v=3.2"></script>
   <!-- ── Group Call Modal ─────────────────────────────────────── -->

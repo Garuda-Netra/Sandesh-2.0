@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en" data-theme="light" class="scroll-smooth">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -31,15 +32,15 @@
         extend: {
           colors: {
             divine: {
-              gold:    '#a855f7',
-              amber:   '#818cf8',
+              gold: '#a855f7',
+              amber: '#818cf8',
               saffron: '#c084fc',
-              deep:    '#000000',
+              deep: '#000000',
               surface: '#0a0a0a',
-              card:    '#121212',
-              border:  '#1f1f22',
-              text:    '#f5f5f7',
-              muted:   '#86868b',
+              card: '#121212',
+              border: '#1f1f22',
+              text: '#f5f5f7',
+              muted: '#86868b',
             }
           },
           fontFamily: {
@@ -48,47 +49,47 @@
           },
           animation: {
             'pulse-gold': 'pulseGold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            'glow':       'glow 2.5s ease-in-out infinite alternate',
-            'float':      'float 4s ease-in-out infinite',
-            'slide-in':   'slideIn 0.3s ease-out',
+            'glow': 'glow 2.5s ease-in-out infinite alternate',
+            'float': 'float 4s ease-in-out infinite',
+            'slide-in': 'slideIn 0.3s ease-out',
             'msg-appear': 'msgAppear 0.35s cubic-bezier(0.34,1.4,0.64,1)',
-            'badge-pop':  'badgePop 0.4s cubic-bezier(0.34,1.56,0.64,1)',
+            'badge-pop': 'badgePop 0.4s cubic-bezier(0.34,1.56,0.64,1)',
             'fade-in-up': 'fadeInUp 0.5s ease-out',
           },
           keyframes: {
             pulseGold: {
               '0%, 100%': { opacity: '1' },
-              '50%':      { opacity: '0.5' },
+              '50%': { opacity: '0.5' },
             },
             glow: {
-              '0%':   { boxShadow: '0 0 5px #a855f7, 0 0 20px #a855f7, 0 0 40px #818cf8' },
+              '0%': { boxShadow: '0 0 5px #a855f7, 0 0 20px #a855f7, 0 0 40px #818cf8' },
               '100%': { boxShadow: '0 0 10px #818cf8, 0 0 40px #818cf8, 0 0 80px #a855f7' },
             },
             float: {
               '0%, 100%': { transform: 'translateY(0px)' },
-              '50%':      { transform: 'translateY(-8px)' },
+              '50%': { transform: 'translateY(-8px)' },
             },
             slideIn: {
-              '0%':   { opacity: '0', transform: 'translateY(12px)' },
+              '0%': { opacity: '0', transform: 'translateY(12px)' },
               '100%': { opacity: '1', transform: 'translateY(0)' },
             },
             msgAppear: {
-              '0%':   { opacity: '0', transform: 'scale(0.92) translateY(8px)' },
+              '0%': { opacity: '0', transform: 'scale(0.92) translateY(8px)' },
               '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
             },
             fadeInUp: {
-              '0%':   { opacity: '0', transform: 'translateY(16px)' },
+              '0%': { opacity: '0', transform: 'translateY(16px)' },
               '100%': { opacity: '1', transform: 'translateY(0)' },
             },
             badgePop: {
-              '0%':   { transform: 'scale(0)', opacity: '0' },
-              '60%':  { transform: 'scale(1.15)', opacity: '1' },
+              '0%': { transform: 'scale(0)', opacity: '0' },
+              '60%': { transform: 'scale(1.15)', opacity: '1' },
               '100%': { transform: 'scale(1)', opacity: '1' },
             }
           },
           boxShadow: {
-            'divine':    '0 0 30px rgba(168, 85, 247, 0.18)',
-            'glow-sm':   '0 0 8px rgba(168, 85, 247, 0.45)',
+            'divine': '0 0 30px rgba(168, 85, 247, 0.18)',
+            'glow-sm': '0 0 8px rgba(168, 85, 247, 0.45)',
             'glow-gold': '0 0 18px rgba(168, 85, 247, 0.4)',
           }
         }
@@ -98,7 +99,9 @@
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="{% static 'css/custom.css' %}?v=12" />
@@ -110,56 +113,73 @@
       animation: none;
       mix-blend-mode: normal;
     }
-    ::view-transition-old(root) { z-index: 1; }
-    ::view-transition-new(root) { z-index: 9999; }
+
+    ::view-transition-old(root) {
+      z-index: 1;
+    }
+
+    ::view-transition-new(root) {
+      z-index: 9999;
+    }
 
     /* Universal Dropdown & Hover Contrast Rules */
     [data-theme="light"] .hover\:bg-divine-surface:hover,
     [data-theme="light"] .hover\:bg-divine-surface\/80:hover {
       background-color: #f1f5f9 !important;
     }
+
     [data-theme="light"] .hover\:text-divine-text:hover {
       color: #0f172a !important;
     }
+
     [data-theme="light"] .hover\:text-divine-muted:hover {
       color: #475569 !important;
     }
+
     [data-theme="light"] #userDropdown {
       background-color: #ffffff !important;
       border: 1px solid rgba(168, 85, 247, 0.22) !important;
       box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(168, 85, 247, 0.08) !important;
     }
+
     [data-theme="light"] #userDropdown a,
     [data-theme="light"] #userDropdown button {
       color: #1e293b !important;
       font-weight: 500 !important;
     }
+
     [data-theme="light"] #userDropdown a svg,
     [data-theme="light"] #userDropdown button svg {
       color: #64748b !important;
     }
+
     [data-theme="light"] #userDropdown a:hover,
     [data-theme="light"] #userDropdown button:hover {
       background-color: #f1f5f9 !important;
       color: #0f172a !important;
     }
+
     [data-theme="light"] #userDropdown a:hover svg,
     [data-theme="light"] #userDropdown button:hover svg {
       color: #7c3aed !important;
     }
+
     [data-theme="light"] #userDropdown a[href*="logout"]:hover {
       background-color: #fef2f2 !important;
       color: #b91c1c !important;
     }
+
     [data-theme="light"] #userDropdown a[href*="logout"]:hover svg {
       color: #b91c1c !important;
     }
+
     .dark #userDropdown,
     [data-theme="dark"] #userDropdown {
       background-color: #121324 !important;
       border: 1px solid rgba(168, 85, 247, 0.3) !important;
       box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
     }
+
     .dark #userDropdown a:hover,
     .dark #userDropdown button:hover,
     [data-theme="dark"] #userDropdown a:hover,
@@ -177,16 +197,16 @@
 
     // Theme management
     SDH.THEME_KEY = 'sandesh_theme';
-    SDH.updateThemeIcons = function(theme) {
-      document.querySelectorAll('#iconDark, .theme-icon-sun').forEach(function(el) {
+    SDH.updateThemeIcons = function (theme) {
+      document.querySelectorAll('#iconDark, .theme-icon-sun').forEach(function (el) {
         el.classList.toggle('hidden', theme !== 'dark');
       });
-      document.querySelectorAll('#iconLight, .theme-icon-moon').forEach(function(el) {
+      document.querySelectorAll('#iconLight, .theme-icon-moon').forEach(function (el) {
         el.classList.toggle('hidden', theme === 'dark');
       });
     };
 
-    SDH.applyTheme = function(theme) {
+    SDH.applyTheme = function (theme) {
       const root = document.documentElement;
       if (theme === 'light') {
         root.classList.remove('dark');
@@ -195,23 +215,23 @@
         root.classList.add('dark');
         root.setAttribute('data-theme', 'dark');
       }
-      
+
       SDH.updateThemeIcons(theme);
       try {
         localStorage.setItem(SDH.THEME_KEY, theme);
-      } catch(e) {}
+      } catch (e) { }
     };
 
     // Init theme synchronously on load to prevent FOUC
-    (function() {
+    (function () {
       const saved = localStorage.getItem(SDH.THEME_KEY) || 'light';
       SDH.applyTheme(saved);
     })();
 
     // Professional & simple "Coming Soon" notification handler
-    SDH.showComingSoon = function(featureName) {
-      const text = featureName 
-        ? `${featureName} is coming soon.` 
+    SDH.showComingSoon = function (featureName) {
+      const text = featureName
+        ? `${featureName} is coming soon.`
         : 'This feature is coming soon.';
       if (window.SDH?.Chat?.showToast) {
         window.SDH.Chat.showToast(text, 'info');
@@ -237,7 +257,8 @@
 
   <!-- ── Top Navigation Bar ─────────────────────────────────── -->
   {% if user.is_authenticated %}
-  <nav class="fixed top-0 left-0 right-0 z-50 h-14 bg-divine-surface/90 backdrop-blur-md border-b border-divine-border flex items-center justify-between px-4 sm:px-6">
+  <nav
+    class="fixed top-0 left-0 right-0 z-50 h-14 bg-divine-surface/90 backdrop-blur-md border-b border-divine-border flex items-center justify-between px-4 sm:px-6">
 
     <!-- Logo -->
     <a href="{% url 'users:index' %}" class="flex items-center gap-2 group">
@@ -256,22 +277,25 @@
 
       <!-- Theme Toggle -->
       <button id="themeToggle" onclick="SDH.toggleTheme(event)"
-              class="sdh-icon-btn p-2 rounded-full text-divine-text hover:text-divine-gold transition-colors"
-              title="Toggle theme">
+        class="sdh-icon-btn p-2 rounded-full text-divine-text hover:text-divine-gold transition-colors"
+        title="Toggle theme">
         <svg id="iconDark" class="theme-icon-sun w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <svg id="iconLight" class="theme-icon-moon w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
         </svg>
       </button>
 
 
-      <button id="sdhBotToggle" class="sdh-liquid-btn btn-ancient !rounded-full !px-4 !py-2 flex items-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all hover:scale-105" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Open Vyasa">
+      <button id="sdhBotToggle"
+        class="sdh-liquid-btn btn-ancient !rounded-full !px-4 !py-2 flex items-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.4)] transition-all hover:scale-105"
+        type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Open Vyasa">
         <svg class="w-4 h-4 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5h12a4 4 0 014 4v4a4 4 0 01-4 4H9l-5 4v-4H4a4 4 0 01-4-4V9a4 4 0 014-4z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 5h12a4 4 0 014 4v4a4 4 0 01-4 4H9l-5 4v-4H4a4 4 0 01-4-4V9a4 4 0 014-4z" />
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11h6M8 14h4" />
         </svg>
         <span class="hidden sm:inline-block text-xs font-bold tracking-widest uppercase relative z-10">Vyasa</span>
@@ -280,8 +304,9 @@
       <!-- User Menu -->
       <div class="relative" id="userMenuContainer">
         <button onclick="document.getElementById('userDropdown').classList.toggle('hidden')"
-                class="flex items-center gap-2 group">
-          <div class="w-8 h-8 rounded-full bg-divine-gold/20 border border-divine-gold/40 flex items-center justify-center text-divine-gold text-sm font-semibold">
+          class="flex items-center gap-2 group">
+          <div
+            class="w-8 h-8 rounded-full bg-divine-gold/20 border border-divine-gold/40 flex items-center justify-center text-divine-gold text-sm font-semibold">
             {{ user.username|slice:":1"|upper }}
           </div>
           <span class="hidden sm:block text-sm text-divine-muted group-hover:text-divine-text transition-colors">
@@ -291,39 +316,39 @@
 
         <!-- Dropdown -->
         <div id="userDropdown"
-             class="hidden absolute right-0 top-full mt-2 w-44 bg-divine-card border border-divine-border rounded-xl shadow-2xl overflow-hidden z-50">
+          class="hidden absolute right-0 top-full mt-2 w-44 bg-divine-card border border-divine-border rounded-xl shadow-2xl overflow-hidden z-50">
           <a href="{% url 'users:profile' %}"
-             class="flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors">
+            class="flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             Profile
           </a>
           <a href="{% url 'users:settings' %}"
-             class="flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors">
+            class="flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             Settings
           </a>
           <button onclick="openBugReportModal()"
-                  class="w-full flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
+            class="w-full flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             Report Bug
           </button>
           <div class="border-t border-divine-border"></div>
-          <a href="{% url 'users:logout' %}"
-             onclick="sdhSignOut(event)"
-             class="flex items-center gap-2 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:bg-divine-surface transition-colors">
+          <a href="{% url 'users:logout' %}" onclick="sdhSignOut(event)"
+            class="flex items-center gap-2 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 hover:bg-divine-surface transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
             Sign Out
           </a>
@@ -373,16 +398,24 @@
 
   {% if user.is_authenticated %}
   <!-- Chatbot Widget -->
-  <div id="sdhBotPanel" class="sdh-bot-panel" role="dialog" aria-modal="false" aria-labelledby="sdhBotTitle" aria-hidden="true">
-    <div class="sdh-bot-card relative overflow-hidden backdrop-blur-xl bg-divine-surface/80 border border-divine-gold/30 rounded-2xl shadow-[0_0_40px_rgba(168,85,247,0.15)] flex flex-col h-full">
+  <div id="sdhBotPanel" class="sdh-bot-panel" role="dialog" aria-modal="false" aria-labelledby="sdhBotTitle"
+    aria-hidden="true">
+    <div
+      class="sdh-bot-card relative overflow-hidden backdrop-blur-xl bg-divine-surface/80 border border-divine-gold/30 rounded-2xl shadow-[0_0_40px_rgba(168,85,247,0.15)] flex flex-col h-full">
       <!-- Ambient Glows -->
-      <div class="absolute -top-20 -left-20 w-40 h-40 bg-divine-gold/20 blur-3xl rounded-full pointer-events-none"></div>
-      <div class="absolute -bottom-20 -right-20 w-40 h-40 bg-divine-amber/20 blur-3xl rounded-full pointer-events-none"></div>
-      
-      <div class="sdh-bot-header relative z-10 border-b border-divine-gold/20 bg-divine-card/50 backdrop-blur-md px-4 py-3 flex justify-between items-center">
+      <div class="absolute -top-20 -left-20 w-40 h-40 bg-divine-gold/20 blur-3xl rounded-full pointer-events-none">
+      </div>
+      <div class="absolute -bottom-20 -right-20 w-40 h-40 bg-divine-amber/20 blur-3xl rounded-full pointer-events-none">
+      </div>
+
+      <div
+        class="sdh-bot-header relative z-10 border-b border-divine-gold/20 bg-divine-card/50 backdrop-blur-md px-4 py-3 flex justify-between items-center">
         <div class="sdh-bot-brand flex items-center gap-3">
-          <span class="sdh-bot-mark w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-divine-gold to-divine-amber shadow-[inset_0_0_10px_rgba(255,255,255,0.2)] text-white" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+          <span
+            class="sdh-bot-mark w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-divine-gold to-divine-amber shadow-[inset_0_0_10px_rgba(255,255,255,0.2)] text-white"
+            aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" class="w-5 h-5">
               <path d="M12 8V4H8" />
               <rect width="16" height="12" x="4" y="8" rx="2" />
               <path d="M2 14h2" />
@@ -392,20 +425,28 @@
             </svg>
           </span>
           <div>
-            <div id="sdhBotTitle" class="sdh-bot-title text-sm font-bold tracking-wide text-divine-text drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">Vyasa AI</div>
-            <div class="sdh-bot-subtitle text-[10px] text-divine-gold/80 uppercase tracking-widest">Intelligent Assistant</div>
+            <div id="sdhBotTitle"
+              class="sdh-bot-title text-sm font-bold tracking-wide text-divine-text drop-shadow-[0_0_5px_rgba(168,85,247,0.5)]">
+              Vyasa AI</div>
+            <div class="sdh-bot-subtitle text-[10px] text-divine-gold/80 uppercase tracking-widest">Intelligent
+              Assistant</div>
           </div>
         </div>
         <div class="sdh-bot-actions flex gap-2">
-          <button id="sdhAutoWishBtn" onclick="openAutoWishModal()" class="sdh-liquid-btn btn-secondary !p-2 !rounded-lg" type="button" title="Auto-Wish Settings" aria-label="Auto-Wish Settings">
+          <button id="sdhAutoWishBtn" onclick="openAutoWishModal()"
+            class="sdh-liquid-btn btn-secondary !p-2 !rounded-lg" type="button" title="Auto-Wish Settings"
+            aria-label="Auto-Wish Settings">
             <span class="relative z-10 text-lg leading-none">🎉</span>
           </button>
-          <button id="sdhBotClear" class="sdh-liquid-btn btn-secondary !p-2 !rounded-lg" type="button" title="Clear chat" aria-label="Clear chat">
+          <button id="sdhBotClear" class="sdh-liquid-btn btn-secondary !p-2 !rounded-lg" type="button"
+            title="Clear chat" aria-label="Clear chat">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4 relative z-10">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M9 6V4h6v2m-1 3v9m-4-9v9" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 6h16M9 6V4h6v2m-1 3v9m-4-9v9" />
             </svg>
           </button>
-          <button id="sdhBotClose" class="sdh-liquid-btn btn-danger !p-2 !rounded-lg" type="button" title="Close" aria-label="Close chatbot">
+          <button id="sdhBotClose" class="sdh-liquid-btn btn-danger !p-2 !rounded-lg" type="button" title="Close"
+            aria-label="Close chatbot">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4 relative z-10">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6l-12 12" />
             </svg>
@@ -413,16 +454,24 @@
         </div>
       </div>
 
-      <div id="sdhBotMessages" class="sdh-bot-messages flex-1 overflow-y-auto p-4 space-y-3 relative z-10" aria-live="polite"></div>
+      <div id="sdhBotMessages" class="sdh-bot-messages flex-1 overflow-y-auto p-4 space-y-3 relative z-10"
+        aria-live="polite"></div>
 
 
 
-      <div class="sdh-bot-input p-4 border-t border-divine-gold/20 bg-divine-card/50 backdrop-blur-md flex items-end gap-2 relative z-10">
-        <textarea id="sdhBotInput" rows="1" class="flex-1 bg-divine-surface/80 border border-divine-gold/30 rounded-xl px-4 py-3 text-sm text-divine-text placeholder-divine-muted focus:outline-none focus:border-divine-gold focus:ring-1 focus:ring-divine-gold resize-none" style="min-height:44px; max-height:120px;" placeholder="Ask Vyasa anything..." aria-label="Chatbot message"></textarea>
-        <button id="sdhBotSend" class="sdh-liquid-btn btn-ancient !py-3 !px-5 !rounded-xl flex-shrink-0" type="button"><span class="relative z-10 font-bold">Send</span></button>
+      <div
+        class="sdh-bot-input p-4 border-t border-divine-gold/20 bg-divine-card/50 backdrop-blur-md flex items-end gap-2 relative z-10">
+        <textarea id="sdhBotInput" rows="1"
+          class="flex-1 bg-divine-surface/80 border border-divine-gold/30 rounded-xl px-4 py-3 text-sm text-divine-text placeholder-divine-muted focus:outline-none focus:border-divine-gold focus:ring-1 focus:ring-divine-gold resize-none"
+          style="min-height:44px; max-height:120px;" placeholder="Ask Vyasa anything..."
+          aria-label="Chatbot message"></textarea>
+        <button id="sdhBotSend" class="sdh-liquid-btn btn-ancient !py-3 !px-5 !rounded-xl flex-shrink-0"
+          type="button"><span class="relative z-10 font-bold">Send</span></button>
       </div>
 
-      <div class="sdh-bot-footer px-4 py-2 text-[10px] text-center text-divine-muted/70 bg-divine-card/50 relative z-10">Tip: Use Shift+Enter for a new line. Vyasa is ready to assist.</div>
+      <div
+        class="sdh-bot-footer px-4 py-2 text-[10px] text-center text-divine-muted/70 bg-divine-card/50 relative z-10">
+        Tip: Use Shift+Enter for a new line. Vyasa is ready to assist.</div>
     </div>
   </div>
 
@@ -430,7 +479,7 @@
 
   <!-- ── Global JS ──────────────────────────────────────────── -->
   <script>
-    SDH.toggleTheme = function(event) {
+    SDH.toggleTheme = function (event) {
       const current = localStorage.getItem(SDH.THEME_KEY) || 'light';
       const nextTheme = current === 'dark' ? 'light' : 'dark';
 
@@ -472,13 +521,13 @@
     };
 
     // Update theme icons if they exist now that DOM is loaded
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       const saved = localStorage.getItem(SDH.THEME_KEY) || 'light';
       SDH.updateThemeIcons(saved);
     });
 
     // Close dropdown on outside click
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
       const container = document.getElementById('userMenuContainer');
       const dropdown = document.getElementById('userDropdown');
       if (container && dropdown && !container.contains(e.target)) {
@@ -489,13 +538,9 @@
 
   {% if CLERK_PUBLISHABLE_KEY %}
   <!-- Clerk JS SDK -->
-  <script
-    async
-    crossorigin="anonymous"
-    data-clerk-publishable-key="{{ CLERK_PUBLISHABLE_KEY }}"
-    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-    type="text/javascript">
-  </script>
+  <script async crossorigin="anonymous" data-clerk-publishable-key="{{ CLERK_PUBLISHABLE_KEY }}"
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js" type="text/javascript">
+    </script>
   {% endif %}
 
   <!-- Global Sandesh Clean Sign-Out Handler -->
@@ -508,7 +553,7 @@
       try {
         sessionStorage.clear();
         localStorage.removeItem('clerk_signing_in');
-      } catch (e) {}
+      } catch (e) { }
 
       let navigated = false;
       const navigateToLogout = () => {
@@ -559,10 +604,10 @@
   <!-- ── Global Cursor Trail Animation ── -->
   <canvas id="globalCursorTrail" class="fixed inset-0 pointer-events-none z-[40]"></canvas>
   <script>
-    (function() {
+    (function () {
       const canvas = document.getElementById('globalCursorTrail');
       const ctx = canvas.getContext('2d');
-      
+
       let width, height;
       let particles = [];
       let mouse = { x: -1000, y: -1000, moved: false };
@@ -605,17 +650,17 @@
           const speed = Math.random() * 2.5 + 0.5;
           this.vx = Math.cos(angle) * speed;
           this.vy = Math.sin(angle) * speed;
-          this.radius = Math.random() * 4 + 2; 
+          this.radius = Math.random() * 4 + 2;
           this.color = colors[Math.floor(Math.random() * colors.length)];
-          this.life = 1.0; 
-          this.decay = Math.random() * 0.03 + 0.015; 
+          this.life = 1.0;
+          this.decay = Math.random() * 0.03 + 0.015;
         }
 
         update() {
           this.x += this.vx;
           this.y += this.vy;
           this.life -= this.decay;
-          this.radius *= 0.95; 
+          this.radius *= 0.95;
         }
 
         draw(ctx) {
@@ -659,10 +704,17 @@
   </script>
 
   <!-- ── Auto-Wish Modal ─────────────────────────────────────── -->
-  <div id="autoWishModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300" role="dialog" aria-modal="true" onclick="if(event.target===this)closeAutoWishModal()">
-    <div class="relative bg-divine-card border border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 sm:p-8 transform scale-95 transition-transform duration-300" id="autoWishModalContent">
-      <button onclick="closeAutoWishModal()" class="absolute top-4 right-4 text-divine-muted hover:text-divine-text transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+  <div id="autoWishModal"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300"
+    role="dialog" aria-modal="true" onclick="if(event.target===this)closeAutoWishModal()">
+    <div
+      class="relative bg-divine-card border border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 sm:p-8 transform scale-95 transition-transform duration-300"
+      id="autoWishModalContent">
+      <button onclick="closeAutoWishModal()"
+        class="absolute top-4 right-4 text-divine-muted hover:text-divine-text transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
       </button>
 
       <h3 class="text-xl font-bold text-divine-text mb-2">🎉 Auto-Wish Settings</h3>
@@ -670,8 +722,11 @@
 
       <!-- Tabs -->
       <div class="flex border-b border-divine-border mb-6">
-        <button id="awTabAddBtn" onclick="switchAWTab('add')" class="w-1/2 py-2 text-sm font-medium border-b-2 border-divine-gold text-divine-gold transition-colors">Add New</button>
-        <button id="awTabListBtn" onclick="switchAWTab('list')" class="w-1/2 py-2 text-sm font-medium border-b-2 border-transparent text-divine-muted hover:text-divine-text transition-colors">Scheduled</button>
+        <button id="awTabAddBtn" onclick="switchAWTab('add')"
+          class="w-1/2 py-2 text-sm font-medium border-b-2 border-divine-gold text-divine-gold transition-colors">Add
+          New</button>
+        <button id="awTabListBtn" onclick="switchAWTab('list')"
+          class="w-1/2 py-2 text-sm font-medium border-b-2 border-transparent text-divine-muted hover:text-divine-text transition-colors">Scheduled</button>
       </div>
 
       <!-- Add Section -->
@@ -680,14 +735,16 @@
           {% csrf_token %}
           <div class="mb-4">
             <label class="block text-sm font-medium text-divine-muted mb-2">Target Friend</label>
-            <select id="awTargetFriend" required class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+            <select id="awTargetFriend" required
+              class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
               <option value="" disabled selected>Loading friends...</option>
             </select>
           </div>
 
           <div class="mb-4">
             <label class="block text-sm font-medium text-divine-muted mb-2">Event Type</label>
-            <select id="awEventType" required onchange="toggleCustomEventInput()" class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+            <select id="awEventType" required onchange="toggleCustomEventInput()"
+              class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
               <option value="birthday">Birthday</option>
               <option value="anniversary">Anniversary</option>
               <option value="custom">Custom</option>
@@ -696,17 +753,20 @@
 
           <div class="mb-4 hidden" id="awCustomEventContainer">
             <label class="block text-sm font-medium text-divine-muted mb-2">Custom Event Name</label>
-            <input type="text" id="awCustomEventName" placeholder="e.g. Graduation, Promotion" class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+            <input type="text" id="awCustomEventName" placeholder="e.g. Graduation, Promotion"
+              class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
           </div>
 
           <div class="mb-4">
             <label class="block text-sm font-medium text-divine-muted mb-2">Event Date</label>
-            <input type="date" id="awEventDate" required class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+            <input type="date" id="awEventDate" required
+              class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
           </div>
 
           <div class="mb-6">
             <label class="block text-sm font-medium text-divine-muted mb-2">Language Preference</label>
-            <select id="awLanguage" required onchange="updateAWEmojiPreview()" class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
+            <select id="awLanguage" required onchange="updateAWEmojiPreview()"
+              class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors">
               <option value="english">English</option>
               <option value="hinglish">Hinglish</option>
             </select>
@@ -730,14 +790,18 @@
       <!-- Preview Section -->
       <div id="awPreviewSection" class="hidden">
         <h4 class="text-md font-bold text-divine-text mb-2">Review & Edit Wish</h4>
-        <p class="text-xs text-divine-muted mb-4">Edit the generated message below before approving it. This is exactly what will be sent.</p>
-        <textarea id="awPreviewText" class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors h-32 mb-4" required></textarea>
+        <p class="text-xs text-divine-muted mb-4">Edit the generated message below before approving it. This is exactly
+          what will be sent.</p>
+        <textarea id="awPreviewText"
+          class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors h-32 mb-4"
+          required></textarea>
         <input type="hidden" id="awPreviewEventId">
         <p class="text-xs text-red-400 mt-2 hidden" id="awPreviewError"></p>
         <button onclick="approveAutoWish()" id="awApproveBtn" class="w-full sdh-liquid-btn btn-ancient mb-3">
           <span>Approve & Schedule</span>
         </button>
-        <button onclick="switchAWTab('list')" class="w-full py-2 text-sm text-divine-muted hover:text-divine-text transition-colors text-center">
+        <button onclick="switchAWTab('list')"
+          class="w-full py-2 text-sm text-divine-muted hover:text-divine-text transition-colors text-center">
           Cancel & See List
         </button>
       </div>
@@ -787,7 +851,7 @@
           }
           let html = '';
           data.events.forEach(e => {
-            const statusBadge = e.is_approved 
+            const statusBadge = e.is_approved
               ? '<span class="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">Approved</span>'
               : '<span class="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-400">Needs Approval</span>';
             const evtName = e.event_type === 'custom' ? e.custom_event_name : e.event_type;
@@ -920,7 +984,7 @@
       const modal = document.getElementById('autoWishModal');
       const content = document.getElementById('autoWishModalContent');
       const targetFriendSelect = document.getElementById('awTargetFriend');
-      
+
       modal.classList.remove('hidden');
       void modal.offsetWidth;
       modal.classList.remove('opacity-0');
@@ -990,9 +1054,9 @@
             target_username: document.getElementById('awTargetFriend').value
           })
         });
-        
+
         const data = await resp.json();
-        
+
         if (resp.ok) {
           document.getElementById('autoWishForm').reset();
           updateAWEmojiPreview();
@@ -1013,24 +1077,35 @@
   </script>
 
   <!-- ── Bug Report Modal ─────────────────────────────────────── -->
-  <div id="bugReportModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300" role="dialog" aria-modal="true" onclick="if(event.target===this)closeBugReportModal()">
-    <div class="relative bg-divine-card border border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 sm:p-8 transform scale-95 transition-transform duration-300" id="bugReportModalContent">
-      <button onclick="closeBugReportModal()" class="absolute top-4 right-4 text-divine-muted hover:text-divine-text transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+  <div id="bugReportModal"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300"
+    role="dialog" aria-modal="true" onclick="if(event.target===this)closeBugReportModal()">
+    <div
+      class="relative bg-divine-card border border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 sm:p-8 transform scale-95 transition-transform duration-300"
+      id="bugReportModalContent">
+      <button onclick="closeBugReportModal()"
+        class="absolute top-4 right-4 text-divine-muted hover:text-divine-text transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
       </button>
 
       <h3 class="text-xl font-bold text-divine-text mb-2">Report a Bug</h3>
-      <p class="text-sm text-divine-muted mb-6">Describe the issue you're facing. You can attach up to 5 screenshots (JPEG only) to help us understand.</p>
+      <p class="text-sm text-divine-muted mb-6">Describe the issue you're facing. You can attach up to 5 screenshots
+        (JPEG only) to help us understand.</p>
 
       <form id="bugReportForm" onsubmit="submitBugReport(event)">
         <div class="mb-4">
           <label class="block text-sm font-medium text-divine-muted mb-2">Description</label>
-          <textarea id="bugDescription" required rows="4" class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors resize-none placeholder-divine-muted/50" placeholder="What happened?"></textarea>
+          <textarea id="bugDescription" required rows="4"
+            class="w-full bg-divine-surface border border-divine-border rounded-xl px-4 py-3 text-sm text-divine-text focus:ring-1 focus:ring-divine-gold focus:border-divine-gold transition-colors resize-none placeholder-divine-muted/50"
+            placeholder="What happened?"></textarea>
         </div>
 
         <div class="mb-6">
           <label class="block text-sm font-medium text-divine-muted mb-2">Screenshots (Up to 5 JPEGs)</label>
-          <input type="file" id="bugImages" accept=".jpg,.jpeg" multiple class="block w-full text-sm text-divine-muted file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-divine-surface file:text-divine-gold hover:file:bg-divine-border transition-colors border border-divine-border rounded-xl p-2 bg-divine-card">
+          <input type="file" id="bugImages" accept=".jpg,.jpeg" multiple
+            class="block w-full text-sm text-divine-muted file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-divine-surface file:text-divine-gold hover:file:bg-divine-border transition-colors border border-divine-border rounded-xl p-2 bg-divine-card">
           <p class="text-xs text-red-400 mt-2 hidden" id="bugReportError"></p>
         </div>
 
@@ -1107,9 +1182,9 @@
           },
           body: formData
         });
-        
+
         const data = await resp.json();
-        
+
         if (resp.ok) {
           alert('Bug report submitted successfully! Thank you.');
           closeBugReportModal();
@@ -1127,15 +1202,15 @@
     }
 
     // ── Progressive Web App (PWA) Manager ────────────────────────
-    (function() {
+    (function () {
       // 1. Register Service Worker
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
+        window.addEventListener('load', function () {
           navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then(function(reg) {
+            .then(function (reg) {
               console.log('[Sandesh PWA] Service Worker registered (scope: ' + reg.scope + ')');
             })
-            .catch(function(err) {
+            .catch(function (err) {
               console.warn('[Sandesh PWA] Service Worker registration failed:', err);
             });
         });
@@ -1148,7 +1223,7 @@
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
       function updateInstallButtons(show) {
-        document.querySelectorAll('.pwa-install-trigger, #pwaLandingInstallBtn, #pwaNavInstallBtn').forEach(function(btn) {
+        document.querySelectorAll('.pwa-install-trigger, #pwaLandingInstallBtn, #pwaNavInstallBtn').forEach(function (btn) {
           if (show) {
             btn.classList.remove('hidden');
             btn.classList.add('inline-flex');
@@ -1164,7 +1239,7 @@
         updateInstallButtons(true);
       }
 
-      window.addEventListener('beforeinstallprompt', function(e) {
+      window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();
         SDH.deferredPWAEvent = e;
 
@@ -1173,7 +1248,7 @@
 
         // Show floating banner if not previously dismissed in this session and not standalone
         if (!isStandalone && !sessionStorage.getItem('sandesh_pwa_dismissed')) {
-          setTimeout(function() {
+          setTimeout(function () {
             const banner = document.getElementById('pwaInstallBanner');
             if (banner) {
               banner.classList.remove('hidden');
@@ -1186,7 +1261,7 @@
       // iOS Safari detection
       if (isIOS && !isStandalone && !sessionStorage.getItem('sandesh_pwa_dismissed')) {
         updateInstallButtons(true);
-        setTimeout(function() {
+        setTimeout(function () {
           const banner = document.getElementById('pwaInstallBanner');
           if (banner) {
             banner.classList.remove('hidden');
@@ -1195,10 +1270,10 @@
         }, 3000);
       }
 
-      SDH.promptPWAInstall = function() {
+      SDH.promptPWAInstall = function () {
         if (SDH.deferredPWAEvent) {
           SDH.deferredPWAEvent.prompt();
-          SDH.deferredPWAEvent.userChoice.then(function(choice) {
+          SDH.deferredPWAEvent.userChoice.then(function (choice) {
             if (choice.outcome === 'accepted') {
               SDH.dismissPWABanner(false);
             }
@@ -1212,7 +1287,7 @@
         }
       };
 
-      SDH.dismissPWABanner = function(recordDismissal = true) {
+      SDH.dismissPWABanner = function (recordDismissal = true) {
         const banner = document.getElementById('pwaInstallBanner');
         if (banner) {
           banner.classList.add('hidden');
@@ -1221,16 +1296,16 @@
         if (recordDismissal) {
           try {
             sessionStorage.setItem('sandesh_pwa_dismissed', '1');
-          } catch(e) {}
+          } catch (e) { }
         }
       };
 
-      SDH.closeIosModal = function() {
+      SDH.closeIosModal = function () {
         const iosModal = document.getElementById('pwaIosModal');
         if (iosModal) iosModal.classList.add('hidden');
       };
 
-      window.addEventListener('appinstalled', function() {
+      window.addEventListener('appinstalled', function () {
         console.log('[Sandesh PWA] App installed successfully');
         SDH.dismissPWABanner(true);
         updateInstallButtons(false);
@@ -1240,55 +1315,70 @@
 
   <!-- ── Floating PWA Install Banner ──────────────────────────── -->
   <aside id="pwaInstallBanner" aria-label="Install Sandesh App"
-       class="hidden fixed bottom-5 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-50 items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/95 dark:bg-[#121220]/95 border border-purple-500/30 shadow-[0_15px_40px_rgba(147,51,234,0.25)] backdrop-blur-xl transition-all duration-300 animate-slide-in">
+    class="hidden fixed bottom-5 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-50 items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/95 dark:bg-[#121220]/95 border border-purple-500/30 shadow-[0_15px_40px_rgba(147,51,234,0.25)] backdrop-blur-xl transition-all duration-300 animate-slide-in">
     <div class="flex items-center gap-3 min-w-0">
-      <img src="{% static 'icons/icon-192x192.png' %}?v=ancient" alt="Sandesh Icon" class="w-11 h-11 rounded-xl shadow-md flex-shrink-0 object-cover border border-purple-500/20" />
+      <img src="{% static 'icons/icon-192x192.png' %}?v=ancient" alt="Sandesh Icon"
+        class="w-11 h-11 rounded-xl shadow-md flex-shrink-0 object-cover border border-purple-500/20" />
       <div class="min-w-0">
         <h4 class="text-sm font-semibold text-slate-900 dark:text-white truncate">Install Sandesh</h4>
         <p class="text-xs text-slate-500 dark:text-zinc-400 truncate">Fullscreen & fast native app</p>
       </div>
     </div>
     <div class="flex items-center gap-1.5 flex-shrink-0">
-      <button onclick="SDH.promptPWAInstall()" 
-              class="sdh-liquid-btn btn-ancient !py-1.5 !px-3 text-xs font-semibold rounded-lg shadow-sm">
+      <button onclick="SDH.promptPWAInstall()"
+        class="sdh-liquid-btn btn-ancient !py-1.5 !px-3 text-xs font-semibold rounded-lg shadow-sm">
         <span>Install</span>
       </button>
-      <button onclick="SDH.dismissPWABanner(true)" 
-              class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors"
-              title="Dismiss">
+      <button onclick="SDH.dismissPWABanner(true)"
+        class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors"
+        title="Dismiss">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
   </aside>
 
   <!-- ── iOS Safari Install Instructions Modal ──────────────────── -->
-  <div id="pwaIosModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-    <div class="w-full max-w-sm bg-white dark:bg-[#121220] border border-purple-500/30 rounded-3xl p-6 shadow-2xl text-center">
-      <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+  <div id="pwaIosModal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div
+      class="w-full max-w-sm bg-white dark:bg-[#121220] border border-purple-500/30 rounded-3xl p-6 shadow-2xl text-center">
+      <div
+        class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
         <img src="{% static 'icons/icon-192x192.png' %}?v=ancient" alt="Sandesh" class="w-10 h-10 rounded-xl" />
       </div>
       <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Install Sandesh on iOS</h3>
       <p class="text-xs text-slate-600 dark:text-zinc-300 mb-5 leading-relaxed">
         Install Sandesh on your iPhone or iPad for the full native app experience:
       </p>
-      <div class="text-left space-y-3 bg-purple-500/5 dark:bg-purple-950/20 p-3.5 rounded-2xl border border-purple-500/15 mb-6 text-xs text-slate-700 dark:text-zinc-200">
+      <div
+        class="text-left space-y-3 bg-purple-500/5 dark:bg-purple-950/20 p-3.5 rounded-2xl border border-purple-500/15 mb-6 text-xs text-slate-700 dark:text-zinc-200">
         <div class="flex items-center gap-3">
-          <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">1</span>
-          <span>Tap the <strong>Share</strong> button ( <svg class="inline w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg> or <svg class="inline w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg> ) in Safari toolbar.</span>
+          <span
+            class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">1</span>
+          <span>Tap the <strong>Share</strong> button ( <svg class="inline w-4 h-4 text-blue-500" fill="none"
+              stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg> or <svg class="inline w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg> ) in Safari toolbar.</span>
         </div>
         <div class="flex items-center gap-3">
-          <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">2</span>
+          <span
+            class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">2</span>
           <span>Scroll down and select <strong>"Add to Home Screen"</strong> ➕.</span>
         </div>
         <div class="flex items-center gap-3">
-          <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">3</span>
+          <span
+            class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-300 font-bold flex items-center justify-center flex-shrink-0">3</span>
           <span>Tap <strong>Add</strong> in the top right corner.</span>
         </div>
       </div>
-      <button onclick="SDH.closeIosModal()" 
-              class="sdh-liquid-btn btn-ancient w-full py-2.5 rounded-xl font-semibold text-xs shadow-md">
+      <button onclick="SDH.closeIosModal()"
+        class="sdh-liquid-btn btn-ancient w-full py-2.5 rounded-xl font-semibold text-xs shadow-md">
         <span>Got it</span>
       </button>
     </div>
@@ -1296,7 +1386,7 @@
   {% if user.is_authenticated %}
   <script src="{% static 'js/websocket.js' %}?v=2.0"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       var p = window.location.pathname;
       if (!p.startsWith('/chat/') && !p.startsWith('/call/') && !p.startsWith('/webrtc/')) {
         if (window.SDH && window.SDH.WS) {
@@ -1307,4 +1397,5 @@
   </script>
   {% endif %}
 </body>
+
 </html>

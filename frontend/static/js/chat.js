@@ -3393,11 +3393,11 @@ SDH.Chat = (() => {
             <!-- Action Buttons: Deny & Allow -->
             <div class="flex items-center gap-3 mt-6">
               <button type="button" onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'decline')"
-                class="flex-1 sdh-btn-liquid-reject !py-2.5 !text-sm">
+                class="flex-1 py-2.5 px-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-semibold text-sm transition-all focus:outline-none focus:ring-2 focus:ring-red-500/30 active:scale-[0.98]">
                 Deny
               </button>
               <button type="button" onclick="SDH.Chat.respondGroupInvite(${invite.invite_id}, 'accept')"
-                class="flex-1 sdh-btn-liquid-accept !py-2.5 !text-sm">
+                class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500/50 active:scale-[0.98]">
                 Allow
               </button>
             </div>
@@ -3469,18 +3469,31 @@ SDH.Chat = (() => {
 
       if (list) {
         list.innerHTML = incoming.map(fr => `
-            <div class="flex items-center gap-2 py-1.5" data-fr-id="${fr.id}">
-              <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold select-none"
-                style="background:rgba(139,92,246,0.15);color:rgba(139,92,246,0.9);">
+            <div class="flex items-center gap-2 py-2 px-2 rounded-xl transition-all duration-200 hover:bg-white/[0.04] border border-white/[0.05] bg-white/[0.02]" data-fr-id="${fr.id}">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold select-none shadow-inner flex-shrink-0"
+                style="background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(129,140,248,0.2)); color: #c084fc; border: 1px solid rgba(168,85,247,0.3);">
                 ${escapeHtml((fr.username || '?')[0].toUpperCase())}
               </div>
-              <span class="text-xs font-medium flex-1 truncate" style="color:var(--c-text)">${escapeHtml(fr.username)}</span>
-              <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'accept')" class="sdh-btn-liquid-accept">
-                Accept
-              </button>
-              <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'reject')" class="sdh-btn-liquid-reject">
-                Reject
-              </button>
+              <div class="flex flex-col min-w-0 flex-1 mr-1">
+                <span class="text-xs font-semibold truncate leading-tight" style="color:var(--c-text)">${escapeHtml(fr.username)}</span>
+                <span class="text-[10px] text-divine-muted leading-tight mt-0.5 truncate whitespace-nowrap">wants to connect</span>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'accept', this)"
+                  class="sdh-liquid-action-btn btn-liquid-accept" aria-label="Accept friend request">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  <span>Accept</span>
+                </button>
+                <button onclick="SDH.Chat.respondFriendRequest(${fr.id}, 'reject', this)"
+                  class="sdh-liquid-action-btn btn-liquid-reject" aria-label="Reject friend request">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                  <span>Reject</span>
+                </button>
+              </div>
             </div>
           `).join('');
       }
@@ -3528,7 +3541,17 @@ SDH.Chat = (() => {
     }
   }
 
-  async function respondFriendRequest(requestId, action) {
+  async function respondFriendRequest(requestId, action, btnElement) {
+    const frEl = document.querySelector(`[data-fr-id="${requestId}"]`);
+    if (frEl) {
+      const buttons = frEl.querySelectorAll('button');
+      buttons.forEach(b => {
+        b.disabled = true;
+        b.style.pointerEvents = 'none';
+        b.style.opacity = '0.5';
+      });
+    }
+
     try {
       const res = await fetch(window.SDH_DATA.respondFriendRequestUrl || '/users/api/respond-friend-request/', {
         method: 'POST',
@@ -3541,17 +3564,22 @@ SDH.Chat = (() => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || res.statusText);
 
-      // Remove the request from the UI
-      const frEl = document.querySelector(`[data-fr-id="${requestId}"]`);
-      if (frEl) frEl.remove();
-
-      // Hide panel if no more requests
-      const remaining = document.querySelectorAll('#friendRequestsList [data-fr-id]');
-      if (remaining.length === 0) {
-        document.getElementById('friendRequestsPanel')?.classList.add('hidden');
-      } else {
-        const badge = document.getElementById('frCountBadge');
-        if (badge) badge.textContent = String(remaining.length);
+      // Smooth liquid dissolve out animation
+      if (frEl) {
+        frEl.style.transition = 'all 0.28s cubic-bezier(0.4, 0, 0.2, 1)';
+        frEl.style.opacity = '0';
+        frEl.style.transform = 'translateX(12px) scale(0.96)';
+        setTimeout(() => {
+          frEl.remove();
+          // Hide panel if no more requests
+          const remaining = document.querySelectorAll('#friendRequestsList [data-fr-id]');
+          if (remaining.length === 0) {
+            document.getElementById('friendRequestsPanel')?.classList.add('hidden');
+          } else {
+            const badge = document.getElementById('frCountBadge');
+            if (badge) badge.textContent = String(remaining.length);
+          }
+        }, 260);
       }
 
       if (action === 'accept') {
@@ -3563,6 +3591,14 @@ SDH.Chat = (() => {
         showToast('Friend request rejected.', 'info');
       }
     } catch (err) {
+      if (frEl) {
+        const buttons = frEl.querySelectorAll('button');
+        buttons.forEach(b => {
+          b.disabled = false;
+          b.style.pointerEvents = '';
+          b.style.opacity = '1';
+        });
+      }
       showToast(err.message || 'Could not respond to request.', 'error');
     }
   }

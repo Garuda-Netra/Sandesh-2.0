@@ -546,6 +546,29 @@ body {
   color: #e4e4e7 !important;
 }
 
+.sdh-liquid-action-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.015em;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  text-decoration: none;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-sizing: border-box;
+}
+
 #authLoadingOverlay .sdh-auth-spinner-outer {
   border-color: rgba(168, 85, 247, 0.25) !important;
 }
@@ -2251,6 +2274,169 @@ body {
 .sdh-call-reject:hover::before {
   filter: drop-shadow(0 0 20px rgba(239, 68, 68, 0.5));
   transform: scaleY(1.08) scaleX(1.05);
+}
+
+/* ─── LIQUID GLASS ACTION BUTTONS (Accept / Reject) ────────────────────────── */
+.sdh-liquid-action-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  text-decoration: none;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-sizing: border-box;
+}
+
+/* Specular curved liquid highlight on top half */
+.sdh-liquid-action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.06) 75%, transparent 100%);
+  border-radius: 9999px 9999px 50% 50% / 9999px 9999px 30% 30%;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 1;
+}
+
+/* Fluid shimmer glow on hover */
+.sdh-liquid-action-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -70%;
+  width: 240%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 65%);
+  opacity: 0;
+  transform: rotate(25deg) translate(-25%, -25%);
+  transition: opacity 0.35s ease, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.sdh-liquid-action-btn:hover::after {
+  opacity: 0.4;
+  transform: rotate(25deg) translate(25%, 25%);
+}
+
+.sdh-liquid-action-btn:hover {
+  transform: translateY(-1.5px) scale(1.05);
+}
+
+.sdh-liquid-action-btn:active {
+  transform: translateY(0.5px) scale(0.95);
+}
+
+.sdh-liquid-action-btn svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+  stroke-width: 2.5;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  z-index: 3;
+}
+
+.sdh-liquid-action-btn:hover svg {
+  transform: scale(1.2);
+}
+
+.sdh-liquid-action-btn span {
+  position: relative;
+  z-index: 3;
+}
+
+/* ── Liquid Accept (Luminous Emerald Glass) ── */
+.sdh-liquid-action-btn.btn-liquid-accept {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(16, 185, 129, 0.95) 100%);
+  border-color: rgba(134, 239, 172, 0.45);
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(6, 78, 59, 0.45);
+  box-shadow: 
+    0 2px 10px -2px rgba(16, 185, 129, 0.5),
+    0 0 0 1px rgba(34, 197, 94, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 2px rgba(6, 78, 59, 0.35);
+}
+
+.sdh-liquid-action-btn.btn-liquid-accept:hover {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(16, 185, 129, 1) 100%);
+  border-color: rgba(187, 247, 208, 0.8);
+  box-shadow: 
+    0 4px 16px 0 rgba(16, 185, 129, 0.7),
+    0 0 18px 2px rgba(34, 197, 94, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 2px rgba(6, 78, 59, 0.35);
+}
+
+/* ── Liquid Reject (Frosted Ruby Glass) ── */
+.sdh-liquid-action-btn.btn-liquid-reject {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.14) 0%, rgba(220, 38, 38, 0.22) 100%);
+  border-color: rgba(248, 113, 113, 0.32);
+  color: #fca5a5 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 2px 8px -2px rgba(239, 68, 68, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 2px rgba(69, 10, 10, 0.2);
+}
+
+.sdh-liquid-action-btn.btn-liquid-reject:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.98) 100%);
+  border-color: rgba(254, 202, 202, 0.7);
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(69, 10, 10, 0.45);
+  box-shadow: 
+    0 4px 16px 0 rgba(239, 68, 68, 0.65),
+    0 0 18px 2px rgba(239, 68, 68, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 2px rgba(69, 10, 10, 0.35);
+}
+
+/* ── Light Theme Adaptations ── */
+[data-theme="light"] .sdh-liquid-action-btn.btn-liquid-accept {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: rgba(16, 185, 129, 0.6);
+  color: #ffffff !important;
+  box-shadow: 
+    0 3px 12px -2px rgba(16, 185, 129, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .sdh-liquid-action-btn.btn-liquid-reject {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.16) 100%);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #dc2626 !important;
+  text-shadow: none;
+  box-shadow: 
+    0 2px 6px -1px rgba(239, 68, 68, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="light"] .sdh-liquid-action-btn.btn-liquid-reject:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: #ef4444;
+  color: #ffffff !important;
+  box-shadow: 
+    0 4px 14px 0 rgba(239, 68, 68, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .sdh-call-end-btn {
@@ -4694,50 +4880,6 @@ input[type="password"]::-webkit-reveal {
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-primary:active {
-  color: #0f172a !important;
-}
-
-/* ─── Confirmation Modals (Clear, Unfriend, Block, etc.) ──────── */
-[data-theme="light"] #clearChatModal,
-[data-theme="light"] #unfriendUserModal,
-[data-theme="light"] #blockUserModal,
-[data-theme="light"] #unblockUserModal,
-[data-theme="light"] #removeUserModal {
-  background: rgba(255, 255, 255, 0.6) !important;
-  backdrop-filter: blur(12px) !important;
-}
-
-[data-theme="light"] #clearChatModal > div,
-[data-theme="light"] #unfriendUserModal > div,
-[data-theme="light"] #blockUserModal > div,
-[data-theme="light"] #unblockUserModal > div,
-[data-theme="light"] #removeUserModal > div {
-  background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12) !important;
-}
-
-/* ─── Liquid Button Light Mode Hover/Active Fixes ─────────────── */
-
-/* Primary button */
-[data-theme="light"] .sdh-liquid-btn.btn-primary {
-  color: #ffffff !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="light"] .sdh-liquid-btn.btn-primary::before {
-  --btn-gradient: linear-gradient(135deg, #f59e0b, #ea580c) !important;
-  --btn-border: rgba(245, 158, 11, 0.5) !important;
-}
-
-[data-theme="light"] .sdh-liquid-btn.btn-primary:hover::before {
-  --btn-glow: rgba(245, 158, 11, 0.3) !important;
-  --btn-glow-border: rgba(245, 158, 11, 0.8) !important;
-  box-shadow: inset 0 0 14px rgba(245, 158, 11, 0.25),
-              0 6px 20px rgba(245, 158, 11, 0.25) !important;
-}
-
-[data-theme="light"] .sdh-liquid-btn.btn-primary:active {
   transform: scale(0.97) !important;
 }
 
@@ -4767,9 +4909,83 @@ input[type="password"]::-webkit-reveal {
 }
 
 [data-theme="light"] .sdh-liquid-btn.btn-secondary:hover span {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-secondary:hover::before {
+  --btn-gradient: rgba(245, 158, 11, 0.1) !important;
+  --btn-glow: rgba(245, 158, 11, 0.15) !important;
+  --btn-glow-border: rgba(245, 158, 11, 0.5) !important;
+  box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1),
+              0 4px 15px rgba(245, 158, 11, 0.1) !important;
 }
 
 /* Danger button */
+[data-theme="light"] .sdh-liquid-btn.btn-danger {
+  color: #dc2626 !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-danger::before {
+  --btn-gradient: rgba(254, 226, 226, 0.9) !important;
+  --btn-border: rgba(239, 68, 68, 0.3) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-danger:hover {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-danger:hover::before {
+  --btn-gradient: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  --btn-glow: rgba(239, 68, 68, 0.35) !important;
+  --btn-glow-border: rgba(239, 68, 68, 0.9) !important;
+  box-shadow: inset 0 0 12px rgba(239, 68, 68, 0.2),
+              0 6px 20px rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Success button */
+[data-theme="light"] .sdh-liquid-btn.btn-success {
+  color: #059669 !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-success::before {
+  --btn-gradient: rgba(220, 252, 231, 0.9) !important;
+  --btn-border: rgba(34, 197, 94, 0.3) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-success:hover {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-success:hover::before {
+  --btn-gradient: linear-gradient(135deg, #22c55e, #16a34a) !important;
+  --btn-glow: rgba(34, 197, 94, 0.3) !important;
+  --btn-glow-border: rgba(34, 197, 94, 0.9) !important;
+}
+
+/* Info button */
+[data-theme="light"] .sdh-liquid-btn.btn-info {
+  color: #0284c7 !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-info::before {
+  --btn-gradient: rgba(224, 242, 254, 0.9) !important;
+  --btn-border: rgba(14, 165, 233, 0.3) !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-info:hover {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .sdh-liquid-btn.btn-info:hover::before {
+  --btn-gradient: linear-gradient(135deg, #0ea5e9, #0284c7) !important;
+  --btn-glow: rgba(14, 165, 233, 0.3) !important;
+  --btn-glow-border: rgba(14, 165, 233, 0.9) !important;
+}
+
+/* Ancient button (warm amber) — keep existing gradient, improve hover feedback */
 [data-theme="light"] .sdh-liquid-btn.btn-ancient:hover::before {
   box-shadow: inset 0 0 14px rgba(245, 158, 11, 0.25),
               0 6px 20px rgba(245, 158, 11, 0.3) !important;
@@ -5170,110 +5386,3 @@ input[type="password"]::-webkit-reveal {
   accent-color: #f59e0b;
 }. i s - s c r o l l i n g   *   {   p o i n t e r - e v e n t s :   n o n e   ! i m p o r t a n t ;   }  
  
-
-/* ─── Apple-Style Liquid Glass Buttons (Accept / Reject) ────── */
-.sdh-btn-liquid-accept,
-.sdh-btn-liquid-reject {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.35rem 0.95rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  border-radius: 9999px;
-  cursor: pointer;
-  outline: none;
-  border: 1px solid transparent;
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  user-select: none;
-  overflow: hidden;
-}
-
-/* Glossy highlight top sheen */
-.sdh-btn-liquid-accept::before,
-.sdh-btn-liquid-reject::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.05) 100%);
-  border-radius: 9999px 9999px 0 0;
-  pointer-events: none;
-}
-
-/* Liquid Accept (Green) */
-.sdh-btn-liquid-accept {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.22) 0%, rgba(16, 185, 129, 0.15) 100%);
-  color: #15803d;
-  border-color: rgba(34, 197, 94, 0.35);
-  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.6), inset 0 -1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.sdh-btn-liquid-accept:hover {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.35) 0%, rgba(16, 185, 129, 0.25) 100%);
-  color: #166534;
-  border-color: rgba(34, 197, 94, 0.55);
-  box-shadow: 0 6px 18px rgba(34, 197, 94, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.8);
-  transform: translateY(-1px) scale(1.04);
-}
-
-.sdh-btn-liquid-accept:active {
-  transform: translateY(0) scale(0.96);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2), inset 0 1px 1px rgba(0, 0, 0, 0.1);
-}
-
-/* Liquid Reject (Red) */
-.sdh-btn-liquid-reject {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(225, 29, 72, 0.14) 100%);
-  color: #b91c1c;
-  border-color: rgba(239, 68, 68, 0.35);
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.6), inset 0 -1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.sdh-btn-liquid-reject:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.32) 0%, rgba(225, 29, 72, 0.22) 100%);
-  color: #991b1b;
-  border-color: rgba(239, 68, 68, 0.55);
-  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.8);
-  transform: translateY(-1px) scale(1.04);
-}
-
-.sdh-btn-liquid-reject:active {
-  transform: translateY(0) scale(0.96);
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2), inset 0 1px 1px rgba(0, 0, 0, 0.1);
-}
-
-/* Dark mode theme overrides for liquid buttons */
-[data-theme="dark"] .sdh-btn-liquid-accept {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.25) 0%, rgba(16, 185, 129, 0.18) 100%);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.4);
-  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.3);
-}
-
-[data-theme="dark"] .sdh-btn-liquid-accept:hover {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.4) 0%, rgba(16, 185, 129, 0.3) 100%);
-  color: #86efac;
-  border-color: rgba(74, 222, 128, 0.65);
-  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.5);
-}
-
-[data-theme="dark"] .sdh-btn-liquid-reject {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(225, 29, 72, 0.18) 100%);
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.4);
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.3);
-}
-
-[data-theme="dark"] .sdh-btn-liquid-reject:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.4) 0%, rgba(225, 29, 72, 0.3) 100%);
-  color: #fca5a5;
-  border-color: rgba(248, 113, 113, 0.65);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.5);
-}
