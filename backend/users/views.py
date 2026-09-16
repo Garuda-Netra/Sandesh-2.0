@@ -1713,14 +1713,20 @@ def storage_usage_api(request):
             if m.file:
                 count += 1
                 try:
-                    total_size += m.file.size
+                    sz = getattr(m, 'file_size', None)
+                    if sz is None:
+                        sz = getattr(m.file, 'size', 0)
+                    total_size += int(sz or 0)
                 except Exception:
                     pass
         for gm in group_msgs.filter(message_type=msg_type).only('file'):
             if gm.file:
                 count += 1
                 try:
-                    total_size += gm.file.size
+                    sz = getattr(gm, 'file_size', None)
+                    if sz is None:
+                        sz = getattr(gm.file, 'size', 0)
+                    total_size += int(sz or 0)
                 except Exception:
                     pass
         return count, total_size

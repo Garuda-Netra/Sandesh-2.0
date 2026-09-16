@@ -3798,13 +3798,21 @@ def chat_media_api(request):
 
             file_size = 0
             try:
-                file_size = msg.file.size
-            except Exception:
-                try:
-                    if hasattr(msg.file, 'path') and os.path.isfile(msg.file.path):
+                if hasattr(msg, 'file_size') and msg.file_size is not None:
+                    file_size = msg.file_size
+                elif msg.file:
+                    sz = getattr(msg.file, 'size', None)
+                    if sz is not None:
+                        file_size = sz
+                    elif hasattr(msg.file, 'path') and os.path.isfile(msg.file.path):
                         file_size = os.path.getsize(msg.file.path)
-                except Exception:
-                    file_size = 0
+            except Exception:
+                file_size = 0
+
+            try:
+                file_size = int(file_size or 0)
+            except Exception:
+                file_size = 0
 
             filename = msg.file_name or msg.original_filename or os.path.basename(msg.file.name)
             mime = (msg.mime_type or '').lower()
@@ -4105,7 +4113,10 @@ def batch_storage_delete(request):
             # Calculate freed bytes
             if msg.file:
                 try:
-                    freed_bytes += msg.file.size
+                    sz = getattr(msg, 'file_size', None)
+                    if sz is None:
+                        sz = getattr(msg.file, 'size', 0)
+                    freed_bytes += int(sz or 0)
                 except Exception:
                     pass
 
@@ -4171,7 +4182,10 @@ def batch_storage_delete(request):
             # Calculate freed bytes
             if msg.file:
                 try:
-                    freed_bytes += msg.file.size
+                    sz = getattr(msg, 'file_size', None)
+                    if sz is None:
+                        sz = getattr(msg.file, 'size', 0)
+                    freed_bytes += int(sz or 0)
                 except Exception:
                     pass
 

@@ -4355,10 +4355,12 @@ SDH.Chat = (() => {
     const membersSectionInit = document.getElementById('upmMembersSection');
     const upmAcceptBtn = document.getElementById('upmAcceptBtn');
     const upmRejectBtn = document.getElementById('upmRejectBtn');
+    const navigationSuite = document.getElementById('upmNavigationSuite');
 
     if (inviteBtnInit) inviteBtnInit.classList.add('hidden');
     if (pendingSection) pendingSection.classList.add('hidden');
     if (membersSectionInit) membersSectionInit.classList.add('hidden');
+    if (navigationSuite) navigationSuite.classList.add('hidden');
     if (messageBtn) messageBtn.classList.remove('hidden');
 
     // Set skeleton / loading states
@@ -4562,6 +4564,8 @@ SDH.Chat = (() => {
         if (messageBtn) messageBtn.classList.add('hidden');
         if (defaultActions) defaultActions.classList.add('hidden');
         if (pendingSection) pendingSection.classList.remove('hidden');
+        // Strictly hide media, storage, and starred messages portal during pending requests
+        if (navigationSuite) navigationSuite.classList.add('hidden');
 
         // Sensitive details remain strictly hidden
         emailEl.textContent = '🔒 Hidden until connected';
@@ -4585,7 +4589,40 @@ SDH.Chat = (() => {
             upmAcceptBtn.disabled = true;
             if (upmRejectBtn) upmRejectBtn.disabled = true;
             await respondFriendRequest(reqId, 'accept', upmAcceptBtn);
-            modal.classList.add('hidden');
+
+            // Dynamic instant transition to accepted state:
+            // 1. Reveal navigation suite portal now that request is accepted!
+            if (navigationSuite) navigationSuite.classList.remove('hidden');
+            if (pendingSection) pendingSection.classList.add('hidden');
+            if (defaultActions) defaultActions.classList.remove('hidden');
+            if (messageBtn) {
+              messageBtn.classList.remove('hidden');
+              messageBtn.onclick = () => {
+                modal.classList.add('hidden');
+                selectUser(data.username, userId);
+              };
+            }
+
+            // 2. Restore bio and contact visibility
+            bioEl.textContent = data.bio || 'No biography provided.';
+            bioEl.classList.remove('text-divine-muted');
+            bioEl.classList.add('text-divine-text');
+            emailEl.textContent = data.email || 'No email shared';
+            phoneEl.textContent = data.phone_number || 'Not specified';
+            lastSeenEl.textContent = data.is_online ? 'Active now' : (data.last_seen ? 'Last seen ' + _relativeTime(data.last_seen) : 'Offline');
+
+            if (pill) {
+              pill.className = data.is_online
+                ? 'sdh-profile-status-pill flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
+                : 'sdh-profile-status-pill flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20';
+            }
+            if (pillDot) {
+              pillDot.className = data.is_online ? 'w-2 h-2 rounded-full bg-emerald-500 sdh-pulse-dot' : 'w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500';
+            }
+
+            // 3. Load media & starred for the newly confirmed friend
+            loadProfileMedia(data.username, null);
+            loadStarredMessages(data.username, null);
           };
         }
 
@@ -4600,12 +4637,15 @@ SDH.Chat = (() => {
           };
         }
       } else {
-        if (defaultActions) defaultActions.classList.remove('hidden');
         if (pendingSection) pendingSection.classList.add('hidden');
-        if (messageBtn) {
-          if (isNotFriend) {
-            messageBtn.classList.add('hidden');
-          } else {
+        if (isNotFriend) {
+          if (defaultActions) defaultActions.classList.add('hidden');
+          if (messageBtn) messageBtn.classList.add('hidden');
+          if (navigationSuite) navigationSuite.classList.add('hidden');
+        } else {
+          if (defaultActions) defaultActions.classList.remove('hidden');
+          if (navigationSuite) navigationSuite.classList.remove('hidden');
+          if (messageBtn) {
             messageBtn.classList.remove('hidden');
             messageBtn.onclick = () => {
               modal.classList.add('hidden');
@@ -4615,11 +4655,13 @@ SDH.Chat = (() => {
         }
       }
 
-      // Populate All Files & Media and Starred Messages
-      const mediaUser = isGroup ? null : username;
-      const mediaGroup = isGroup ? (username.startsWith('group_') ? username.replace('group_', '') : null) : null;
-      loadProfileMedia(mediaUser, mediaGroup);
-      loadStarredMessages(mediaUser, mediaGroup);
+      // Populate All Files & Media and Starred Messages only if confirmed friend, group, or self
+      if (!isPendingRequest && (!isNotFriend || isGroup || isMe)) {
+        const mediaUser = isGroup ? null : username;
+        const mediaGroup = isGroup ? (username.startsWith('group_') ? username.replace('group_', '') : null) : null;
+        loadProfileMedia(mediaUser, mediaGroup);
+        loadStarredMessages(mediaUser, mediaGroup);
+      }
 
     } catch (err) {
       console.error('[Chat] showUserProfile error:', err);
