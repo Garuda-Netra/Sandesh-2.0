@@ -488,9 +488,6 @@
       await getGroupKey(gid);
     }
   }
-      await getGroupKey(gid);
-    }
-  }
 
   /**
    * Encrypts a text message for a group chat.
