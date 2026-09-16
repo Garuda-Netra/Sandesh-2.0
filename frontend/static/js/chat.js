@@ -19,11 +19,380 @@
 
 window.SDH = window.SDH || {};
 
+// ════════════════════════════════════════════════════════════════
+//  SDH.Mentions - Interactive @ Mention Autocomplete System
+// ════════════════════════════════════════════════════════════════
+SDH.Mentions = (function() {
+  function _esc(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getCandidates(context = {}) {
+    const currentU = (window.SDH_DATA?.currentUser || '').toLowerCase();
+    const candidates = [];
+
+    if (context.isGroup) {
+      // 1. "@all" - broadcast to everyone in the group
+      candidates.push({
+        id: 'all',
+        username: 'all',
+        display_name: 'Everyone in group',
+        avatar_url: null,
+        is_online: true,
+        isAll: true,
+        badge: 'ALL'
+      });
+
+      // 2. Group members (from currentGroupMembers cache or fallback)
+      const groupMembers = (typeof SDH.Chat?.getCurrentGroupMembers === 'function' ? SDH.Chat.getCurrentGroupMembers() : []) || [];
+      if (groupMembers.length > 0) {
+        groupMembers.forEach(m => {
+          if ((m.username || '').toLowerCase() === currentU) return;
+          candidates.push({
+            id: m.user_id || m.id,
+            username: m.username,
+            display_name: m.display_name || m.username,
+            avatar_url: m.avatar_url,
+            is_online: Boolean(m.is_online),
+            isAll: false,
+            badge: m.role || 'Member'
+          });
+        });
+        return candidates;
+      }
+    }
+
+    // Direct chat or Moments or general contacts
+    const users = window.SDH_DATA?.users || [];
+
+    // In Direct Chat, place the active conversation partner at the top
+    const activeU = (typeof SDH.Chat?.getActiveUser === 'function' ? SDH.Chat.getActiveUser() : '') || '';
+    if (activeU && !activeU.startsWith('group_')) {
+      const partner = users.find(u => u.username === activeU);
+      if (partner) {
+        candidates.push({
+          id: partner.id,
+          username: partner.username,
+          display_name: partner.display_name || partner.username,
+          avatar_url: partner.avatar_url,
+          is_online: Boolean(partner.is_online),
+          isAll: false,
+          isPartner: true,
+          badge: 'Active Chat'
+        });
+      }
+    }
+
+    // In Moments, if an author is provided, place author at top
+    if (context.author && (!candidates.length || candidates[0].username !== context.author)) {
+      const authorUser = users.find(u => u.username === context.author);
+      if (authorUser && authorUser.username.toLowerCase() !== currentU) {
+        candidates.push({
+          id: authorUser.id,
+          username: authorUser.username,
+          display_name: authorUser.display_name || authorUser.username,
+          avatar_url: authorUser.avatar_url,
+          is_online: Boolean(authorUser.is_online),
+          isAll: false,
+          badge: 'Author'
+        });
+      }
+    }
+
+    users.forEach(u => {
+      if ((u.username || '').toLowerCase() === currentU) return;
+      if (candidates.some(c => c.username === u.username)) return;
+      candidates.push({
+        id: u.id,
+        username: u.username,
+        display_name: u.display_name || u.username,
+        avatar_url: u.avatar_url,
+        is_online: Boolean(u.is_online),
+        isAll: false
+      });
+    });
+
+    return candidates;
+  }
+
+  function attach(inputEl, options = {}) {
+    if (!inputEl) return null;
+    if (inputEl.dataset.sdhMentionsAttached === '1') return null;
+    inputEl.dataset.sdhMentionsAttached = '1';
+
+    let dropdownEl = options.dropdownEl;
+    let listEl = dropdownEl ? dropdownEl.querySelector('#mentionList, .sdh-mention-list') : null;
+    let isDynamicDropdown = false;
+    let activeCandidates = [];
+    let selectedIndex = 0;
+    let atCharIndex = -1;
+
+    if (!dropdownEl) {
+      isDynamicDropdown = true;
+      dropdownEl = document.createElement('div');
+      dropdownEl.className = 'sdh-mention-dropdown hidden';
+      dropdownEl.innerHTML = `
+        <div class="sdh-mention-header">
+          <span class="flex items-center gap-1.5">
+            <span class="text-xs font-black text-indigo-400">@</span>
+            <span>Mention User</span>
+          </span>
+          <span class="text-[9px] text-divine-muted lowercase font-normal opacity-75">↑↓ select • ↵ choose • esc</span>
+        </div>
+        <div class="sdh-mention-list custom-scrollbar"></div>
+      `;
+      listEl = dropdownEl.querySelector('.sdh-mention-list');
+
+      const parent = inputEl.parentElement;
+      if (parent && (window.getComputedStyle(parent).position !== 'static')) {
+        parent.appendChild(dropdownEl);
+      } else {
+        document.body.appendChild(dropdownEl);
+        dropdownEl.style.position = 'fixed';
+      }
+    }
+
+    function positionDropdown() {
+      if (!isDynamicDropdown) return;
+      if (dropdownEl.style.position === 'fixed') {
+        const rect = inputEl.getBoundingClientRect();
+        dropdownEl.style.left = `${Math.max(12, rect.left)}px`;
+        dropdownEl.style.bottom = `${Math.max(12, window.innerHeight - rect.top + 8)}px`;
+      }
+    }
+
+    function hide() {
+      dropdownEl.classList.add('hidden');
+      activeCandidates = [];
+      selectedIndex = 0;
+      atCharIndex = -1;
+    }
+
+    function renderCandidates(candidates) {
+      if (!listEl) return;
+      listEl.innerHTML = candidates.map((item, idx) => {
+        const isSel = idx === selectedIndex;
+        if (item.isAll) {
+          return `
+            <div class="sdh-mention-item ${isSel ? 'is-selected' : ''}" data-idx="${idx}" data-username="${_esc(item.username)}">
+              <div class="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-yellow-400 text-black flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0">
+                @
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-amber-300">@all</span>
+                  <span class="text-[9px] font-extrabold px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 uppercase">Group</span>
+                </div>
+                <p class="text-[10px] text-divine-muted truncate">${_esc(item.display_name)}</p>
+              </div>
+            </div>
+          `;
+        }
+
+        const initial = (item.username && item.username[0] ? item.username[0] : '?').toUpperCase();
+        return `
+          <div class="sdh-mention-item ${isSel ? 'is-selected' : ''}" data-idx="${idx}" data-username="${_esc(item.username)}">
+            <div class="relative w-7 h-7 flex-shrink-0">
+              ${item.avatar_url ? `
+                <img src="${item.avatar_url}" alt="" class="w-7 h-7 rounded-full object-cover border border-white/15" />
+              ` : `
+                <div class="w-7 h-7 rounded-full bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 flex items-center justify-center text-xs font-bold">
+                  ${initial}
+                </div>
+              `}
+              ${item.is_online ? `
+                <span class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1 ring-black"></span>
+              ` : ''}
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-semibold text-divine-text truncate">${_esc(item.display_name || item.username)}</span>
+                ${item.badge ? `<span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-white/10 text-divine-muted uppercase">${_esc(item.badge)}</span>` : ''}
+              </div>
+              <p class="text-[10px] text-divine-muted truncate">@${_esc(item.username)}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Click selection handler
+      listEl.querySelectorAll('.sdh-mention-item').forEach(row => {
+        row.onmousedown = (e) => {
+          e.preventDefault();
+          const idx = parseInt(row.dataset.idx, 10);
+          if (candidates[idx]) {
+            chooseCandidate(candidates[idx]);
+          }
+        };
+      });
+    }
+
+    function chooseCandidate(candidate) {
+      if (!candidate) return;
+      const val = inputEl.value;
+      const cursorPos = inputEl.selectionStart;
+      const start = atCharIndex >= 0 ? atCharIndex : val.lastIndexOf('@', cursorPos - 1);
+      if (start < 0) return;
+
+      const before = val.slice(0, start);
+      const after = val.slice(cursorPos);
+      const insertText = `@${candidate.username} `;
+
+      inputEl.value = before + insertText + after;
+      const newPos = before.length + insertText.length;
+      inputEl.setSelectionRange(newPos, newPos);
+
+      // Trigger standard input/resize events
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+      hide();
+      inputEl.focus();
+    }
+
+    function onInputChange() {
+      const val = inputEl.value;
+      const cursorPos = inputEl.selectionStart;
+      const textBefore = val.slice(0, cursorPos);
+      const match = /(?:^|\s)@([a-zA-Z0-9_]*)$/.exec(textBefore);
+
+      if (!match) {
+        hide();
+        return;
+      }
+
+      const activeQuery = match[1].toLowerCase();
+      atCharIndex = match.index + (match[0].startsWith(' ') || match[0].startsWith('\n') ? 1 : 0);
+
+      const ctx = typeof options.getContext === 'function' ? options.getContext() : {};
+      const allCandidates = getCandidates(ctx);
+      const filtered = allCandidates.filter(c => {
+        if (!activeQuery) return true;
+        return (c.username.toLowerCase().includes(activeQuery) ||
+                (c.display_name && c.display_name.toLowerCase().includes(activeQuery)));
+      });
+
+      if (!filtered.length) {
+        hide();
+        return;
+      }
+
+      activeCandidates = filtered;
+      selectedIndex = 0;
+
+      renderCandidates(filtered);
+      positionDropdown();
+      dropdownEl.classList.remove('hidden');
+    }
+
+    function onKeyDown(e) {
+      if (dropdownEl.classList.contains('hidden') || !activeCandidates.length) {
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        selectedIndex = (selectedIndex + 1) % activeCandidates.length;
+        updateSelectedHighlight();
+        return;
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        selectedIndex = (selectedIndex - 1 + activeCandidates.length) % activeCandidates.length;
+        updateSelectedHighlight();
+        return;
+      }
+
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        chooseCandidate(activeCandidates[selectedIndex]);
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        hide();
+        return;
+      }
+    }
+
+    function updateSelectedHighlight() {
+      if (!listEl) return;
+      const items = listEl.querySelectorAll('.sdh-mention-item');
+      items.forEach((item, idx) => {
+        item.classList.toggle('is-selected', idx === selectedIndex);
+        if (idx === selectedIndex) {
+          item.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    }
+
+    inputEl.addEventListener('input', onInputChange);
+    inputEl.addEventListener('keydown', onKeyDown);
+    inputEl.addEventListener('blur', () => {
+      setTimeout(hide, 200);
+    });
+
+    return {
+      hide,
+      getCandidates: () => getCandidates(typeof options.getContext === 'function' ? options.getContext() : {})
+    };
+  }
+
+  function format(rawText) {
+    if (!rawText) return '';
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+    let lastIndex = 0;
+    let match;
+    const parts = [];
+    const currentU = (window.SDH_DATA?.currentUser || '').toLowerCase();
+
+    while ((match = mentionRegex.exec(rawText)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(_esc(rawText.slice(lastIndex, match.index)));
+      }
+      const uname = match[1];
+      const isSelf = uname.toLowerCase() === currentU;
+      const isAll = uname.toLowerCase() === 'all';
+
+      if (isAll) {
+        parts.push(`<span class="sdh-mention-pill sdh-mention-me">@all</span>`);
+      } else if (isSelf) {
+        parts.push(`<span class="sdh-mention-pill sdh-mention-me" onclick="event.stopPropagation(); SDH.Chat?.showUserProfile?.('${_esc(uname)}')">@${_esc(uname)}</span>`);
+      } else {
+        parts.push(`<span class="sdh-mention-pill" onclick="event.stopPropagation(); SDH.Chat?.showUserProfile?.('${_esc(uname)}')">@${_esc(uname)}</span>`);
+      }
+      lastIndex = mentionRegex.lastIndex;
+    }
+
+    if (lastIndex < rawText.length) {
+      parts.push(_esc(rawText.slice(lastIndex)));
+    }
+    return parts.join('');
+  }
+
+  return {
+    getCandidates,
+    attach,
+    format
+  };
+})();
+
 SDH.Chat = (() => {
 
   // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   let activeUser = null;
   let activeUserId = null;
+  let currentGroupMembers = [];
   let typingTimer = null;
   let isTyping = false;
   let pendingFiles = [];
@@ -162,6 +531,7 @@ SDH.Chat = (() => {
       case 'message_read': _setMsgStatus(data.message_id, 'read'); break;
       case 'presence': handlePresence(data); break;
       case 'message_removed': handleMessageRemoved(data); break;
+      case 'message_starred': handleMessageStarred(data); break;
       case 'chat_cleared': handleChatCleared(data); break;
       case 'user_removed': handleUserRemoved(data); break;
       case 'chat_setting_update': handleChatSettingUpdate(data); break;
@@ -734,6 +1104,7 @@ SDH.Chat = (() => {
       repliedMoment: data.replied_moment,
       isViewOnce: isViewOnce,
       viewOnceOpened: viewOnceOpened,
+      isStarred: Boolean(data.is_starred),
     });
     scrollToBottom();
 
@@ -1780,7 +2151,7 @@ SDH.Chat = (() => {
       originalFilename, mimeType, timestamp, messageId,
       hasServerFile = false, fileId = null,
       isDelivered = false, isRead = false, repliedMoment = null,
-      isViewOnce = false, viewOnceOpened = false
+      isViewOnce = false, viewOnceOpened = false, isStarred = false
     } = opts;
 
     // ── Date separator ───────────────────────────────────────────────────
@@ -1861,6 +2232,14 @@ SDH.Chat = (() => {
                   title="Message options">⋯</button>
           <div class="msg-dropdown hidden absolute ${isFromMe ? 'right-0' : 'left-0'} top-full mt-1 z-[35] w-56 bg-divine-card border border-divine-border/80 rounded-xl shadow-2xl overflow-hidden py-1">
             ${dlBtnHtml}
+            <button onclick="SDH.Chat.toggleStarMessage(${messageId})"
+                    class="msg-star-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-400 hover:text-amber-300 hover:bg-divine-surface transition-colors text-left font-medium">
+              <svg class="w-3.5 h-3.5 flex-shrink-0 text-amber-400 fill-current" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <span class="msg-star-text">${isStarred ? 'Unstar Message' : 'Star Message'}</span>
+            </button>
+            <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
             <button onclick="SDH.Chat._removeFromMyView(this)"
                     class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1915,6 +2294,7 @@ SDH.Chat = (() => {
     const bubble = document.createElement('div');
     bubble.id = `msg-${messageId}`;
     bubble.dataset.messageId = String(messageId);
+    bubble.dataset.isStarred = isStarred ? '1' : '0';
     bubble.className = `flex ${isFromMe ? 'justify-end' : 'justify-start'} items-center gap-1.5 px-1 mb-1.5 animate-msg-appear group/msg`;
     bubble.innerHTML = `
         ${isFromMe ? menuHtml : ''}
@@ -1928,6 +2308,7 @@ SDH.Chat = (() => {
             ${innerHtml}
           </div>
           <div class="flex items-center gap-1 ${isFromMe ? 'justify-end pr-0.5' : 'justify-start pl-0.5'}">
+            <span class="msg-star-indicator ${isStarred ? '' : 'hidden'} text-amber-400 text-xs select-none" title="Starred">★</span>
             <span class="text-[11px] text-divine-muted/40 select-none">${time}</span>
             ${isFromMe ? `<span class="msg-status-tick leading-none select-none">${_tickHtml(initTickStatus)}</span>` : ''}
             ${(isFromMe && activeUser && activeUser.startsWith('group_') && !isTemp) ? `<button onclick="SDH.Chat.showGroupMessageDetails(${messageId})" class="ml-1 w-4 h-4 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/50 hover:text-white/80 transition-colors" title="Message Details"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>` : ''}
@@ -2002,7 +2383,10 @@ SDH.Chat = (() => {
     }
 
     if (messageType === 'text') {
-      return `<p class="text-sm leading-relaxed break-words whitespace-pre-wrap">${escapeHtml(content || '')}</p>`;
+      const formatted = window.SDH?.Mentions?.format
+        ? window.SDH.Mentions.format(content || '')
+        : escapeHtml(content || '');
+      return `<p class="text-sm leading-relaxed break-words whitespace-pre-wrap">${formatted}</p>`;
     }
 
     if (messageType === 'image') {
@@ -2441,6 +2825,14 @@ SDH.Chat = (() => {
                         title="Message options">⋯</button>
                 <div class="msg-dropdown hidden absolute right-0 top-full mt-1 z-[35] w-56 bg-divine-card border border-divine-border/80 rounded-xl shadow-2xl overflow-hidden py-1">
                   ${dlHtml}
+                  <button onclick="SDH.Chat.toggleStarMessage(${realId})"
+                          class="msg-star-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-400 hover:text-amber-300 hover:bg-divine-surface transition-colors text-left font-medium">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0 text-amber-400 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    <span class="msg-star-text">Star Message</span>
+                  </button>
+                  <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
                   <button onclick="SDH.Chat._removeFromMyView(this)"
                           class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
                     <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2700,6 +3092,7 @@ SDH.Chat = (() => {
     }
     clearFiles();
     activeUser = username; activeUserId = userId;
+    currentGroupMembers = [];
     sessionStorage.setItem('ndm_last_chat', username);
     if (userId) sessionStorage.setItem('ndm_last_chat_id', String(userId));
     sessionStorage.setItem('ndm_last_chat_user', window.SDH_DATA?.currentUser || '');
@@ -2878,6 +3271,7 @@ SDH.Chat = (() => {
           repliedMoment: msg.replied_moment,
           isViewOnce: Boolean(msg.is_view_once),
           viewOnceOpened: Boolean(msg.view_once_opened),
+          isStarred: Boolean(msg.is_starred),
         }, fragment);
       }
       if (container) container.appendChild(fragment);
@@ -3478,6 +3872,19 @@ SDH.Chat = (() => {
       if (banner) banner.classList.replace('hidden', 'flex');
     }
     updateViewOnceBtn();
+
+    // Initialize Mention autocomplete on message input
+    const msgInput = document.getElementById('messageInput');
+    const mentionDropdown = document.getElementById('mentionDropdown');
+    if (msgInput && window.SDH?.Mentions) {
+      window.SDH.Mentions.attach(msgInput, {
+        dropdownEl: mentionDropdown,
+        getContext: () => ({
+          isGroup: Boolean(activeUser && activeUser.startsWith('group_')),
+          groupId: activeUserId
+        })
+      });
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -4208,6 +4615,12 @@ SDH.Chat = (() => {
         }
       }
 
+      // Populate All Files & Media and Starred Messages
+      const mediaUser = isGroup ? null : username;
+      const mediaGroup = isGroup ? (username.startsWith('group_') ? username.replace('group_', '') : null) : null;
+      loadProfileMedia(mediaUser, mediaGroup);
+      loadStarredMessages(mediaUser, mediaGroup);
+
     } catch (err) {
       console.error('[Chat] showUserProfile error:', err);
       displayNameEl.textContent = 'Error Loading Profile';
@@ -4242,6 +4655,1224 @@ SDH.Chat = (() => {
       return;
     }
     showUserProfile(activeUser, activeUserId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  All Files & Media, Storage Management, and Starred Messages Suite
+  // ─────────────────────────────────────────────────────────────────────────────
+  let currentMediaCategory = 'visual';
+  let currentProfileTarget = { targetUser: null, groupId: null, isGroup: false };
+  let profileMediaItems = { visual_assets: [], documents: [], web_links: [], stats: {} };
+  let selectedStorageIds = new Set();
+  let starredMessagesData = [];
+
+  function switchMediaTab(category) {
+    currentMediaCategory = category;
+    const tabVisual = document.getElementById('upmTabVisual');
+    const tabDocs = document.getElementById('upmTabDocs');
+    const tabLinks = document.getElementById('upmTabLinks');
+    const listVisual = document.getElementById('upmVisualAssetsList');
+    const listDocs = document.getElementById('upmDocumentsList');
+    const listLinks = document.getElementById('upmWebLinksList');
+
+    const tabs = [
+      { id: 'visual', btn: tabVisual, el: listVisual },
+      { id: 'documents', btn: tabDocs, el: listDocs },
+      { id: 'links', btn: tabLinks, el: listLinks },
+    ];
+
+    tabs.forEach(t => {
+      if (!t.btn || !t.el) return;
+      if (t.id === category) {
+        t.btn.classList.add('sdh-media-tab-active');
+        t.btn.classList.remove('text-divine-muted');
+        t.el.classList.remove('hidden');
+      } else {
+        t.btn.classList.remove('sdh-media-tab-active');
+        t.btn.classList.add('text-divine-muted');
+        t.el.classList.add('hidden');
+      }
+    });
+  }
+
+  async function loadProfileMedia(targetUser, groupId) {
+    currentProfileTarget = {
+      targetUser: targetUser || null,
+      groupId: groupId || null,
+      isGroup: Boolean(groupId),
+      displayName: groupId ? (document.getElementById('upmDisplayName')?.textContent || 'Group Chat') : (targetUser || 'User')
+    };
+    selectedStorageIds.clear();
+
+    const visualList = document.getElementById('upmVisualAssetsList');
+    const docsList = document.getElementById('upmDocumentsList');
+    const linksList = document.getElementById('upmWebLinksList');
+    const totalBadge = document.getElementById('upmMediaTotalCount');
+    const visualCountEl = document.getElementById('upmVisualCount');
+    const docsCountEl = document.getElementById('upmDocsCount');
+    const linksCountEl = document.getElementById('upmLinksCount');
+    const storageBadge = document.getElementById('upmStorageBadge');
+    const storageText = document.getElementById('upmStorageUsedText');
+    const visualProg = document.getElementById('upmVisualProgress');
+    const docsProg = document.getElementById('upmDocsProgress');
+    const selectAllCb = document.getElementById('upmSelectAllCheckbox');
+    const selectedCountEl = document.getElementById('upmSelectedCount');
+    const downloadBtn = document.getElementById('upmBatchDownloadBtn');
+    const deleteBtn = document.getElementById('upmBatchDeleteBtn');
+
+    if (selectAllCb) selectAllCb.checked = false;
+    if (selectedCountEl) selectedCountEl.textContent = '(0 selected)';
+    if (downloadBtn) downloadBtn.disabled = true;
+    if (deleteBtn) deleteBtn.disabled = true;
+
+    if (visualList) visualList.innerHTML = '<div class="col-span-3 py-6 text-center text-xs text-divine-muted animate-pulse">Loading visual assets...</div>';
+    if (docsList) docsList.innerHTML = '';
+    if (linksList) linksList.innerHTML = '';
+
+    try {
+      let url = (window.SDH_DATA?.chatMediaUrl || '/messaging/api/chat-media/') + '?';
+      if (groupId) {
+        url += `group_id=${encodeURIComponent(groupId)}`;
+      } else if (targetUser) {
+        url += `target_user=${encodeURIComponent(targetUser)}`;
+      }
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      profileMediaItems = data;
+
+      const stats = data.stats || {};
+      if (totalBadge) totalBadge.textContent = `${stats.total_count || 0} item${stats.total_count === 1 ? '' : 's'}`;
+      if (visualCountEl) visualCountEl.textContent = `(${stats.visual_count || 0})`;
+      if (docsCountEl) docsCountEl.textContent = `(${stats.document_count || 0})`;
+      if (linksCountEl) linksCountEl.textContent = `(${stats.web_link_count || 0})`;
+
+      if (storageBadge) storageBadge.textContent = stats.total_formatted || '0 B';
+      if (storageText) {
+        storageText.textContent = `${stats.total_formatted || '0 B'} footprint • ${stats.visual_formatted || '0 B'} Visual • ${stats.document_formatted || '0 B'} Docs`;
+      }
+
+      // ── Update Profile Navigation Badges ──
+      const navMediaBadge = document.getElementById('upmMediaNavBadge');
+      const navStorageBadge = document.getElementById('upmStorageNavBadge');
+      const navStorageSubtitle = document.getElementById('upmStorageNavSubtitle');
+      if (navMediaBadge) navMediaBadge.textContent = String(stats.total_count || 0);
+      if (navStorageBadge) navStorageBadge.textContent = stats.total_formatted || '0 B';
+      if (navStorageSubtitle) {
+        navStorageSubtitle.textContent = `${stats.total_formatted || '0 B'} footprint • data controls`;
+      }
+
+      const totalB = stats.total_bytes || 0;
+      const vPct = totalB > 0 ? Math.round(((stats.visual_bytes || 0) / totalB) * 100) : 0;
+      const dPct = totalB > 0 ? Math.round(((stats.document_bytes || 0) / totalB) * 100) : 0;
+      if (visualProg) visualProg.style.width = `${vPct}%`;
+      if (docsProg) docsProg.style.width = `${dPct}%`;
+
+      // Render Visual Assets (Modal fallback if elements exist)
+      if (visualList) {
+        if (!data.visual_assets || data.visual_assets.length === 0) {
+          visualList.innerHTML = '<div class="col-span-3 py-6 text-center text-xs text-divine-muted/60">No photos or videos shared yet</div>';
+        } else {
+          visualList.innerHTML = data.visual_assets.map(item => `
+            <div class="sdh-media-item-card relative group rounded-xl overflow-hidden bg-black/20 border border-white/[0.08] hover:border-indigo-500/40 transition-all" data-media-id="${item.message_id}">
+              <div class="absolute top-1.5 left-1.5 z-10">
+                <input type="checkbox" onchange="SDH.Chat.toggleMediaItemSelection(${item.message_id}, this.checked)"
+                       class="sdh-storage-item-cb rounded border-white/30 text-indigo-600 focus:ring-indigo-500/30 bg-black/60 w-3.5 h-3.5 cursor-pointer backdrop-blur-sm"
+                       data-id="${item.message_id}" data-url="${escapeHtml(item.file_url)}" data-filename="${escapeHtml(item.filename)}" />
+              </div>
+              ${item.message_type === 'video' ? `
+                <div class="w-full h-20 bg-slate-900/80 flex items-center justify-center cursor-pointer relative group-hover:scale-105 transition-transform duration-300"
+                     onclick="SDH.MediaViewer?.open({fileId:${item.message_id},fileName:'${escapeHtml(item.filename)}',mimeType:'${escapeHtml(item.mime_type)}',messageType:'video'})">
+                  <div class="w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shadow-lg">
+                    <svg class="w-3.5 h-3.5 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                  <span class="absolute bottom-1 right-1 px-1 py-0.5 rounded text-[8px] font-bold bg-black/75 text-white/90 backdrop-blur-sm">${item.size_formatted}</span>
+                </div>
+              ` : `
+                <div class="w-full h-20 bg-slate-900/40 relative cursor-pointer overflow-hidden"
+                     onclick="SDH.MediaViewer?.open({fileId:${item.message_id},fileName:'${escapeHtml(item.filename)}',mimeType:'${escapeHtml(item.mime_type)}',messageType:'image'})">
+                  <img src="${item.file_url}" alt="${escapeHtml(item.filename)}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <span class="absolute bottom-1 right-1 px-1 py-0.5 rounded text-[8px] font-bold bg-black/75 text-white/90 backdrop-blur-sm">${item.size_formatted}</span>
+                </div>
+              `}
+              <div class="p-1 text-[9px] text-divine-muted truncate font-medium bg-black/40 border-t border-white/[0.04]" title="${escapeHtml(item.filename)}">
+                ${escapeHtml(item.filename)}
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+
+      // Render Documents (Modal fallback)
+      if (docsList) {
+        if (!data.documents || data.documents.length === 0) {
+          docsList.innerHTML = '<div class="py-6 text-center text-xs text-divine-muted/60">No documents shared yet</div>';
+        } else {
+          docsList.innerHTML = data.documents.map(item => `
+            <div class="sdh-media-item-card flex items-center justify-between p-2 rounded-xl bg-black/20 hover:bg-white/[0.04] border border-white/[0.08] transition-all gap-2" data-media-id="${item.message_id}">
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <input type="checkbox" onchange="SDH.Chat.toggleMediaItemSelection(${item.message_id}, this.checked)"
+                       class="sdh-storage-item-cb rounded border-white/30 text-indigo-600 focus:ring-indigo-500/30 bg-black/60 w-3.5 h-3.5 cursor-pointer flex-shrink-0"
+                       data-id="${item.message_id}" data-url="${escapeHtml(item.file_url)}" data-filename="${escapeHtml(item.filename)}" />
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold text-[9px] tracking-wider uppercase">
+                  ${escapeHtml(item.extension || 'DOC')}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-medium text-divine-text truncate" title="${escapeHtml(item.filename)}">${escapeHtml(item.filename)}</p>
+                  <p class="text-[10px] text-divine-muted">${item.size_formatted} • ${new Date(item.timestamp).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <a href="${item.file_url}" download="${escapeHtml(item.filename)}" onclick="event.stopPropagation()"
+                 class="p-1.5 rounded-lg text-divine-muted hover:text-divine-text hover:bg-white/10 transition-colors flex-shrink-0" title="Download Document">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+              </a>
+            </div>
+          `).join('');
+        }
+      }
+
+      // Render Web Links (Modal fallback)
+      if (linksList) {
+        if (!data.web_links || data.web_links.length === 0) {
+          linksList.innerHTML = '<div class="py-6 text-center text-xs text-divine-muted/60">No web links shared yet</div>';
+        } else {
+          linksList.innerHTML = data.web_links.map(item => `
+            <div class="sdh-media-item-card flex items-start justify-between p-2.5 rounded-xl bg-black/20 hover:bg-white/[0.04] border border-white/[0.08] transition-all gap-2">
+              <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                  </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer"
+                     class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 max-w-full truncate">
+                    <span class="truncate">${escapeHtml(item.display_url)}</span>
+                    <svg class="w-3 h-3 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </a>
+                  ${item.snippet ? `<p class="text-[10px] text-divine-muted/80 line-clamp-1 mt-0.5">${escapeHtml(item.snippet)}</p>` : ''}
+                  <p class="text-[9px] text-divine-muted/60 mt-0.5">${escapeHtml(item.sender)} • ${new Date(item.timestamp).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(item.url)}'); showToast('Link copied to clipboard', 'info')"
+                      class="p-1 rounded-lg text-divine-muted hover:text-divine-text hover:bg-white/10 transition-colors flex-shrink-0" title="Copy Link">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                </svg>
+              </button>
+            </div>
+          `).join('');
+        }
+      }
+
+      // If dedicated workspace is open, refresh active workspace view
+      const dwsModal = document.getElementById('dedicatedWorkspaceModal');
+      if (dwsModal && !dwsModal.classList.contains('hidden')) {
+        loadDedicatedMedia();
+        loadDedicatedStorage();
+      }
+
+    } catch (err) {
+      console.error('[Chat] loadProfileMedia error:', err);
+      if (visualList) visualList.innerHTML = '<div class="col-span-3 py-6 text-center text-xs text-red-400/80">Could not load files</div>';
+    }
+  }
+
+  function toggleSelectAllStorage(isChecked) {
+    const checkboxes = document.querySelectorAll('.sdh-storage-item-cb');
+    selectedStorageIds.clear();
+    checkboxes.forEach(cb => {
+      cb.checked = isChecked;
+      const id = parseInt(cb.dataset.id, 10);
+      if (isChecked && id) {
+        selectedStorageIds.add(id);
+      }
+      const card = cb.closest('.sdh-media-item-card');
+      if (card) {
+        card.classList.toggle('is-selected', isChecked);
+      }
+    });
+    _updateStorageSelectionUI();
+  }
+
+  function toggleMediaItemSelection(messageId, isChecked) {
+    const id = parseInt(messageId, 10);
+    if (!id) return;
+    if (isChecked) {
+      selectedStorageIds.add(id);
+    } else {
+      selectedStorageIds.delete(id);
+    }
+
+    const cb = document.querySelector(`.sdh-storage-item-cb[data-id="${id}"]`);
+    if (cb) {
+      cb.checked = isChecked;
+      const card = cb.closest('.sdh-media-item-card');
+      if (card) card.classList.toggle('is-selected', isChecked);
+    }
+
+    const allCbs = document.querySelectorAll('.sdh-storage-item-cb');
+    const selectAllCb = document.getElementById('upmSelectAllCheckbox');
+    if (selectAllCb && allCbs.length > 0) {
+      selectAllCb.checked = (selectedStorageIds.size === allCbs.length);
+    }
+    _updateStorageSelectionUI();
+  }
+
+  function _updateStorageSelectionUI() {
+    const count = selectedStorageIds.size;
+    const countEl = document.getElementById('upmSelectedCount');
+    if (countEl) countEl.textContent = `(${count} selected)`;
+    const downloadBtn = document.getElementById('upmBatchDownloadBtn');
+    if (downloadBtn) downloadBtn.disabled = (count === 0);
+    const deleteBtn = document.getElementById('upmBatchDeleteBtn');
+    if (deleteBtn) deleteBtn.disabled = (count === 0);
+  }
+
+  async function downloadSelectedStorage() {
+    if (selectedStorageIds.size === 0) return;
+    const itemsToDownload = [];
+    selectedStorageIds.forEach(id => {
+      const cb = document.querySelector(`.sdh-storage-item-cb[data-id="${id}"]`);
+      if (cb && cb.dataset.url) {
+        itemsToDownload.push({ url: cb.dataset.url, filename: cb.dataset.filename || `file_${id}` });
+      }
+    });
+
+    if (itemsToDownload.length === 0) return;
+    showToast(`Downloading ${itemsToDownload.length} file(s)...`, 'info');
+
+    itemsToDownload.forEach((item, index) => {
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = item.url;
+        link.download = item.filename;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }, index * 250);
+    });
+  }
+
+  async function deleteSelectedStorage() {
+    const count = selectedStorageIds.size;
+    if (count === 0) return;
+
+    const confirmed = confirm(`Are you sure you want to delete ${count} selected item${count > 1 ? 's' : ''}? This will permanently remove them from storage and chat.`);
+    if (!confirmed) return;
+
+    const deleteBtn = document.getElementById('upmBatchDeleteBtn');
+    if (deleteBtn) {
+      deleteBtn.disabled = true;
+      deleteBtn.innerHTML = '<span class="animate-pulse">Deleting...</span>';
+    }
+
+    const csrf = window.SDH_DATA?.csrfToken || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    const endpoint = window.SDH_DATA?.batchStorageDeleteUrl || '/messaging/api/storage/batch-delete/';
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf,
+        },
+        body: JSON.stringify({
+          message_ids: Array.from(selectedStorageIds),
+          is_group: currentProfileTarget.isGroup,
+          removal_scope: 'all'
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || res.statusText);
+      }
+
+      const data = await res.json();
+      showToast(`Successfully deleted ${data.deleted_count || count} item(s) (${data.freed_formatted || 'freed'}).`, 'success');
+
+      selectedStorageIds.forEach(id => {
+        handleMessageRemoved({
+          message_id: id,
+          removal_scope: 'all',
+          removed_by: window.SDH_DATA?.currentUser,
+        });
+      });
+
+      selectedStorageIds.clear();
+      await loadProfileMedia(currentProfileTarget.targetUser, currentProfileTarget.groupId);
+
+    } catch (err) {
+      console.error('[Chat] deleteSelectedStorage error:', err);
+      showToast('Deletion failed: ' + err.message, 'error');
+    } finally {
+      if (deleteBtn) {
+        deleteBtn.innerHTML = `
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          <span>Delete</span>`;
+        _updateStorageSelectionUI();
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  Dedicated Workspaces: Media, Storage, and Starred Messages
+  // ─────────────────────────────────────────────────────────────────────────────
+  let currentDedicatedMediaCategory = 'visual';
+  let dedicatedStorageSelectedIds = new Set();
+
+  function openDedicatedMediaWorkspace() {
+    const profileModal = document.getElementById('userProfileModal');
+    if (profileModal) profileModal.classList.add('hidden');
+
+    const dwsModal = document.getElementById('dedicatedWorkspaceModal');
+    if (!dwsModal) return;
+    dwsModal.classList.remove('hidden');
+
+    switchWorkspaceView('media');
+    loadDedicatedMedia();
+  }
+
+  function openDedicatedStorageWorkspace() {
+    const profileModal = document.getElementById('userProfileModal');
+    if (profileModal) profileModal.classList.add('hidden');
+
+    const dwsModal = document.getElementById('dedicatedWorkspaceModal');
+    if (!dwsModal) return;
+    dwsModal.classList.remove('hidden');
+
+    switchWorkspaceView('storage');
+    loadDedicatedStorage();
+  }
+
+  function openDedicatedStarredWorkspace() {
+    const profileModal = document.getElementById('userProfileModal');
+    if (profileModal) profileModal.classList.add('hidden');
+
+    const dwsModal = document.getElementById('dedicatedWorkspaceModal');
+    if (!dwsModal) return;
+    dwsModal.classList.remove('hidden');
+
+    switchWorkspaceView('starred');
+    loadDedicatedStarred();
+  }
+
+  function backToProfileModal() {
+    const dwsModal = document.getElementById('dedicatedWorkspaceModal');
+    if (dwsModal) dwsModal.classList.add('hidden');
+
+    const profileModal = document.getElementById('userProfileModal');
+    if (profileModal) profileModal.classList.remove('hidden');
+  }
+
+  function closeDedicatedWorkspace() {
+    const dwsModal = document.getElementById('dedicatedWorkspaceModal');
+    if (dwsModal) dwsModal.classList.add('hidden');
+  }
+
+  function _updateWorkspaceHeader(title) {
+    const titleEl = document.getElementById('dwsHeaderTitle');
+    const subEl = document.getElementById('dwsHeaderSubtitle');
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) {
+      if (currentProfileTarget.isGroup) {
+        subEl.textContent = currentProfileTarget.displayName || 'Group Chat';
+      } else {
+        subEl.textContent = currentProfileTarget.targetUser ? `@${currentProfileTarget.targetUser}` : 'Active Chat';
+      }
+    }
+  }
+
+  function switchWorkspaceView(view) {
+    const mediaView = document.getElementById('dwsMediaView');
+    const storageView = document.getElementById('dwsStorageView');
+    const starredView = document.getElementById('dwsStarredView');
+
+    const tabMedia = document.getElementById('dwsQuickTabMedia');
+    const tabStorage = document.getElementById('dwsQuickTabStorage');
+    const tabStarred = document.getElementById('dwsQuickTabStarred');
+
+    const views = [
+      { id: 'media', title: 'All Files & Media', el: mediaView, tab: tabMedia, load: loadDedicatedMedia },
+      { id: 'storage', title: 'Storage Management', el: storageView, tab: tabStorage, load: loadDedicatedStorage },
+      { id: 'starred', title: 'Starred Messages', el: starredView, tab: tabStarred, load: loadDedicatedStarred },
+    ];
+
+    views.forEach(v => {
+      if (v.id === view) {
+        if (v.el) v.el.classList.remove('hidden');
+        if (v.tab) {
+          v.tab.className = 'px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all bg-white/[0.12] text-divine-text shadow-sm';
+        }
+        _updateWorkspaceHeader(v.title);
+        if (typeof v.load === 'function') v.load();
+      } else {
+        if (v.el) v.el.classList.add('hidden');
+        if (v.tab) {
+          v.tab.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all text-divine-muted hover:text-divine-text';
+        }
+      }
+    });
+  }
+
+  // ── Dedicated Media View Controllers ──
+  function switchDedicatedMediaTab(category) {
+    currentDedicatedMediaCategory = category;
+    const tabVisual = document.getElementById('dwsTabVisual');
+    const tabDocs = document.getElementById('dwsTabDocs');
+    const tabLinks = document.getElementById('dwsTabLinks');
+
+    const listVisual = document.getElementById('dwsVisualAssetsList');
+    const listDocs = document.getElementById('dwsDocumentsList');
+    const listLinks = document.getElementById('dwsWebLinksList');
+
+    const tabs = [
+      { id: 'visual', btn: tabVisual, el: listVisual },
+      { id: 'documents', btn: tabDocs, el: listDocs },
+      { id: 'links', btn: tabLinks, el: listLinks },
+    ];
+
+    tabs.forEach(t => {
+      if (!t.btn || !t.el) return;
+      if (t.id === category) {
+        t.btn.classList.add('sdh-media-tab-active');
+        t.btn.classList.remove('text-divine-muted');
+        t.el.classList.remove('hidden');
+      } else {
+        t.btn.classList.remove('sdh-media-tab-active');
+        t.btn.classList.add('text-divine-muted');
+        t.el.classList.add('hidden');
+      }
+    });
+
+    const searchInput = document.getElementById('dwsMediaSearch');
+    if (searchInput) {
+      searchInput.value = '';
+      filterDedicatedMedia('');
+    }
+  }
+
+  function loadDedicatedMedia() {
+    const stats = profileMediaItems.stats || {};
+    const visualCount = document.getElementById('dwsVisualCount');
+    const docsCount = document.getElementById('dwsDocsCount');
+    const linksCount = document.getElementById('dwsLinksCount');
+
+    if (visualCount) visualCount.textContent = `(${stats.visual_count || 0})`;
+    if (docsCount) docsCount.textContent = `(${stats.document_count || 0})`;
+    if (linksCount) linksCount.textContent = `(${stats.web_link_count || 0})`;
+
+    const visualList = document.getElementById('dwsVisualAssetsList');
+    const docsList = document.getElementById('dwsDocumentsList');
+    const linksList = document.getElementById('dwsWebLinksList');
+
+    // Populate Visual Assets Grid
+    if (visualList) {
+      if (!profileMediaItems.visual_assets || profileMediaItems.visual_assets.length === 0) {
+        visualList.innerHTML = '<div class="col-span-full py-16 text-center text-xs text-divine-muted/60">No photos or videos shared yet</div>';
+      } else {
+        visualList.innerHTML = profileMediaItems.visual_assets.map(item => `
+          <div class="sdh-media-item-card dws-media-item relative group rounded-2xl overflow-hidden bg-black/30 border border-white/[0.08] hover:border-indigo-500/50 transition-all cursor-pointer shadow-md"
+               data-filename="${escapeHtml(item.filename.toLowerCase())}">
+            ${item.message_type === 'video' ? `
+              <div class="w-full h-28 bg-slate-900/90 flex items-center justify-center relative group-hover:scale-105 transition-transform duration-300"
+                   onclick="SDH.MediaViewer?.open({fileId:${item.message_id},fileName:'${escapeHtml(item.filename)}',mimeType:'${escapeHtml(item.mime_type)}',messageType:'video'})">
+                <div class="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-xl">
+                  <svg class="w-4 h-4 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+                <span class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-black/80 text-white backdrop-blur-sm">${item.size_formatted}</span>
+              </div>
+            ` : `
+              <div class="w-full h-28 bg-slate-900/50 relative overflow-hidden"
+                   onclick="SDH.MediaViewer?.open({fileId:${item.message_id},fileName:'${escapeHtml(item.filename)}',mimeType:'${escapeHtml(item.mime_type)}',messageType:'image'})">
+                <img src="${item.file_url}" alt="${escapeHtml(item.filename)}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <span class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-black/80 text-white backdrop-blur-sm">${item.size_formatted}</span>
+              </div>
+            `}
+            <div class="p-2 text-[10px] text-divine-muted truncate font-medium bg-black/50 border-t border-white/[0.05]" title="${escapeHtml(item.filename)}">
+              ${escapeHtml(item.filename)}
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Populate Documents List
+    if (docsList) {
+      if (!profileMediaItems.documents || profileMediaItems.documents.length === 0) {
+        docsList.innerHTML = '<div class="py-16 text-center text-xs text-divine-muted/60">No documents shared yet</div>';
+      } else {
+        docsList.innerHTML = profileMediaItems.documents.map(item => `
+          <div class="sdh-media-item-card dws-media-item flex items-center justify-between p-3 rounded-2xl bg-black/30 hover:bg-white/[0.05] border border-white/[0.08] transition-all gap-3"
+               data-filename="${escapeHtml(item.filename.toLowerCase())}">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold text-xs tracking-wider uppercase">
+                ${escapeHtml(item.extension || 'DOC')}
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-semibold text-divine-text truncate" title="${escapeHtml(item.filename)}">${escapeHtml(item.filename)}</p>
+                <p class="text-[11px] text-divine-muted mt-0.5">${item.size_formatted} • ${new Date(item.timestamp).toLocaleDateString()}</p>
+              </div>
+            </div>
+            <a href="${item.file_url}" download="${escapeHtml(item.filename)}" onclick="event.stopPropagation()"
+               class="p-2 rounded-xl text-divine-muted hover:text-divine-text hover:bg-white/10 transition-all flex-shrink-0" title="Download Document">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+            </a>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Populate Web Links List
+    if (linksList) {
+      if (!profileMediaItems.web_links || profileMediaItems.web_links.length === 0) {
+        linksList.innerHTML = '<div class="py-16 text-center text-xs text-divine-muted/60">No web links shared yet</div>';
+      } else {
+        linksList.innerHTML = profileMediaItems.web_links.map(item => `
+          <div class="sdh-media-item-card dws-media-item flex items-start justify-between p-3 rounded-2xl bg-black/30 hover:bg-white/[0.05] border border-white/[0.08] transition-all gap-3"
+               data-filename="${escapeHtml((item.url + ' ' + (item.snippet || '')).toLowerCase())}">
+            <div class="flex items-start gap-3 min-w-0 flex-1">
+              <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer"
+                   class="text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 max-w-full truncate">
+                  <span class="truncate">${escapeHtml(item.display_url)}</span>
+                  <svg class="w-3.5 h-3.5 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
+                </a>
+                ${item.snippet ? `<p class="text-[11px] text-divine-muted/90 line-clamp-1 mt-0.5">${escapeHtml(item.snippet)}</p>` : ''}
+                <p class="text-[10px] text-divine-muted/60 mt-0.5">${escapeHtml(item.sender)} • ${new Date(item.timestamp).toLocaleDateString()}</p>
+              </div>
+            </div>
+            <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(item.url)}'); showToast('Link copied to clipboard', 'info')"
+                    class="p-2 rounded-xl text-divine-muted hover:text-divine-text hover:bg-white/10 transition-colors flex-shrink-0" title="Copy Link">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+              </svg>
+            </button>
+          </div>
+        `).join('');
+      }
+    }
+
+    switchDedicatedMediaTab(currentDedicatedMediaCategory || 'visual');
+  }
+
+  function clearDedicatedMediaSearch() {
+    const searchInput = document.getElementById('dwsMediaSearch');
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.focus();
+    }
+    filterDedicatedMedia('');
+  }
+
+  function filterDedicatedMedia(query) {
+    const q = (query || '').toLowerCase().trim();
+    const clearBtn = document.getElementById('dwsMediaClearBtn');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+
+    let currentContainer = null;
+    if (currentDedicatedMediaCategory === 'visual') {
+      currentContainer = document.getElementById('dwsVisualAssetsList');
+    } else if (currentDedicatedMediaCategory === 'documents') {
+      currentContainer = document.getElementById('dwsDocumentsList');
+    } else {
+      currentContainer = document.getElementById('dwsWebLinksList');
+    }
+
+    if (!currentContainer) return;
+    const items = currentContainer.querySelectorAll('.dws-media-item');
+    let visibleCount = 0;
+    items.forEach(el => {
+      const match = !q || (el.dataset.filename && el.dataset.filename.includes(q));
+      el.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
+    });
+
+    const emptyEl = document.getElementById('dwsMediaEmpty');
+    if (emptyEl) {
+      emptyEl.classList.toggle('hidden', visibleCount > 0 || items.length === 0);
+    }
+  }
+
+  // ── Dedicated Storage View Controllers ──
+  function loadDedicatedStorage() {
+    dedicatedStorageSelectedIds.clear();
+    const stats = profileMediaItems.stats || {};
+
+    const badge = document.getElementById('dwsStorageBadge');
+    const usedText = document.getElementById('dwsStorageUsedText');
+    const vProg = document.getElementById('dwsVisualProgress');
+    const dProg = document.getElementById('dwsDocsProgress');
+    const vText = document.getElementById('dwsVisualFootprintText');
+    const dText = document.getElementById('dwsDocsFootprintText');
+
+    if (badge) badge.textContent = stats.total_formatted || '0 B';
+    if (usedText) {
+      usedText.textContent = `${stats.total_formatted || '0 B'} footprint across conversations`;
+    }
+    if (vText) vText.textContent = `Visual Assets: ${stats.visual_formatted || '0 B'}`;
+    if (dText) dText.textContent = `Documents: ${stats.document_formatted || '0 B'}`;
+
+    const totalB = stats.total_bytes || 0;
+    const vPct = totalB > 0 ? Math.round(((stats.visual_bytes || 0) / totalB) * 100) : 0;
+    const dPct = totalB > 0 ? Math.round(((stats.document_bytes || 0) / totalB) * 100) : 0;
+    if (vProg) vProg.style.width = `${vPct}%`;
+    if (dProg) dProg.style.width = `${dPct}%`;
+
+    const allFiles = [
+      ...(profileMediaItems.visual_assets || []).map(x => ({ ...x, category: 'Visual' })),
+      ...(profileMediaItems.documents || []).map(x => ({ ...x, category: 'Document' }))
+    ];
+
+    const list = document.getElementById('dwsStorageItemList');
+    const emptyEl = document.getElementById('dwsStorageEmpty');
+    const selectAllCb = document.getElementById('dwsSelectAllCheckbox');
+    if (selectAllCb) selectAllCb.checked = false;
+    _updateDedicatedStorageSelectionUI();
+
+    if (!allFiles.length) {
+      if (list) list.innerHTML = '';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+
+    if (emptyEl) emptyEl.classList.add('hidden');
+    if (list) {
+      list.innerHTML = allFiles.map(item => `
+        <div class="sdh-storage-row flex items-center justify-between p-3 rounded-2xl bg-black/25 hover:bg-white/[0.05] border border-white/[0.08] transition-all gap-3 cursor-pointer group"
+             id="dwsStorageRow-${item.message_id}"
+             onclick="SDH.Chat.toggleDedicatedStorageItem(${item.message_id})">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <input type="checkbox"
+                   id="dwsStorageCb-${item.message_id}"
+                   class="dws-storage-cb rounded border-white/30 text-indigo-600 focus:ring-indigo-500/30 bg-black/60 w-4 h-4 cursor-pointer flex-shrink-0"
+                   data-id="${item.message_id}"
+                   data-url="${escapeHtml(item.file_url)}"
+                   data-filename="${escapeHtml(item.filename)}"
+                   data-bytes="${item.file_size || 0}"
+                   onclick="event.stopPropagation(); SDH.Chat.toggleDedicatedStorageItem(${item.message_id})" />
+            
+            <div class="w-10 h-10 rounded-xl ${item.category === 'Visual' ? 'bg-indigo-500/10 border border-indigo-500/25 text-indigo-400' : 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-400'} flex items-center justify-center flex-shrink-0 overflow-hidden">
+              ${item.message_type === 'image' ? `
+                <img src="${item.file_url}" alt="" class="w-full h-full object-cover" />
+              ` : `
+                <span class="font-bold text-[10px] uppercase">${escapeHtml(item.extension || (item.category === 'Visual' ? 'VID' : 'DOC'))}</span>
+              `}
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <p class="text-xs font-semibold text-divine-text truncate" title="${escapeHtml(item.filename)}">${escapeHtml(item.filename)}</p>
+                <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-md ${item.category === 'Visual' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300'} flex-shrink-0">${item.category}</span>
+              </div>
+              <p class="text-[11px] text-divine-muted mt-0.5">${item.size_formatted} • ${new Date(item.timestamp).toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1 flex-shrink-0" onclick="event.stopPropagation()">
+            <a href="${item.file_url}" download="${escapeHtml(item.filename)}"
+               class="p-2 rounded-xl text-divine-muted hover:text-divine-text hover:bg-white/10 transition-colors" title="Download">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  function toggleDedicatedStorageItem(messageId) {
+    const id = parseInt(messageId, 10);
+    if (!id) return;
+    const cb = document.getElementById(`dwsStorageCb-${id}`);
+    const row = document.getElementById(`dwsStorageRow-${id}`);
+
+    if (dedicatedStorageSelectedIds.has(id)) {
+      dedicatedStorageSelectedIds.delete(id);
+      if (cb) cb.checked = false;
+      if (row) row.classList.remove('bg-indigo-500/10', 'border-indigo-500/30');
+    } else {
+      dedicatedStorageSelectedIds.add(id);
+      if (cb) cb.checked = true;
+      if (row) row.classList.add('bg-indigo-500/10', 'border-indigo-500/30');
+    }
+
+    const allCbs = document.querySelectorAll('.dws-storage-cb');
+    const selectAllCb = document.getElementById('dwsSelectAllCheckbox');
+    if (selectAllCb && allCbs.length > 0) {
+      selectAllCb.checked = (dedicatedStorageSelectedIds.size === allCbs.length);
+    }
+    _updateDedicatedStorageSelectionUI();
+  }
+
+  function toggleDedicatedSelectAllStorage(isChecked) {
+    const allCbs = document.querySelectorAll('.dws-storage-cb');
+    dedicatedStorageSelectedIds.clear();
+
+    allCbs.forEach(cb => {
+      cb.checked = isChecked;
+      const id = parseInt(cb.dataset.id, 10);
+      const row = document.getElementById(`dwsStorageRow-${id}`);
+      if (isChecked && id) {
+        dedicatedStorageSelectedIds.add(id);
+        if (row) row.classList.add('bg-indigo-500/10', 'border-indigo-500/30');
+      } else {
+        if (row) row.classList.remove('bg-indigo-500/10', 'border-indigo-500/30');
+      }
+    });
+
+    _updateDedicatedStorageSelectionUI();
+  }
+
+  function _updateDedicatedStorageSelectionUI() {
+    const count = dedicatedStorageSelectedIds.size;
+    let totalSelectedBytes = 0;
+    dedicatedStorageSelectedIds.forEach(id => {
+      const cb = document.getElementById(`dwsStorageCb-${id}`);
+      if (cb && cb.dataset.bytes) totalSelectedBytes += parseInt(cb.dataset.bytes, 10) || 0;
+    });
+
+    const countEl = document.getElementById('dwsSelectedCount');
+    if (countEl) {
+      countEl.textContent = count > 0 ? `(${count} selected • ${_formatBytes(totalSelectedBytes)})` : `(0 selected)`;
+    }
+
+    const dlBtn = document.getElementById('dwsBatchDownloadBtn');
+    if (dlBtn) dlBtn.disabled = (count === 0);
+
+    const delBtn = document.getElementById('dwsBatchDeleteBtn');
+    if (delBtn) delBtn.disabled = (count === 0);
+  }
+
+  function _formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let val = bytes;
+    let unitIdx = 0;
+    while (val >= 1024 && unitIdx < units.length - 1) {
+      val /= 1024;
+      unitIdx++;
+    }
+    return `${val.toFixed(unitIdx === 0 ? 0 : 1)} ${units[unitIdx]}`;
+  }
+
+  async function downloadDedicatedSelectedStorage() {
+    if (dedicatedStorageSelectedIds.size === 0) return;
+    const items = [];
+    dedicatedStorageSelectedIds.forEach(id => {
+      const cb = document.getElementById(`dwsStorageCb-${id}`);
+      if (cb && cb.dataset.url) {
+        items.push({ url: cb.dataset.url, filename: cb.dataset.filename || `file_${id}` });
+      }
+    });
+
+    if (items.length === 0) return;
+    showToast(`Downloading ${items.length} file(s)...`, 'info');
+
+    items.forEach((item, index) => {
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = item.url;
+        link.download = item.filename;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }, index * 250);
+    });
+  }
+
+  async function deleteDedicatedSelectedStorage() {
+    const count = dedicatedStorageSelectedIds.size;
+    if (count === 0) return;
+
+    const confirmed = confirm(`Permanently delete ${count} selected item${count > 1 ? 's' : ''}? This will free up storage and remove them from chat history.`);
+    if (!confirmed) return;
+
+    const delBtn = document.getElementById('dwsBatchDeleteBtn');
+    if (delBtn) {
+      delBtn.disabled = true;
+      delBtn.innerHTML = '<span class="animate-pulse">Deleting...</span>';
+    }
+
+    const csrf = window.SDH_DATA?.csrfToken || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    const endpoint = window.SDH_DATA?.batchStorageDeleteUrl || '/messaging/api/storage/batch-delete/';
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf,
+        },
+        body: JSON.stringify({
+          message_ids: Array.from(dedicatedStorageSelectedIds),
+          is_group: currentProfileTarget.isGroup,
+          removal_scope: 'all'
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || res.statusText);
+      }
+
+      const data = await res.json();
+      showToast(`Deleted ${data.deleted_count || count} item(s) (${data.freed_formatted || 'freed'}).`, 'success');
+
+      dedicatedStorageSelectedIds.forEach(id => {
+        handleMessageRemoved({
+          message_id: id,
+          removal_scope: 'all',
+          removed_by: window.SDH_DATA?.currentUser,
+        });
+      });
+
+      dedicatedStorageSelectedIds.clear();
+      await loadProfileMedia(currentProfileTarget.targetUser, currentProfileTarget.groupId);
+      loadDedicatedStorage();
+
+    } catch (err) {
+      console.error('[Chat] deleteDedicatedSelectedStorage error:', err);
+      showToast('Deletion failed: ' + err.message, 'error');
+    } finally {
+      if (delBtn) {
+        delBtn.innerHTML = `
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          <span>Delete</span>`;
+        _updateDedicatedStorageSelectionUI();
+      }
+    }
+  }
+
+  // ── Starred Messages Controllers ──
+  async function toggleStarMessage(messageId) {
+    if (!messageId) return;
+    _closeAllMsgMenus();
+
+    const isGroup = Boolean(activeUser && activeUser.startsWith('group_'));
+    const csrf = window.SDH_DATA?.csrfToken || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+    try {
+      const res = await fetch(`/messaging/api/messages/${messageId}/star/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf,
+        },
+        body: JSON.stringify({ is_group: isGroup })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || res.statusText);
+      }
+      const data = await res.json();
+
+      _applyStarStatusToBubble(messageId, data.is_starred);
+      showToast(data.is_starred ? 'Message starred' : 'Message unstarred', 'info');
+
+      // Reload starred messages
+      loadStarredMessages(currentProfileTarget.targetUser, currentProfileTarget.groupId);
+    } catch (err) {
+      console.error('[Chat] toggleStarMessage error:', err);
+      showToast('Could not update starred status: ' + err.message, 'error');
+    }
+  }
+
+  function _applyStarStatusToBubble(messageId, isStarred) {
+    const bubble = document.getElementById(`msg-${messageId}`);
+    if (bubble) {
+      bubble.dataset.isStarred = isStarred ? '1' : '0';
+      const starIndicator = bubble.querySelector('.msg-star-indicator');
+      if (starIndicator) {
+        starIndicator.classList.toggle('hidden', !isStarred);
+      }
+      const starBtnText = bubble.querySelector('.msg-star-text');
+      if (starBtnText) {
+        starBtnText.textContent = isStarred ? 'Unstar Message' : 'Star Message';
+      }
+    }
+  }
+
+  function handleMessageStarred(data) {
+    if (!data || !data.message_id) return;
+    _applyStarStatusToBubble(data.message_id, data.is_starred);
+    loadStarredMessages(currentProfileTarget.targetUser, currentProfileTarget.groupId);
+  }
+
+  async function toggleStarFromProfile(messageId, isGroup) {
+    if (!messageId) return;
+    const csrf = window.SDH_DATA?.csrfToken || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+    try {
+      const res = await fetch(`/messaging/api/messages/${messageId}/star/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrf,
+        },
+        body: JSON.stringify({ is_group: Boolean(isGroup) })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || res.statusText);
+      }
+      const data = await res.json();
+      _applyStarStatusToBubble(messageId, data.is_starred);
+      showToast(data.is_starred ? 'Message starred' : 'Message unstarred', 'info');
+
+      if (!data.is_starred) {
+        starredMessagesData = starredMessagesData.filter(m => m.message_id !== messageId);
+      }
+      loadStarredMessages(currentProfileTarget.targetUser, currentProfileTarget.groupId);
+      loadDedicatedStarred();
+    } catch (err) {
+      showToast('Failed to toggle star: ' + err.message, 'error');
+    }
+  }
+
+  async function loadStarredMessages(targetUser, groupId) {
+    const emptyEl = document.getElementById('upmStarredEmpty');
+    const listEl = document.getElementById('upmStarredList');
+    const badgeEl = document.getElementById('upmStarredBadge');
+    const navStarredBadge = document.getElementById('upmStarredNavBadge');
+
+    if (badgeEl) badgeEl.textContent = '...';
+
+    try {
+      let url = (window.SDH_DATA?.starredMessagesUrl || '/messaging/api/starred-messages/') + '?';
+      if (groupId) {
+        url += `group_id=${encodeURIComponent(groupId)}`;
+      } else if (targetUser) {
+        url += `target_user=${encodeURIComponent(targetUser)}`;
+      }
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      starredMessagesData = data.starred_messages || [];
+
+      if (badgeEl) badgeEl.textContent = String(data.count || 0);
+      if (navStarredBadge) navStarredBadge.textContent = String(data.count || 0);
+
+      // Decrypt any encrypted messages if needed
+      for (const item of starredMessagesData) {
+        if (item.is_encrypted && item.encryption_iv && item.content && window.SDH?.E2E) {
+          try {
+            if (item.is_group && item.group_id) {
+              item.content = await window.SDH.E2E.decryptGroupMessage(item.content, item.encryption_iv, item.group_id);
+            } else {
+              item.content = await window.SDH.E2E.decrypt(item.content, item.encryption_iv, item.sender);
+            }
+          } catch (e) {
+            // Keep original content if decryption fails
+          }
+        }
+      }
+
+      // If dedicated workspace is open, refresh dedicated starred list
+      const dwsModal = document.getElementById('dedicatedWorkspaceModal');
+      if (dwsModal && !dwsModal.classList.contains('hidden')) {
+        loadDedicatedStarred();
+      }
+
+      if (!starredMessagesData.length) {
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        if (listEl) listEl.innerHTML = '';
+        return;
+      }
+
+      if (emptyEl) emptyEl.classList.add('hidden');
+
+      if (listEl) {
+        listEl.innerHTML = starredMessagesData.map(item => `
+          <div class="sdh-starred-card p-2.5 rounded-xl bg-black/20 hover:bg-white/[0.04] border border-white/[0.08] transition-all space-y-1.5" data-starred-msg-id="${item.message_id}">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-bold text-divine-text">${escapeHtml(item.sender)}</span>
+                <span class="text-[9px] text-amber-400">★</span>
+              </div>
+              <span class="text-[9px] text-divine-muted/60">${new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • ${new Date(item.timestamp).toLocaleDateString()}</span>
+            </div>
+            <div class="text-xs text-divine-text/90 line-clamp-2 leading-relaxed font-normal">
+              ${item.file_url ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-divine-gold mr-1">📎 ${escapeHtml(item.filename || 'Attachment')}</span>` : ''}
+              ${escapeHtml(item.content || '')}
+            </div>
+            <div class="flex items-center justify-between pt-1 border-t border-white/[0.04]">
+              <button type="button" onclick="SDH.Chat.jumpToMessage(${item.message_id})"
+                      class="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                </svg>
+                <span>Jump to message</span>
+              </button>
+              <div class="flex items-center gap-1">
+                ${item.content ? `
+                <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(item.content)}'); showToast('Copied to clipboard', 'info')"
+                        class="p-1 rounded text-divine-muted hover:text-divine-text hover:bg-white/10 transition-colors" title="Copy Text">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                  </svg>
+                </button>` : ''}
+                <button type="button" onclick="SDH.Chat.toggleStarFromProfile(${item.message_id}, ${item.is_group})"
+                        class="p-1 rounded text-amber-400/80 hover:text-amber-400 hover:bg-amber-400/10 transition-colors" title="Unstar">
+                  <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (err) {
+      console.error('[Chat] loadStarredMessages error:', err);
+      if (badgeEl) badgeEl.textContent = '0';
+      if (navStarredBadge) navStarredBadge.textContent = '0';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+    }
+  }
+
+  // ── Dedicated Starred View Controllers ──
+  function loadDedicatedStarred() {
+    const list = document.getElementById('dwsStarredList');
+    const emptyEl = document.getElementById('dwsStarredEmpty');
+    const countBadge = document.getElementById('dwsStarredCountBadge');
+
+    if (countBadge) countBadge.textContent = `${starredMessagesData.length} starred`;
+
+    if (!starredMessagesData.length) {
+      if (list) list.innerHTML = '';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+
+    if (emptyEl) emptyEl.classList.add('hidden');
+    if (list) {
+      list.innerHTML = starredMessagesData.map(item => `
+        <div class="sdh-starred-card dws-starred-item p-3.5 rounded-2xl bg-black/30 hover:bg-white/[0.05] border border-white/[0.08] transition-all space-y-2 shadow-sm"
+             data-starred-id="${item.message_id}"
+             data-search-content="${escapeHtml(((item.content || '') + ' ' + (item.sender || '') + ' ' + (item.filename || '')).toLowerCase())}">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-divine-text">${escapeHtml(item.sender)}</span>
+              <span class="text-amber-400 text-xs">★</span>
+            </div>
+            <span class="text-[10px] text-divine-muted/70">${new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • ${new Date(item.timestamp).toLocaleDateString()}</span>
+          </div>
+
+          <div class="text-xs text-divine-text leading-relaxed font-normal">
+            ${item.file_url ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/10 text-[11px] text-divine-gold font-medium mr-1.5">📎 ${escapeHtml(item.filename || 'Attachment')}</span>` : ''}
+            ${escapeHtml(item.content || '')}
+          </div>
+
+          <div class="flex items-center justify-between pt-1.5 border-t border-white/[0.06]">
+            <button type="button" onclick="SDH.Chat.jumpToMessage(${item.message_id})"
+                    class="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition-colors group">
+              <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+              </svg>
+              <span>Jump to message</span>
+            </button>
+
+            <div class="flex items-center gap-1.5">
+              ${item.content ? `
+              <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(item.content)}'); showToast('Copied to clipboard', 'info')"
+                      class="p-1.5 rounded-lg text-divine-muted hover:text-divine-text hover:bg-white/10 transition-colors" title="Copy Text">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                </svg>
+              </button>` : ''}
+
+              <button type="button" onclick="SDH.Chat.toggleStarFromProfile(${item.message_id}, ${item.is_group})"
+                      class="p-1.5 rounded-lg text-amber-400/80 hover:text-amber-400 hover:bg-amber-400/10 transition-colors" title="Unstar">
+                <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    const searchInput = document.getElementById('dwsStarredSearch');
+    if (searchInput) {
+      searchInput.value = '';
+      filterDedicatedStarred('');
+    }
+  }
+
+  function clearDedicatedStarredSearch() {
+    const searchInput = document.getElementById('dwsStarredSearch');
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.focus();
+    }
+    filterDedicatedStarred('');
+  }
+
+  function filterDedicatedStarred(query) {
+    const q = (query || '').toLowerCase().trim();
+    const clearBtn = document.getElementById('dwsStarredClearBtn');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !q);
+
+    const list = document.getElementById('dwsStarredList');
+    if (!list) return;
+
+    const items = list.querySelectorAll('.dws-starred-item');
+    let visibleCount = 0;
+    items.forEach(el => {
+      const match = !q || (el.dataset.searchContent && el.dataset.searchContent.includes(q));
+      el.style.display = match ? '' : 'none';
+      if (match) visibleCount++;
+    });
+
+    const emptyEl = document.getElementById('dwsStarredEmpty');
+    if (emptyEl) {
+      emptyEl.classList.toggle('hidden', visibleCount > 0 || items.length === 0);
+    }
+  }
+
+  function jumpToMessage(messageId) {
+    if (!messageId) return;
+    const modal = document.getElementById('userProfileModal');
+    if (modal) modal.classList.add('hidden');
+    const dwsModal = document.getElementById('dedicatedWorkspaceModal');
+    if (dwsModal) dwsModal.classList.add('hidden');
+
+    const msgEl = document.getElementById(`msg-${messageId}`);
+    if (msgEl) {
+      msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      msgEl.classList.remove('sdh-message-highlight');
+      void msgEl.offsetWidth; // trigger reflow
+      msgEl.classList.add('sdh-message-highlight');
+      setTimeout(() => {
+        msgEl.classList.remove('sdh-message-highlight');
+      }, 3600);
+    } else {
+      showToast('Message is not in the currently loaded timeline.', 'info');
+    }
   }
 
   function openRetentionModal() {
@@ -4619,6 +6250,7 @@ SDH.Chat = (() => {
       const infoRes = await fetch(`/messaging/api/groups/${groupId}/`);
       if (infoRes.ok) {
         const gInfo = await infoRes.json();
+        currentGroupMembers = gInfo.members || [];
         if (gInfo.avatar_url && avatarEl) {
           avatarEl.innerHTML = `<img src="${gInfo.avatar_url}" class="w-full h-full object-cover rounded-full" alt="" onerror="this.parentElement.innerHTML = '${(gInfo.name && gInfo.name[0] ? gInfo.name[0] : 'G').toUpperCase()}';">`;
         }
@@ -4751,6 +6383,11 @@ SDH.Chat = (() => {
         if (data.my_role === 'owner' || data.my_role === 'admin') disbandBtn.classList.remove('hidden');
         else disbandBtn.classList.add('hidden');
       }
+
+      // Populate All Files & Media and Starred Messages for group
+      loadProfileMedia(null, groupId);
+      loadStarredMessages(null, groupId);
+
     } catch (err) {
       displayNameEl.textContent = 'Error Loading Group';
       bioEl.textContent = 'Could not load group details.';
@@ -4971,6 +6608,7 @@ SDH.Chat = (() => {
           isRead: true,
           isViewOnce: Boolean(msg.is_view_once),
           viewOnceOpened: Boolean(msg.view_once_opened),
+          isStarred: Boolean(msg.is_starred),
         }, fragment);
       }
       if (container) container.appendChild(fragment);
@@ -5227,6 +6865,41 @@ SDH.Chat = (() => {
     markViewOnceOpened,
     handleViewOnceFileSelect,
     handleViewOnceOpened,
+    // All Files & Media, Storage, and Starred Suite
+    switchMediaTab,
+    loadProfileMedia,
+    toggleSelectAllStorage,
+    toggleMediaItemSelection,
+    downloadSelectedStorage,
+    deleteSelectedStorage,
+    toggleStarMessage,
+    toggleStarFromProfile,
+    loadStarredMessages,
+    jumpToMessage,
+    handleMessageStarred,
+    // Dedicated Workspaces (WhatsApp style)
+    openDedicatedMediaWorkspace,
+    openDedicatedStorageWorkspace,
+    openDedicatedStarredWorkspace,
+    backToProfileModal,
+    closeDedicatedWorkspace,
+    switchWorkspaceView,
+    switchDedicatedMediaTab,
+    filterDedicatedMedia,
+    clearDedicatedMediaSearch,
+    loadDedicatedMedia,
+    loadDedicatedStorage,
+    toggleDedicatedSelectAllStorage,
+    toggleDedicatedStorageItem,
+    downloadDedicatedSelectedStorage,
+    deleteDedicatedSelectedStorage,
+    loadDedicatedStarred,
+    filterDedicatedStarred,
+    clearDedicatedStarredSearch,
+    openUserProfileModal: (username, userId) => showUserProfile(username, userId),
+    openGroupInfoModal: (groupId) => showGroupProfile(groupId),
+    isCurrentChatGroup: () => Boolean(activeUser && activeUser.startsWith('group_')),
+    getCurrentGroupMembers: () => currentGroupMembers,
   };
 
 })();

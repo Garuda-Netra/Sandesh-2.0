@@ -36,6 +36,7 @@ SDH.Moments = (function() {
         viewedMoments = JSON.parse(localStorage.getItem(viewedMomentsKey) || '{}');
         fetchMoments();
         loadPrivacySettings();
+        _initMentionInputs();
         
         // Listen for websocket events from Chat
         document.addEventListener('sdh_ws_message', function(e) {
@@ -50,6 +51,23 @@ SDH.Moments = (function() {
                 handleMomentReactedEvent(data.moment_id, data.reaction);
             }
         });
+    }
+
+    function _initMentionInputs() {
+        if (!window.SDH?.Mentions) return;
+        const muCaption = document.getElementById('muCaption');
+        if (muCaption) window.SDH.Mentions.attach(muCaption, { getContext: () => ({ isMoments: true }) });
+        const muText = document.getElementById('muTextContent');
+        if (muText) window.SDH.Mentions.attach(muText, { getContext: () => ({ isMoments: true }) });
+        const mvReply = document.getElementById('mvReplyInput');
+        if (mvReply) {
+            window.SDH.Mentions.attach(mvReply, {
+                getContext: () => {
+                    const userGroup = momentsData.find(g => g.user_id === currentUserId);
+                    return { isMoments: true, author: userGroup ? userGroup.username : null };
+                }
+            });
+        }
     }
 
     function markViewed(momentId) {
@@ -241,6 +259,7 @@ SDH.Moments = (function() {
         uploadPrivacyType = privacySettings.privacy_type;
         uploadCustomUserIds = [...privacySettings.custom_user_ids];
         updateUploadPrivacyBadge();
+        _initMentionInputs();
     }
 
     function toggleUploadFields() {
@@ -450,6 +469,7 @@ SDH.Moments = (function() {
 
         document.getElementById('momentsViewerModal').classList.remove('hidden');
         document.getElementById('momentsViewerModal').classList.add('flex');
+        _initMentionInputs();
         playMoment();
     }
 
@@ -546,7 +566,11 @@ SDH.Moments = (function() {
         img.classList.add('hidden');
         vid.classList.add('hidden');
         txt.classList.add('hidden');
-        caption.innerText = moment.caption || '';
+        if (window.SDH?.Mentions?.format) {
+            caption.innerHTML = window.SDH.Mentions.format(moment.caption || '');
+        } else {
+            caption.innerText = moment.caption || '';
+        }
         
         // Reset active bar animation duration
         const activeBarFill = progressContainer.querySelector('.moment-bar.active .moment-bar-fill');
@@ -596,7 +620,11 @@ SDH.Moments = (function() {
             if (activeBarFill) activeBarFill.style.animationDuration = `${audioDuration}ms`;
             progressTimer = setTimeout(nextMoment, audioDuration);
         } else if (moment.moment_type === 'text') {
-            txt.innerText = moment.text_content;
+            if (window.SDH?.Mentions?.format) {
+                txt.innerHTML = window.SDH.Mentions.format(moment.text_content || '');
+            } else {
+                txt.innerText = moment.text_content || '';
+            }
             txt.classList.remove('hidden');
             document.getElementById('mvMediaContainer').style.background = `linear-gradient(135deg, hsl(${Math.random()*360}, 70%, 50%), hsl(${Math.random()*360}, 70%, 30%))`;
             if (activeBarFill) activeBarFill.style.animationDuration = `${audioDuration}ms`;
