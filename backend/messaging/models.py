@@ -578,8 +578,28 @@ class GroupMessageDelivery(models.Model):
             models.Index(fields=['message', 'user']),
         ]
 
+class StarredMessage(models.Model):
+    """
+    Stores user-starred / bookmarked messages for quick access in direct and group chats.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='starred_messages')
+    message = models.ForeignKey(Message, null=True, blank=True, on_delete=models.CASCADE, related_name='starred_by_users')
+    group_message = models.ForeignKey(GroupMessage, null=True, blank=True, on_delete=models.CASCADE, related_name='starred_by_users')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Starred Message'
+        verbose_name_plural = 'Starred Messages'
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['user', 'message']),
+            models.Index(fields=['user', 'group_message']),
+        ]
+
     def __str__(self):
-        return f'{self.user.username} received {self.message.id} at {self.delivered_at:%Y-%m-%d %H:%M}'
+        msg_id = self.message_id or self.group_message_id
+        is_grp = 'Group' if self.group_message_id else 'Direct'
+        return f'{self.user.username} starred {is_grp} Message {msg_id}'
 
 
 

@@ -477,6 +477,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'removed_by': event.get('removed_by'),
         }))
 
+    async def message_starred(self, event):
+        """Relay message starring/unstarring events to connected clients in real time."""
+        await self.send(text_data=json.dumps({
+            'type': 'message_starred',
+            'message_id': event['message_id'],
+            'is_starred': event['is_starred'],
+            'is_group': event.get('is_group', False),
+            'group_id': event.get('group_id'),
+        }))
+
     async def view_once_opened(self, event):
         """Relay view-once opened events to connected clients in real time."""
         await self.send(text_data=json.dumps({

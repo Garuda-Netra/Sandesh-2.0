@@ -3,7 +3,7 @@ Messaging Admin
 """
 
 from django.contrib import admin
-from .models import Message, CallLog, Group, GroupMembership, GroupMessage, GroupMessageRead, GroupMessageDelivery, GroupE2EKey
+from .models import Message, CallLog, Group, GroupMembership, GroupMessage, GroupMessageRead, GroupMessageDelivery, GroupE2EKey, StarredMessage
 
 
 @admin.register(Message)
@@ -57,3 +57,13 @@ class GroupE2EKeyAdmin(admin.ModelAdmin):
     list_display = ('group', 'user', 'sender', 'created_at')
     search_fields = ('group__name', 'user__username', 'sender__username')
     readonly_fields = ('encrypted_key', 'encryption_iv', 'created_at')
+
+
+@admin.register(StarredMessage)
+class StarredMessageAdmin(admin.ModelAdmin):
+    list_display = ('user', 'message', 'group_message', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('user__username',)
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
+

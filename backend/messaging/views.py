@@ -439,6 +439,14 @@ def message_history(request, username):
             pass
         return u.username
 
+    from .models import StarredMessage
+    starred_msg_ids = set(
+        StarredMessage.objects.filter(
+            user=request.user,
+            message_id__in=[m.id for m in messages_page]
+        ).values_list('message_id', flat=True)
+    )
+
     data = [
         {
             'id': m.id,
@@ -452,6 +460,7 @@ def message_history(request, username):
             'is_delivered': m.is_delivered,
             'is_read': (m.is_read and can_show_read_receipts) if not is_self else True,
             'is_mine': m.sender == request.user,
+            'is_starred': m.id in starred_msg_ids,
             'is_encrypted': getattr(m, 'is_encrypted', False),
             'encryption_iv': getattr(m, 'encryption_iv', ''),
             'has_file': bool(m.file) and not (getattr(m, 'is_view_once', False) and getattr(m, 'view_once_opened', False)),
@@ -2897,6 +2906,14 @@ def group_message_history(request, group_id):
 
     total_recipients = max(0, group.memberships.count() - 1)
 
+    from .models import StarredMessage
+    starred_msg_ids = set(
+        StarredMessage.objects.filter(
+            user=request.user,
+            group_message_id__in=[msg.id for msg in messages_page]
+        ).values_list('group_message_id', flat=True)
+    )
+
     result = []
     for msg in messages_page:
         is_deleted = (msg.message == 'This message has been deleted.' and not msg.file)
@@ -2923,6 +2940,7 @@ def group_message_history(request, group_id):
             'timestamp': msg.timestamp.isoformat(),
             'is_delivered': is_delivered,
             'is_read': is_read,
+            'is_starred': msg.id in starred_msg_ids,
             'is_deleted_for_all': is_deleted,
             'is_view_once': is_vo,
             'view_once_opened': is_vo_opened,
@@ -3681,4 +3699,531 @@ def e2e_group_key(request, group_id):
     })
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ALL FILES & MEDIA, STORAGE MANAGEMENT & STARRED MESSAGES
+# ═══════════════════════════════════════════════════════════════════════════════
 
+def _format_bytes(num_bytes):
+    """Formats raw bytes into human readable format (B, KB, MB, GB)."""
+    if not num_bytes or num_bytes <= 0:
+        return '0 B'
+    units = ['B', 'KB', 'MB', 'GB', 'TB']
+    idx = 0
+    val = float(num_bytes)
+    while val >= 1024.0 and idx < len(units) - 1:
+        val /= 1024.0
+        idx += 1
+    return f"{val:.1f} {units[idx]}" if idx > 0 else f"{int(val)} B"
+
+
+@login_required
+@require_GET
+def chat_media_api(request):
+    """
+    Returns categorized media, documents, and web links for a conversation or user.
+    Categories:
+      - Visual Assets (Photos, Images, Videos)
+      - Documents (PDFs, Word, Excel, text files, archives)
+      - Web Links (Shared links extracted from text messages)
+    Also computes aggregate storage metrics for Storage Management.
+    """
+    import re
+    from urllib.parse import urlparse
+    from .models import Group, GroupMembership, GroupMessage, Message
+
+    target_user = request.GET.get('target_user', '').strip()
+    group_id = request.GET.get('group_id', '').strip()
+
+    messages_to_process = []
+
+    if group_id:
+        try:
+            gid = int(group_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid group ID.'}, status=400)
+            
+        group = Group.objects.filter(id=gid).first()
+        if not group:
+            return JsonResponse({'error': 'Group not found.'}, status=404)
+        membership = GroupMembership.objects.filter(group=group, user=request.user).first()
+        if not membership:
+            return JsonResponse({'error': 'Not a member of this group.'}, status=403)
+        
+        qs = GroupMessage.objects.filter(group=group).select_related('sender')
+        if membership.cleared_at:
+            qs = qs.filter(timestamp__gt=membership.cleared_at)
+        qs = qs.exclude(message='This message has been deleted.').order_by('-timestamp')
+        messages_to_process = list(qs[:300])
+
+    elif target_user:
+        other_user = User.objects.filter(username=target_user).first()
+        if not other_user:
+            return JsonResponse({'error': 'User not found.'}, status=404)
+        
+        qs = Message.objects.filter(
+            (Q(sender=request.user, receiver=other_user) | Q(sender=other_user, receiver=request.user))
+        ).exclude(hidden_for_users=request.user).exclude(is_deleted_for_all=True).select_related('sender', 'receiver').order_by('-timestamp')
+        messages_to_process = list(qs[:300])
+
+    else:
+        # User's own storage overview (messages involving user)
+        direct_qs = Message.objects.filter(
+            Q(sender=request.user) | Q(receiver=request.user)
+        ).exclude(hidden_for_users=request.user).exclude(is_deleted_for_all=True).select_related('sender').order_by('-timestamp')[:150]
+        
+        my_groups = GroupMembership.objects.filter(user=request.user).values_list('group_id', flat=True)
+        group_qs = GroupMessage.objects.filter(group_id__in=my_groups).exclude(message='This message has been deleted.').select_related('sender')[:150]
+        messages_to_process = list(direct_qs) + list(group_qs)
+        messages_to_process.sort(key=lambda m: m.timestamp, reverse=True)
+
+    visual_assets = []
+    documents = []
+    web_links = []
+    url_pattern = re.compile(r'(https?://[^\s<>"]+|www\.[^\s<>"]+)', re.IGNORECASE)
+
+    visual_bytes = 0
+    document_bytes = 0
+
+    for msg in messages_to_process:
+        is_msg_group = isinstance(msg, GroupMessage)
+        sender_name = msg.sender.username if msg.sender else 'System'
+        is_mine = (msg.sender_id == request.user.id)
+        msg_date = msg.timestamp.isoformat()
+
+        # 1. Check for files (Visual Assets vs Documents)
+        if msg.file:
+            # Check view-once: skip if opened
+            if getattr(msg, 'is_view_once', False) and getattr(msg, 'view_once_opened', False):
+                continue
+
+            file_size = 0
+            try:
+                file_size = msg.file.size
+            except Exception:
+                try:
+                    if hasattr(msg.file, 'path') and os.path.isfile(msg.file.path):
+                        file_size = os.path.getsize(msg.file.path)
+                except Exception:
+                    file_size = 0
+
+            filename = msg.file_name or msg.original_filename or os.path.basename(msg.file.name)
+            mime = (msg.mime_type or '').lower()
+            mtype = (msg.message_type or '').lower()
+            file_url = f"/messaging/download-file/{msg.id}/"
+
+            is_visual = (
+                mtype in ('image', 'video') or
+                mime.startswith(('image/', 'video/')) or
+                filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.mp4', '.webm', '.mov', '.mkv'))
+            )
+
+            if is_visual:
+                visual_bytes += file_size
+                visual_assets.append({
+                    'id': msg.id,
+                    'message_id': msg.id,
+                    'is_group': is_msg_group,
+                    'group_id': getattr(msg, 'group_id', None),
+                    'message_type': 'video' if ('video' in mime or filename.lower().endswith(('.mp4', '.webm', '.mov'))) else 'image',
+                    'filename': filename,
+                    'file_url': file_url,
+                    'mime_type': mime,
+                    'size_bytes': file_size,
+                    'size_formatted': _format_bytes(file_size),
+                    'timestamp': msg_date,
+                    'sender': sender_name,
+                    'is_from_me': is_mine,
+                })
+            else:
+                ext = os.path.splitext(filename)[1].lstrip('.').upper() or 'FILE'
+                document_bytes += file_size
+                documents.append({
+                    'id': msg.id,
+                    'message_id': msg.id,
+                    'is_group': is_msg_group,
+                    'group_id': getattr(msg, 'group_id', None),
+                    'message_type': mtype or 'file',
+                    'filename': filename,
+                    'extension': ext,
+                    'file_url': file_url,
+                    'mime_type': mime,
+                    'size_bytes': file_size,
+                    'size_formatted': _format_bytes(file_size),
+                    'timestamp': msg_date,
+                    'sender': sender_name,
+                    'is_from_me': is_mine,
+                })
+
+        # 2. Check for Web Links inside text content
+        text_content = getattr(msg, 'message', '') or ''
+        if text_content and not text_content.startswith('This message has been deleted.'):
+            found_urls = url_pattern.findall(text_content)
+            for raw_url in found_urls:
+                norm_url = raw_url if raw_url.startswith(('http://', 'https://')) else f'https://{raw_url}'
+                domain = urlparse(norm_url).netloc or norm_url
+                web_links.append({
+                    'id': msg.id,
+                    'message_id': msg.id,
+                    'is_group': is_msg_group,
+                    'group_id': getattr(msg, 'group_id', None),
+                    'url': norm_url,
+                    'display_url': raw_url,
+                    'domain': domain,
+                    'snippet': text_content[:140],
+                    'timestamp': msg_date,
+                    'sender': sender_name,
+                    'is_from_me': is_mine,
+                })
+
+    total_bytes = visual_bytes + document_bytes
+    total_count = len(visual_assets) + len(documents) + len(web_links)
+
+    return JsonResponse({
+        'status': 'ok',
+        'stats': {
+            'total_bytes': total_bytes,
+            'total_formatted': _format_bytes(total_bytes),
+            'visual_bytes': visual_bytes,
+            'visual_formatted': _format_bytes(visual_bytes),
+            'visual_count': len(visual_assets),
+            'document_bytes': document_bytes,
+            'document_formatted': _format_bytes(document_bytes),
+            'document_count': len(documents),
+            'web_link_count': len(web_links),
+            'total_count': total_count,
+        },
+        'visual_assets': visual_assets,
+        'documents': documents,
+        'web_links': web_links,
+    })
+
+
+@login_required
+@require_POST
+def toggle_star_message(request, message_id):
+    """
+    Toggles star/bookmark status on a message for the requesting user.
+    Broadcasts real-time WebSocket notification to user's channel.
+    """
+    from .models import Message, GroupMessage, GroupMembership, StarredMessage
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+
+    # Check if is_group is specified in request (JSON, POST form, or GET query)
+    is_group = False
+    if request.content_type == 'application/json':
+        try:
+            body = json.loads(request.body)
+            is_group = bool(body.get('is_group', False))
+        except Exception:
+            pass
+    if not is_group:
+        post_val = str(request.POST.get('is_group', '')).lower()
+        get_val = str(request.GET.get('is_group', '')).lower()
+        is_group = post_val in ('true', '1') or get_val in ('true', '1')
+
+    if is_group:
+        msg = GroupMessage.objects.filter(id=message_id).first()
+    else:
+        msg = Message.objects.filter(id=message_id).first()
+        if not msg:
+            msg = GroupMessage.objects.filter(id=message_id).first()
+            if msg:
+                is_group = True
+
+    if not msg:
+        return JsonResponse({'error': 'Message not found.'}, status=404)
+
+    # Permission check
+    if is_group:
+        if not GroupMembership.objects.filter(group=msg.group, user=request.user).exists():
+            return JsonResponse({'error': 'Not authorized.'}, status=403)
+        starred = StarredMessage.objects.filter(user=request.user, group_message=msg).first()
+        if starred:
+            starred.delete()
+            is_starred = False
+        else:
+            StarredMessage.objects.create(user=request.user, group_message=msg)
+            is_starred = True
+    else:
+        if request.user not in (msg.sender, msg.receiver):
+            return JsonResponse({'error': 'Not authorized.'}, status=403)
+        starred = StarredMessage.objects.filter(user=request.user, message=msg).first()
+        if starred:
+            starred.delete()
+            is_starred = False
+        else:
+            StarredMessage.objects.create(user=request.user, message=msg)
+            is_starred = True
+
+    # Real-time WebSocket notification to the user's active session channels
+    channel_layer = get_channel_layer()
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f'user_chat_{request.user.id}',
+            {
+                'type': 'message_starred',
+                'message_id': message_id,
+                'is_starred': is_starred,
+                'is_group': is_group,
+                'group_id': getattr(msg, 'group_id', None),
+            }
+        )
+    except Exception:
+        pass
+
+    return JsonResponse({
+        'status': 'ok',
+        'message_id': message_id,
+        'is_starred': is_starred,
+        'is_group': is_group,
+    })
+
+
+@login_required
+@require_GET
+def starred_messages_api(request):
+    """
+    Returns all messages starred by the user, optionally filtered by conversation.
+    """
+    from .models import StarredMessage
+
+    target_user = request.GET.get('target_user', '').strip()
+    group_id = request.GET.get('group_id', '').strip()
+
+    qs = StarredMessage.objects.filter(user=request.user).select_related(
+        'message__sender__profile', 'message__receiver__profile',
+        'group_message__group', 'group_message__sender__profile'
+    ).order_by('-created_at')
+
+    if group_id:
+        try:
+            gid = int(group_id)
+            qs = qs.filter(group_message__group_id=gid)
+        except ValueError:
+            pass
+    elif target_user:
+        other_user = User.objects.filter(username=target_user).first()
+        if other_user:
+            qs = qs.filter(
+                Q(message__sender=other_user) | Q(message__receiver=other_user)
+            )
+
+    starred_list = []
+    for sm in qs:
+        m = sm.message or sm.group_message
+        if not m:
+            continue
+
+        is_grp = bool(sm.group_message)
+        sender = m.sender
+        sender_name = sender.username if sender else 'System'
+        avatar_url = ''
+        if sender and hasattr(sender, 'profile') and sender.profile.avatar:
+            avatar_url = sender.profile.avatar.url
+
+        # Check if deleted
+        if getattr(m, 'is_deleted_for_all', False) or getattr(m, 'message', '') == 'This message has been deleted.':
+            content = 'This message was deleted.'
+        else:
+            content = getattr(m, 'message', '')
+
+        filename = getattr(m, 'file_name', '') or getattr(m, 'original_filename', '')
+        file_url = f"/messaging/download-file/{m.id}/" if getattr(m, 'file', None) else ''
+
+        starred_list.append({
+            'starred_id': sm.id,
+            'message_id': m.id,
+            'is_group': is_grp,
+            'group_id': getattr(m, 'group_id', None),
+            'group_name': m.group.name if is_grp and getattr(m, 'group', None) else '',
+            'sender': sender_name,
+            'sender_avatar': avatar_url,
+            'content': content,
+            'message_type': getattr(m, 'message_type', 'text'),
+            'filename': filename,
+            'file_url': file_url,
+            'is_encrypted': getattr(m, 'is_encrypted', False),
+            'encryption_iv': getattr(m, 'encryption_iv', ''),
+            'timestamp': m.timestamp.isoformat(),
+            'starred_at': sm.created_at.isoformat(),
+            'is_mine': (sender == request.user),
+        })
+
+    return JsonResponse({
+        'status': 'ok',
+        'starred_messages': starred_list,
+        'count': len(starred_list),
+    })
+
+
+@login_required
+@require_POST
+def batch_storage_delete(request):
+    """
+    Deletes multiple selected items from storage and chat in real-time.
+    Payload:
+      {
+        "message_ids": [1, 2, 3],
+        "is_group": boolean,
+        "removal_scope": "self" | "all"
+      }
+    """
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    message_ids = data.get('message_ids', [])
+    if not isinstance(message_ids, list) or not message_ids:
+        return JsonResponse({'error': 'No message IDs specified.'}, status=400)
+
+    is_group = bool(data.get('is_group', False))
+    removal_scope = data.get('removal_scope', 'self')  # 'self' or 'all'
+
+    from .models import Message, GroupMessage, GroupMembership
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    channel_layer = get_channel_layer()
+
+    deleted_count = 0
+    freed_bytes = 0
+
+    for mid in message_ids:
+        try:
+            mid = int(mid)
+        except (ValueError, TypeError):
+            continue
+
+        if is_group:
+            msg = GroupMessage.objects.filter(id=mid).first()
+            if not msg:
+                continue
+            if not GroupMembership.objects.filter(group=msg.group, user=request.user).exists():
+                continue
+
+            # Calculate freed bytes
+            if msg.file:
+                try:
+                    freed_bytes += msg.file.size
+                except Exception:
+                    pass
+
+            if removal_scope == 'all':
+                # Only sender or group admin can delete for all
+                membership = GroupMembership.objects.filter(group=msg.group, user=request.user).first()
+                can_delete_all = (msg.sender == request.user) or (membership and membership.role in (GroupMembership.ROLE_OWNER, GroupMembership.ROLE_ADMIN))
+                if not can_delete_all:
+                    continue
+
+                if msg.file:
+                    try:
+                        if hasattr(msg.file, 'path') and os.path.isfile(msg.file.path):
+                            os.remove(msg.file.path)
+                        msg.file.delete(save=False)
+                    except Exception:
+                        pass
+                    msg.file = None
+                    msg.file_name = ''
+                    msg.original_filename = ''
+
+                msg.message = 'This message has been deleted.'
+                msg.message_type = 'text'
+                msg.save()
+
+                payload = {
+                    'type': 'message_removed',
+                    'message_id': mid,
+                    'removal_scope': 'all',
+                    'removed_by': request.user.username,
+                    'group_id': msg.group_id,
+                }
+                try:
+                    async_to_sync(channel_layer.group_send)(f'group_chat_{msg.group_id}', payload)
+                    for member_id in msg.group.memberships.values_list('user_id', flat=True):
+                        async_to_sync(channel_layer.group_send)(f'user_chat_{member_id}', payload)
+                except Exception:
+                    pass
+                deleted_count += 1
+            else:
+                # Remove from self view
+                if hasattr(msg, 'hidden_for_users'):
+                    msg.hidden_for_users.add(request.user)
+                payload = {
+                    'type': 'message_removed',
+                    'message_id': mid,
+                    'removal_scope': 'self',
+                    'removed_by': request.user.username,
+                }
+                try:
+                    async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', payload)
+                except Exception:
+                    pass
+                deleted_count += 1
+
+        else:
+            msg = Message.objects.filter(id=mid).first()
+            if not msg:
+                continue
+            if request.user not in (msg.sender, msg.receiver):
+                continue
+
+            # Calculate freed bytes
+            if msg.file:
+                try:
+                    freed_bytes += msg.file.size
+                except Exception:
+                    pass
+
+            if removal_scope == 'all' and msg.sender == request.user:
+                if msg.file:
+                    try:
+                        if hasattr(msg.file, 'path') and os.path.isfile(msg.file.path):
+                            os.remove(msg.file.path)
+                        msg.file.delete(save=False)
+                    except Exception:
+                        pass
+                    msg.file = None
+                    msg.file_name = ''
+                    msg.original_filename = ''
+
+                msg.is_deleted_for_all = True
+                msg.message = 'This message has been deleted.'
+                msg.message_type = 'text'
+                msg.save()
+
+                lo, hi = sorted([msg.sender_id, msg.receiver_id])
+                payload = {
+                    'type': 'message_removed',
+                    'message_id': mid,
+                    'removal_scope': 'all',
+                    'removed_by': request.user.username,
+                }
+                try:
+                    async_to_sync(channel_layer.group_send)(f'chat_{lo}__{hi}', payload)
+                    async_to_sync(channel_layer.group_send)(f'user_chat_{msg.sender_id}', payload)
+                    async_to_sync(channel_layer.group_send)(f'user_chat_{msg.receiver_id}', payload)
+                except Exception:
+                    pass
+                deleted_count += 1
+            else:
+                # Self view removal
+                msg.hidden_for_users.add(request.user)
+                payload = {
+                    'type': 'message_removed',
+                    'message_id': mid,
+                    'removal_scope': 'self',
+                    'removed_by': request.user.username,
+                }
+                try:
+                    async_to_sync(channel_layer.group_send)(f'user_chat_{request.user.id}', payload)
+                except Exception:
+                    pass
+                deleted_count += 1
+
+    return JsonResponse({
+        'status': 'ok',
+        'deleted_count': deleted_count,
+        'freed_bytes': freed_bytes,
+        'freed_formatted': _format_bytes(freed_bytes),
+    })

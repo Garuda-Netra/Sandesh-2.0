@@ -73,4 +73,11 @@ urlpatterns = [
     path('api/groups/<int:group_id>/e2e-member-keys/', views.e2e_get_group_member_keys, name='e2e_get_group_member_keys'),
     path('api/groups/<int:group_id>/e2e-key/', views.e2e_group_key, name='e2e_group_key'),
     path('api/groups/<int:group_id>/e2e-keys/', views.e2e_group_key, name='e2e_save_group_keys'),
+
+    # ── All Files & Media, Storage Management & Starred Messages ──
+    path('api/chat-media/', views.chat_media_api, name='chat_media_api'),
+    path('api/messages/<int:message_id>/star/', views.toggle_star_message, name='toggle_star_message'),
+    path('api/starred-messages/', views.starred_messages_api, name='starred_messages_api'),
+    path('api/storage/batch-delete/', views.batch_storage_delete, name='batch_storage_delete'),
 ]
+
