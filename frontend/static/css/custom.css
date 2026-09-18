@@ -2102,6 +2102,73 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
+/* ─── Chat Message Link High-Contrast Visibility (Light & Dark Themes) ─── */
+.sdh-chat-link,
+.msg-bubble a {
+  word-break: break-all !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  text-decoration-thickness: 1.5px !important;
+  transition: all 0.15s ease-in-out !important;
+}
+
+/* Sender Bubbles (Dark theme purple/indigo gradient & Light theme saffron/orange gradient)
+   Bubble backgrounds are deeply saturated, text is white. Links are pure luminous white. */
+.msg-bubble-sender .sdh-chat-link,
+.msg-bubble-sender a {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  text-decoration-color: rgba(255, 255, 255, 0.8) !important;
+}
+.msg-bubble-sender .sdh-chat-link:hover,
+.msg-bubble-sender a:hover {
+  color: #ffffff !important;
+  text-decoration-color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6) !important;
+  opacity: 0.95;
+}
+
+/* Receiver Bubbles - Dark Theme (Dark zinc/glass background) */
+[data-theme="dark"] .msg-bubble-receiver .sdh-chat-link,
+[data-theme="dark"] .msg-bubble-receiver a,
+.msg-bubble-receiver .sdh-chat-link,
+.msg-bubble-receiver a {
+  color: #38bdf8 !important;
+  font-weight: 600 !important;
+  text-decoration-color: rgba(56, 189, 248, 0.5) !important;
+}
+[data-theme="dark"] .msg-bubble-receiver .sdh-chat-link:hover,
+[data-theme="dark"] .msg-bubble-receiver a:hover,
+.msg-bubble-receiver .sdh-chat-link:hover,
+.msg-bubble-receiver a:hover {
+  color: #7dd3fc !important;
+  text-decoration-color: #7dd3fc !important;
+}
+
+/* Receiver Bubbles - Light Theme (White / light gray background) */
+[data-theme="light"] .msg-bubble-receiver .sdh-chat-link,
+[data-theme="light"] .msg-bubble-receiver a {
+  color: #2563eb !important;
+  font-weight: 600 !important;
+  text-decoration-color: rgba(37, 99, 235, 0.45) !important;
+}
+[data-theme="light"] .msg-bubble-receiver .sdh-chat-link:hover,
+[data-theme="light"] .msg-bubble-receiver a:hover {
+  color: #1d4ed8 !important;
+  text-decoration-color: #1d4ed8 !important;
+}
+
+/* Dedicated Media Workspace Web Links - Light Theme Card Contrast */
+[data-theme="light"] .dws-media-item a,
+[data-theme="light"] .sdh-media-item-card a {
+  color: #2563eb !important;
+}
+[data-theme="light"] .dws-media-item a:hover,
+[data-theme="light"] .sdh-media-item-card a:hover {
+  color: #1d4ed8 !important;
+}
+
+
 /* Glow effect for sent messages (gradient gold bubbles) */
 [class*="bg-gradient-to-br"][class*="from-divine-gold"] {
   box-shadow: 0 2px 12px rgba(168, 85, 247, 0.2),
@@ -4857,6 +4924,109 @@ input[type="password"]::-webkit-reveal {
   background: #ffffff !important;
   border: 1px solid rgba(0, 0, 0, 0.08) !important;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* ─── Bug Report Modal Light Mode Styling ─────────────────────── */
+[data-theme="light"] #bugReportModal {
+  background: rgba(15, 23, 42, 0.5) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+[data-theme="light"] #bugReportModalContent {
+  background: #ffffff !important;
+  border: 1px solid rgba(226, 232, 240, 0.95) !important;
+  box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] #bugReportModalContent button[aria-label="Close"] {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  border: 1px solid #e2e8f0 !important;
+}
+[data-theme="light"] #bugReportModalContent button[aria-label="Close"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] #bugReportModalContent h3 {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+[data-theme="light"] #bugReportModalContent p.text-divine-muted,
+[data-theme="light"] #bugReportModalContent > p {
+  color: #475569 !important;
+}
+
+[data-theme="light"] #bugReportModalContent .bg-amber-500\/10 {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #b45309 !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+[data-theme="light"] #bugReportModalContent div[class*="bg-amber-50"],
+[data-theme="light"] #bugReportModalContent .bg-gradient-to-r {
+  background: #fffbeb !important;
+  border-color: #fcd34d !important;
+}
+
+[data-theme="light"] #bugReportModalContent div[class*="bg-amber-50"] h4,
+[data-theme="light"] #bugReportModalContent .bg-gradient-to-r h4 {
+  color: #92400e !important;
+}
+
+[data-theme="light"] #bugReportModalContent div[class*="bg-amber-50"] p,
+[data-theme="light"] #bugReportModalContent .bg-gradient-to-r p {
+  color: #475569 !important;
+}
+
+[data-theme="light"] #bugReportModalContent div[class*="bg-amber-50"] a,
+[data-theme="light"] #bugReportModalContent .bg-gradient-to-r a {
+  color: #b45309 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] #bugReportModalContent label {
+  color: #475569 !important;
+}
+
+[data-theme="light"] #bugDescription {
+  background: #f8fafc !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] #bugDescription::placeholder {
+  color: #94a3b8 !important;
+}
+
+[data-theme="light"] #bugDescription:focus {
+  background: #ffffff !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2) !important;
+}
+
+[data-theme="light"] #bugReportModalContent a[href^="mailto:"] {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+[data-theme="light"] #bugReportModalContent a[href^="mailto:"]:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+[data-theme="light"] #bugSuccessState h4 {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] #bugSuccessState p {
+  color: #475569 !important;
 }
 
 /* ─── Liquid Button Light Mode Hover/Active Fixes ─────────────── */

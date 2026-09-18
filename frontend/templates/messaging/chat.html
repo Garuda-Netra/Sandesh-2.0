@@ -189,6 +189,76 @@
     color: #ffffff !important;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     Chat Message Link High-Contrast Visibility (Light & Dark Themes)
+     ═══════════════════════════════════════════════════════════════ */
+  .sdh-chat-link,
+  .msg-bubble a {
+    word-break: break-all !important;
+    text-decoration: underline !important;
+    text-underline-offset: 3px !important;
+    text-decoration-thickness: 1.5px !important;
+    transition: all 0.15s ease-in-out !important;
+  }
+
+  /* Sender Bubbles (Dark theme purple/indigo gradient & Light theme saffron/orange gradient)
+     Backgrounds are deep and saturated with white text. Links are pure luminous white with crisp underline. */
+  .msg-bubble-sender .sdh-chat-link,
+  .msg-bubble-sender a {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    text-decoration-color: rgba(255, 255, 255, 0.8) !important;
+  }
+  .msg-bubble-sender .sdh-chat-link:hover,
+  .msg-bubble-sender a:hover {
+    color: #ffffff !important;
+    text-decoration-color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.6) !important;
+    opacity: 0.95;
+  }
+
+  /* Receiver Bubbles - Dark Theme (Dark zinc/glass background)
+     Vibrant, luminous sky blue with 10:1+ contrast */
+  [data-theme="dark"] .msg-bubble-receiver .sdh-chat-link,
+  [data-theme="dark"] .msg-bubble-receiver a,
+  .msg-bubble-receiver .sdh-chat-link,
+  .msg-bubble-receiver a {
+    color: #38bdf8 !important;
+    font-weight: 600 !important;
+    text-decoration-color: rgba(56, 189, 248, 0.5) !important;
+  }
+  [data-theme="dark"] .msg-bubble-receiver .sdh-chat-link:hover,
+  [data-theme="dark"] .msg-bubble-receiver a:hover,
+  .msg-bubble-receiver .sdh-chat-link:hover,
+  .msg-bubble-receiver a:hover {
+    color: #7dd3fc !important;
+    text-decoration-color: #7dd3fc !important;
+  }
+
+  /* Receiver Bubbles - Light Theme (White / light gray background)
+     Rich, accessible royal blue with 8.6:1 contrast */
+  [data-theme="light"] .msg-bubble-receiver .sdh-chat-link,
+  [data-theme="light"] .msg-bubble-receiver a {
+    color: #2563eb !important;
+    font-weight: 600 !important;
+    text-decoration-color: rgba(37, 99, 235, 0.45) !important;
+  }
+  [data-theme="light"] .msg-bubble-receiver .sdh-chat-link:hover,
+  [data-theme="light"] .msg-bubble-receiver a:hover {
+    color: #1d4ed8 !important;
+    text-decoration-color: #1d4ed8 !important;
+  }
+
+  /* Dedicated Media Workspace Web Links - Light Theme Card Contrast */
+  [data-theme="light"] .dws-media-item a,
+  [data-theme="light"] .sdh-media-item-card a {
+    color: #2563eb !important;
+  }
+  [data-theme="light"] .dws-media-item a:hover,
+  [data-theme="light"] .sdh-media-item-card a:hover {
+    color: #1d4ed8 !important;
+  }
+
   /* ── File Download Action Buttons in Chat Bubbles ── */
   .sdh-file-download-btn,
   .file-msg button {

@@ -2384,14 +2384,14 @@ SDH.Chat = (() => {
 
   function _linkifyHtml(html) {
     if (!html) return '';
-    const urlPattern = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+    const urlPattern = /(?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|edu|gov|io|co|in|ai|me|app|dev|link|info)(?:\/[^\s<>"']*)?/gi;
     return html.replace(urlPattern, (match) => {
       const cleanUrl = match.replace(/[.,!?:;)"']+$/, '');
       const trailing = match.slice(cleanUrl.length);
       const href = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
         ? cleanUrl
         : `https://${cleanUrl}`;
-      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 break-all transition-colors" onclick="event.stopPropagation()">${cleanUrl}</a>${trailing}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="sdh-chat-link underline underline-offset-2 break-all transition-colors" onclick="event.stopPropagation()">${cleanUrl}</a>${trailing}`;
     });
   }
 
@@ -4820,12 +4820,27 @@ SDH.Chat = (() => {
             if (cand.is_group && cand.group_id) {
               plaintext = await window.SDH.E2E.decryptGroupMessage(cand.ciphertext, cand.encryption_iv, cand.group_id);
             } else {
-              const peer = cand.is_from_me ? (cand.receiver || targetUser || cand.sender) : cand.sender;
+              // In 1-on-1 direct chat, shared secret is derived with the chat partner (targetUser).
+              const peer = targetUser || (cand.is_from_me ? (cand.receiver || cand.sender) : (cand.sender || cand.receiver));
               plaintext = await window.SDH.E2E.decrypt(cand.ciphertext, cand.encryption_iv, peer);
+              // Fallback retry with cand.sender if different
+              if ((!plaintext || plaintext.startsWith('🔒')) && cand.sender && cand.sender !== peer) {
+                plaintext = await window.SDH.E2E.decrypt(cand.ciphertext, cand.encryption_iv, cand.sender);
+              }
+              // Fallback retry with cand.receiver if different
+              if ((!plaintext || plaintext.startsWith('🔒')) && cand.receiver && cand.receiver !== peer) {
+                plaintext = await window.SDH.E2E.decrypt(cand.ciphertext, cand.encryption_iv, cand.receiver);
+              }
             }
 
-            if (plaintext && !plaintext.startsWith('🔒')) {
-              const matches = plaintext.match(urlRegex);
+            // Also check if ciphertext itself is already plaintext containing a URL (e.g. unencrypted fallback)
+            let textToScan = plaintext && !plaintext.startsWith('🔒') ? plaintext : '';
+            if (!textToScan && cand.ciphertext && (cand.ciphertext.includes('http://') || cand.ciphertext.includes('https://') || cand.ciphertext.includes('www.'))) {
+              textToScan = cand.ciphertext;
+            }
+
+            if (textToScan) {
+              const matches = textToScan.match(urlRegex);
               if (matches) {
                 for (let rawUrl of matches) {
                   const cleanedUrl = rawUrl.replace(/[.,!?:;)"']+$/, '');
@@ -4847,7 +4862,7 @@ SDH.Chat = (() => {
                       url: normUrl,
                       display_url: cleanedUrl,
                       domain: domain,
-                      snippet: plaintext.slice(0, 140),
+                      snippet: textToScan.slice(0, 140),
                       timestamp: cand.timestamp,
                       sender: cand.sender,
                       is_from_me: cand.is_from_me,
@@ -4864,17 +4879,61 @@ SDH.Chat = (() => {
 
       // Also merge any links from currently active chat messages in DOM if viewing active chat
       const isCurrentChat = (groupId && activeUser === `group_${groupId}`) ||
-                            (!groupId && targetUser && activeUser === targetUser);
+                            (!groupId && targetUser && activeUser && targetUser.toLowerCase() === activeUser.toLowerCase());
       if (isCurrentChat) {
-        const msgItems = document.querySelectorAll('#messagesContainer .msg-item');
+        const msgItems = document.querySelectorAll('#messagesContainer [data-message-id], #messagesContainer [id^="msg-"], #messagesContainer .group\\/msg');
         msgItems.forEach(el => {
           const msgId = el.dataset.messageId || el.id?.replace('msg-', '');
           const pEl = el.querySelector('.msg-bubble p');
+          const aTags = el.querySelectorAll('.msg-bubble a');
+          const isMine = el.classList.contains('justify-end') || Boolean(el.querySelector('.msg-status-tick'));
+          let msgSender = targetUser || 'User';
+          if (isMine) {
+            msgSender = window.SDH_DATA?.currentUser || 'You';
+          } else {
+            const senderP = el.querySelector('p.text-\\[11px\\].font-semibold') || el.querySelector('p.text-\\[11px\\]');
+            if (senderP && senderP.textContent) {
+              msgSender = senderP.textContent.trim();
+            }
+          }
+
+          // Check direct <a> tags first
+          aTags.forEach(a => {
+            const rawHref = a.getAttribute('href') || a.href;
+            if (rawHref) {
+              const cleanedUrl = rawHref.replace(/[.,!?:;)"']+$/, '');
+              if (!cleanedUrl) return;
+              const normUrl = cleanedUrl.startsWith('http://') || cleanedUrl.startsWith('https://')
+                ? cleanedUrl
+                : `https://${cleanedUrl}`;
+              if (!seenUrls.has(normUrl)) {
+                seenUrls.add(normUrl);
+                let domain = normUrl;
+                try {
+                  domain = new URL(normUrl).hostname || normUrl;
+                } catch (_) {}
+                data.web_links.push({
+                  id: msgId || Date.now(),
+                  message_id: msgId || Date.now(),
+                  is_group: Boolean(groupId),
+                  group_id: groupId || null,
+                  url: normUrl,
+                  display_url: cleanedUrl,
+                  domain: domain,
+                  snippet: (pEl?.textContent || cleanedUrl).slice(0, 140),
+                  timestamp: new Date().toISOString(),
+                  sender: msgSender,
+                  is_from_me: Boolean(isMine),
+                });
+              }
+            }
+          });
+
+          // Also check text content for urls
           if (pEl) {
             const text = pEl.textContent || '';
             const matches = text.match(urlRegex);
             if (matches) {
-              const isMine = el.classList.contains('justify-end') || Boolean(el.querySelector('.msg-status-tick'));
               for (let rawUrl of matches) {
                 const cleanedUrl = rawUrl.replace(/[.,!?:;)"']+$/, '');
                 if (!cleanedUrl) continue;
@@ -4897,7 +4956,7 @@ SDH.Chat = (() => {
                     domain: domain,
                     snippet: text.slice(0, 140),
                     timestamp: new Date().toISOString(),
-                    sender: isMine ? (window.SDH_DATA?.currentUser || 'You') : (targetUser || 'User'),
+                    sender: msgSender,
                     is_from_me: Boolean(isMine),
                   });
                 }
@@ -5017,14 +5076,14 @@ SDH.Chat = (() => {
           linksList.innerHTML = data.web_links.map(item => `
             <div class="sdh-media-item-card flex items-start justify-between p-2.5 rounded-xl bg-black/20 hover:bg-white/[0.04] border border-white/[0.08] transition-all gap-2">
               <div class="flex items-start gap-2.5 min-w-0 flex-1">
-                <div class="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div class="w-7 h-7 rounded-lg bg-blue-500/15 dark:bg-sky-500/15 border border-blue-500/25 dark:border-sky-500/25 text-blue-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
                   </svg>
                 </div>
                 <div class="min-w-0 flex-1">
                   <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer"
-                     class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 max-w-full truncate">
+                     class="text-xs font-semibold text-blue-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 hover:underline inline-flex items-center gap-1 max-w-full truncate">
                     <span class="truncate">${escapeHtml(item.display_url)}</span>
                     <svg class="w-3 h-3 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -5217,6 +5276,15 @@ SDH.Chat = (() => {
 
     switchWorkspaceView('media');
     loadDedicatedMedia();
+
+    // If media items are empty and we have a target user or group, trigger fresh load
+    const effectiveTargetUser = currentProfileTarget.targetUser || (activeUser && !activeUser.startsWith('group_') ? activeUser : null);
+    const effectiveGroupId = currentProfileTarget.groupId || (activeUser && activeUser.startsWith('group_') ? activeUser.replace('group_', '') : null);
+
+    if ((!profileMediaItems || !profileMediaItems.stats || profileMediaItems.stats.total_count === 0) &&
+        (effectiveTargetUser || effectiveGroupId)) {
+      loadProfileMedia(effectiveTargetUser, effectiveGroupId);
+    }
   }
 
   function openDedicatedStorageWorkspace() {
@@ -5422,14 +5490,14 @@ SDH.Chat = (() => {
           <div class="sdh-media-item-card dws-media-item flex items-start justify-between p-3 rounded-2xl bg-black/30 hover:bg-white/[0.05] border border-white/[0.08] transition-all gap-3"
                data-filename="${escapeHtml((item.url + ' ' + (item.snippet || '')).toLowerCase())}">
             <div class="flex items-start gap-3 min-w-0 flex-1">
-              <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div class="w-9 h-9 rounded-xl bg-blue-500/15 dark:bg-sky-500/15 border border-blue-500/25 dark:border-sky-500/25 text-blue-600 dark:text-sky-400 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
                 </svg>
               </div>
               <div class="min-w-0 flex-1">
                 <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer"
-                   class="text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 max-w-full truncate">
+                   class="text-xs font-bold text-blue-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 hover:underline inline-flex items-center gap-1 max-w-full truncate">
                   <span class="truncate">${escapeHtml(item.display_url)}</span>
                   <svg class="w-3.5 h-3.5 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>

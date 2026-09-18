@@ -3756,7 +3756,7 @@ def chat_media_api(request):
         messages_to_process = list(qs[:300])
 
     elif target_user:
-        other_user = User.objects.filter(username=target_user).first()
+        other_user = User.objects.filter(username__iexact=target_user).first()
         if not other_user:
             return JsonResponse({'error': 'User not found.'}, status=404)
         
@@ -3769,7 +3769,7 @@ def chat_media_api(request):
         # User's own storage overview (messages involving user)
         direct_qs = Message.objects.filter(
             Q(sender=request.user) | Q(receiver=request.user)
-        ).exclude(hidden_for_users=request.user).exclude(is_deleted_for_all=True).select_related('sender').order_by('-timestamp')[:150]
+        ).exclude(hidden_for_users=request.user).exclude(is_deleted_for_all=True).select_related('sender', 'receiver').order_by('-timestamp')[:150]
         
         my_groups = GroupMembership.objects.filter(user=request.user).values_list('group_id', flat=True)
         group_qs = GroupMessage.objects.filter(group_id__in=my_groups).exclude(message='This message has been deleted.').select_related('sender')[:150]
@@ -3869,21 +3869,9 @@ def chat_media_api(request):
         encryption_iv = getattr(msg, 'encryption_iv', '') or ''
         receiver_name = getattr(getattr(msg, 'receiver', None), 'username', '') if not is_msg_group else ''
 
-        if is_encrypted and encryption_iv and text_content and not text_content.startswith('This message has been deleted.'):
-            encrypted_candidates.append({
-                'id': msg.id,
-                'message_id': msg.id,
-                'is_group': is_msg_group,
-                'group_id': getattr(msg, 'group_id', None),
-                'ciphertext': text_content,
-                'encryption_iv': encryption_iv,
-                'sender': sender_name,
-                'receiver': receiver_name,
-                'is_from_me': is_mine,
-                'timestamp': msg_date,
-            })
-        elif text_content and not text_content.startswith('This message has been deleted.'):
-            found_urls = url_pattern.findall(text_content)
+        # Check if text_content already has plaintext urls (direct message or unencrypted fallback)
+        found_urls = url_pattern.findall(text_content) if text_content and not text_content.startswith('This message has been deleted.') else []
+        if found_urls:
             for raw_url in found_urls:
                 cleaned_url = raw_url.rstrip('.,!?:;)"\'')
                 if not cleaned_url:
@@ -3903,6 +3891,19 @@ def chat_media_api(request):
                     'sender': sender_name,
                     'is_from_me': is_mine,
                 })
+        elif is_encrypted and encryption_iv and text_content and not text_content.startswith('This message has been deleted.'):
+            encrypted_candidates.append({
+                'id': msg.id,
+                'message_id': msg.id,
+                'is_group': is_msg_group,
+                'group_id': getattr(msg, 'group_id', None),
+                'ciphertext': text_content,
+                'encryption_iv': encryption_iv,
+                'sender': sender_name,
+                'receiver': receiver_name,
+                'is_from_me': is_mine,
+                'timestamp': msg_date,
+            })
 
     total_bytes = visual_bytes + document_bytes
     total_count = len(visual_assets) + len(documents) + len(web_links)
