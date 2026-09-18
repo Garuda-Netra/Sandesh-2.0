@@ -2382,10 +2382,24 @@ SDH.Chat = (() => {
         `;
     }
 
+  function _linkifyHtml(html) {
+    if (!html) return '';
+    const urlPattern = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi;
+    return html.replace(urlPattern, (match) => {
+      const cleanUrl = match.replace(/[.,!?:;)"']+$/, '');
+      const trailing = match.slice(cleanUrl.length);
+      const href = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
+        ? cleanUrl
+        : `https://${cleanUrl}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 break-all transition-colors" onclick="event.stopPropagation()">${cleanUrl}</a>${trailing}`;
+    });
+  }
+
     if (messageType === 'text') {
-      const formatted = window.SDH?.Mentions?.format
+      let formatted = window.SDH?.Mentions?.format
         ? window.SDH.Mentions.format(content || '')
         : escapeHtml(content || '');
+      formatted = _linkifyHtml(formatted);
       return `<p class="text-sm leading-relaxed break-words whitespace-pre-wrap">${formatted}</p>`;
     }
 
@@ -4705,8 +4719,18 @@ SDH.Chat = (() => {
   let currentMediaCategory = 'visual';
   let currentProfileTarget = { targetUser: null, groupId: null, isGroup: false };
   let profileMediaItems = { visual_assets: [], documents: [], web_links: [], stats: {} };
+  let isMediaLoading = false;
   let selectedStorageIds = new Set();
   let starredMessagesData = [];
+
+  function copyLink(url) {
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('Link copied to clipboard', 'info');
+    }).catch(() => {
+      showToast('Failed to copy link', 'error');
+    });
+  }
 
   function switchMediaTab(category) {
     currentMediaCategory = category;
@@ -4772,6 +4796,7 @@ SDH.Chat = (() => {
     if (linksList) linksList.innerHTML = '';
 
     try {
+      isMediaLoading = true;
       let url = (window.SDH_DATA?.chatMediaUrl || '/messaging/api/chat-media/') + '?';
       if (groupId) {
         url += `group_id=${encodeURIComponent(groupId)}`;
@@ -4782,6 +4807,114 @@ SDH.Chat = (() => {
       const res = await fetch(url);
       if (!res.ok) throw new Error(res.statusText);
       const data = await res.json();
+
+      // ── Process Web Links (including E2EE-encrypted candidates & active messages) ──
+      const urlRegex = /(?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|edu|gov|io|co|in|ai|me|app|dev|link|info)(?:\/[^\s<>"']*)?/gi;
+      data.web_links = data.web_links || [];
+      const seenUrls = new Set(data.web_links.map(item => item.url));
+
+      if (Array.isArray(data.encrypted_candidates) && data.encrypted_candidates.length > 0 && window.SDH?.E2E) {
+        for (const cand of data.encrypted_candidates) {
+          try {
+            let plaintext = '';
+            if (cand.is_group && cand.group_id) {
+              plaintext = await window.SDH.E2E.decryptGroupMessage(cand.ciphertext, cand.encryption_iv, cand.group_id);
+            } else {
+              const peer = cand.is_from_me ? (cand.receiver || targetUser || cand.sender) : cand.sender;
+              plaintext = await window.SDH.E2E.decrypt(cand.ciphertext, cand.encryption_iv, peer);
+            }
+
+            if (plaintext && !plaintext.startsWith('🔒')) {
+              const matches = plaintext.match(urlRegex);
+              if (matches) {
+                for (let rawUrl of matches) {
+                  const cleanedUrl = rawUrl.replace(/[.,!?:;)"']+$/, '');
+                  if (!cleanedUrl) continue;
+                  const normUrl = cleanedUrl.startsWith('http://') || cleanedUrl.startsWith('https://')
+                    ? cleanedUrl
+                    : `https://${cleanedUrl}`;
+                  if (!seenUrls.has(normUrl)) {
+                    seenUrls.add(normUrl);
+                    let domain = normUrl;
+                    try {
+                      domain = new URL(normUrl).hostname || normUrl;
+                    } catch (_) {}
+                    data.web_links.push({
+                      id: cand.id,
+                      message_id: cand.message_id,
+                      is_group: cand.is_group,
+                      group_id: cand.group_id,
+                      url: normUrl,
+                      display_url: cleanedUrl,
+                      domain: domain,
+                      snippet: plaintext.slice(0, 140),
+                      timestamp: cand.timestamp,
+                      sender: cand.sender,
+                      is_from_me: cand.is_from_me,
+                    });
+                  }
+                }
+              }
+            }
+          } catch (decErr) {
+            console.warn('[Chat] Failed to decrypt candidate message for links:', decErr);
+          }
+        }
+      }
+
+      // Also merge any links from currently active chat messages in DOM if viewing active chat
+      const isCurrentChat = (groupId && activeUser === `group_${groupId}`) ||
+                            (!groupId && targetUser && activeUser === targetUser);
+      if (isCurrentChat) {
+        const msgItems = document.querySelectorAll('#messagesContainer .msg-item');
+        msgItems.forEach(el => {
+          const msgId = el.dataset.messageId || el.id?.replace('msg-', '');
+          const pEl = el.querySelector('.msg-bubble p');
+          if (pEl) {
+            const text = pEl.textContent || '';
+            const matches = text.match(urlRegex);
+            if (matches) {
+              const isMine = el.classList.contains('justify-end') || Boolean(el.querySelector('.msg-status-tick'));
+              for (let rawUrl of matches) {
+                const cleanedUrl = rawUrl.replace(/[.,!?:;)"']+$/, '');
+                if (!cleanedUrl) continue;
+                const normUrl = cleanedUrl.startsWith('http://') || cleanedUrl.startsWith('https://')
+                  ? cleanedUrl
+                  : `https://${cleanedUrl}`;
+                if (!seenUrls.has(normUrl)) {
+                  seenUrls.add(normUrl);
+                  let domain = normUrl;
+                  try {
+                    domain = new URL(normUrl).hostname || normUrl;
+                  } catch (_) {}
+                  data.web_links.push({
+                    id: msgId || Date.now(),
+                    message_id: msgId || Date.now(),
+                    is_group: Boolean(groupId),
+                    group_id: groupId || null,
+                    url: normUrl,
+                    display_url: cleanedUrl,
+                    domain: domain,
+                    snippet: text.slice(0, 140),
+                    timestamp: new Date().toISOString(),
+                    sender: isMine ? (window.SDH_DATA?.currentUser || 'You') : (targetUser || 'User'),
+                    is_from_me: Boolean(isMine),
+                  });
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // Sort web links newest first
+      data.web_links.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      // Recalculate stats
+      data.stats = data.stats || {};
+      data.stats.web_link_count = data.web_links.length;
+      data.stats.total_count = (data.stats.visual_count || 0) + (data.stats.document_count || 0) + data.stats.web_link_count;
+
       profileMediaItems = data;
 
       const stats = data.stats || {};
@@ -4901,7 +5034,7 @@ SDH.Chat = (() => {
                   <p class="text-[9px] text-divine-muted/60 mt-0.5">${escapeHtml(item.sender)} • ${new Date(item.timestamp).toLocaleDateString()}</p>
                 </div>
               </div>
-              <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(item.url)}'); showToast('Link copied to clipboard', 'info')"
+              <button type="button" onclick="SDH.Chat.copyLink(this.dataset.url)" data-url="${escapeHtml(item.url)}"
                       class="p-1 rounded-lg text-divine-muted hover:text-divine-text hover:bg-white/10 transition-colors flex-shrink-0" title="Copy Link">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
@@ -4922,6 +5055,8 @@ SDH.Chat = (() => {
     } catch (err) {
       console.error('[Chat] loadProfileMedia error:', err);
       if (visualList) visualList.innerHTML = '<div class="col-span-3 py-6 text-center text-xs text-red-400/80">Could not load files</div>';
+    } finally {
+      isMediaLoading = false;
     }
   }
 
@@ -5278,7 +5413,9 @@ SDH.Chat = (() => {
 
     // Populate Web Links List
     if (linksList) {
-      if (!profileMediaItems.web_links || profileMediaItems.web_links.length === 0) {
+      if (isMediaLoading && (!profileMediaItems.web_links || profileMediaItems.web_links.length === 0)) {
+        linksList.innerHTML = '<div class="py-16 text-center text-xs text-divine-muted/70 animate-pulse">Scanning and loading web links...</div>';
+      } else if (!profileMediaItems.web_links || profileMediaItems.web_links.length === 0) {
         linksList.innerHTML = '<div class="py-16 text-center text-xs text-divine-muted/60">No web links shared yet</div>';
       } else {
         linksList.innerHTML = profileMediaItems.web_links.map(item => `
@@ -5302,7 +5439,7 @@ SDH.Chat = (() => {
                 <p class="text-[10px] text-divine-muted/60 mt-0.5">${escapeHtml(item.sender)} • ${new Date(item.timestamp).toLocaleDateString()}</p>
               </div>
             </div>
-            <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(item.url)}'); showToast('Link copied to clipboard', 'info')"
+            <button type="button" onclick="SDH.Chat.copyLink(this.dataset.url)" data-url="${escapeHtml(item.url)}"
                     class="p-2 rounded-xl text-divine-muted hover:text-divine-text hover:bg-white/10 transition-colors flex-shrink-0" title="Copy Link">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
@@ -6908,6 +7045,7 @@ SDH.Chat = (() => {
     handleViewOnceFileSelect,
     handleViewOnceOpened,
     // All Files & Media, Storage, and Starred Suite
+    copyLink,
     switchMediaTab,
     loadProfileMedia,
     toggleSelectAllStorage,

@@ -3779,7 +3779,8 @@ def chat_media_api(request):
     visual_assets = []
     documents = []
     web_links = []
-    url_pattern = re.compile(r'(https?://[^\s<>"]+|www\.[^\s<>"]+)', re.IGNORECASE)
+    encrypted_candidates = []
+    url_pattern = re.compile(r'(https?://[^\s<>"\']+|www\.[^\s<>"\']+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|edu|gov|io|co|in|ai|me|app|dev|link|info)(?:/[^\s<>"\']*)?)', re.IGNORECASE)
 
     visual_bytes = 0
     document_bytes = 0
@@ -3864,10 +3865,30 @@ def chat_media_api(request):
 
         # 2. Check for Web Links inside text content
         text_content = getattr(msg, 'message', '') or ''
-        if text_content and not text_content.startswith('This message has been deleted.'):
+        is_encrypted = getattr(msg, 'is_encrypted', False)
+        encryption_iv = getattr(msg, 'encryption_iv', '') or ''
+        receiver_name = getattr(getattr(msg, 'receiver', None), 'username', '') if not is_msg_group else ''
+
+        if is_encrypted and encryption_iv and text_content and not text_content.startswith('This message has been deleted.'):
+            encrypted_candidates.append({
+                'id': msg.id,
+                'message_id': msg.id,
+                'is_group': is_msg_group,
+                'group_id': getattr(msg, 'group_id', None),
+                'ciphertext': text_content,
+                'encryption_iv': encryption_iv,
+                'sender': sender_name,
+                'receiver': receiver_name,
+                'is_from_me': is_mine,
+                'timestamp': msg_date,
+            })
+        elif text_content and not text_content.startswith('This message has been deleted.'):
             found_urls = url_pattern.findall(text_content)
             for raw_url in found_urls:
-                norm_url = raw_url if raw_url.startswith(('http://', 'https://')) else f'https://{raw_url}'
+                cleaned_url = raw_url.rstrip('.,!?:;)"\'')
+                if not cleaned_url:
+                    continue
+                norm_url = cleaned_url if cleaned_url.startswith(('http://', 'https://')) else f'https://{cleaned_url}'
                 domain = urlparse(norm_url).netloc or norm_url
                 web_links.append({
                     'id': msg.id,
@@ -3875,7 +3896,7 @@ def chat_media_api(request):
                     'is_group': is_msg_group,
                     'group_id': getattr(msg, 'group_id', None),
                     'url': norm_url,
-                    'display_url': raw_url,
+                    'display_url': cleaned_url,
                     'domain': domain,
                     'snippet': text_content[:140],
                     'timestamp': msg_date,
@@ -3903,6 +3924,7 @@ def chat_media_api(request):
         'visual_assets': visual_assets,
         'documents': documents,
         'web_links': web_links,
+        'encrypted_candidates': encrypted_candidates,
     })
 
 
