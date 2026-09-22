@@ -144,24 +144,24 @@
     }
 
     [data-theme="light"] #userDropdown a,
-    [data-theme="light"] #userDropdown button {
+    [data-theme="light"] #userDropdown button:not(.sdh-mode-btn) {
       color: #1e293b !important;
       font-weight: 500 !important;
     }
 
     [data-theme="light"] #userDropdown a svg,
-    [data-theme="light"] #userDropdown button svg {
+    [data-theme="light"] #userDropdown button:not(.sdh-mode-btn) svg {
       color: #64748b !important;
     }
 
     [data-theme="light"] #userDropdown a:hover,
-    [data-theme="light"] #userDropdown button:hover {
+    [data-theme="light"] #userDropdown button:not(.sdh-mode-btn):hover {
       background-color: #f1f5f9 !important;
       color: #0f172a !important;
     }
 
     [data-theme="light"] #userDropdown a:hover svg,
-    [data-theme="light"] #userDropdown button:hover svg {
+    [data-theme="light"] #userDropdown button:not(.sdh-mode-btn):hover svg {
       color: #7c3aed !important;
     }
 
@@ -182,11 +182,191 @@
     }
 
     .dark #userDropdown a:hover,
-    .dark #userDropdown button:hover,
+    .dark #userDropdown button:not(.sdh-mode-btn):hover,
     [data-theme="dark"] #userDropdown a:hover,
-    [data-theme="dark"] #userDropdown button:hover {
+    [data-theme="dark"] #userDropdown button:not(.sdh-mode-btn):hover {
       background-color: rgba(255, 255, 255, 0.08) !important;
       color: #ffffff !important;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       Network Mode Toggle (Dropdown Capsule) - Premium & High-Contrast
+       ═══════════════════════════════════════════════════════════════ */
+    #sdhModeToggleContainer {
+      position: relative !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 3px !important;
+      border-radius: 9999px !important;
+      transition: background-color 0.2s ease, border-color 0.2s ease !important;
+    }
+
+    [data-theme="light"] #sdhModeToggleContainer {
+      background-color: #f1f5f9 !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .dark #sdhModeToggleContainer,
+    [data-theme="dark"] #sdhModeToggleContainer {
+      background-color: #0b0f19 !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    #sdhModeToggleContainer .sdh-mode-btn {
+      flex: 1 1 0% !important;
+      position: relative !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      padding: 6px 10px !important;
+      border-radius: 9999px !important;
+      font-size: 11px !important;
+      cursor: pointer !important;
+      border: 1px solid transparent !important;
+      outline: none !important;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      user-select: none !important;
+      background: transparent !important;
+    }
+
+    /* ── Cloud Active ── */
+    #sdhModeToggleContainer #sdhModeCloudBtn[data-active="true"],
+    #sdhModeToggleContainer #sdhModeCloudBtn.sdh-mode-active {
+      background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      box-shadow: 0 3px 10px rgba(139, 92, 246, 0.45) !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    #sdhModeToggleContainer #sdhModeCloudBtn[data-active="true"] .sdh-mode-text,
+    #sdhModeToggleContainer #sdhModeCloudBtn.sdh-mode-active .sdh-mode-text {
+      color: #ffffff !important;
+      font-weight: 700 !important;
+    }
+    #sdhModeToggleContainer #sdhModeCloudBtn[data-active="true"] svg,
+    #sdhModeToggleContainer #sdhModeCloudBtn.sdh-mode-active svg {
+      color: #ffffff !important;
+      stroke: #ffffff !important;
+    }
+
+    /* ── Cloud Inactive ── */
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active) {
+      background: transparent !important;
+      color: #475569 !important;
+    }
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active) .sdh-mode-text {
+      color: #475569 !important;
+      font-weight: 600 !important;
+    }
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active) svg {
+      color: #64748b !important;
+      stroke: #64748b !important;
+    }
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active):hover {
+      background-color: rgba(0, 0, 0, 0.06) !important;
+      color: #0f172a !important;
+    }
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active):hover svg {
+      color: #0f172a !important;
+      stroke: #0f172a !important;
+    }
+
+    .dark #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active),
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active) {
+      background: transparent !important;
+      color: #cbd5e1 !important;
+    }
+    .dark #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active) .sdh-mode-text,
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active) .sdh-mode-text {
+      color: #cbd5e1 !important;
+      font-weight: 600 !important;
+    }
+    .dark #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active) svg,
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active) svg {
+      color: #94a3b8 !important;
+      stroke: #94a3b8 !important;
+    }
+    .dark #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active):hover,
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active):hover {
+      background-color: rgba(255, 255, 255, 0.08) !important;
+      color: #ffffff !important;
+    }
+    .dark #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active):hover svg,
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeCloudBtn:not([data-active="true"]):not(.sdh-mode-active):hover svg {
+      color: #ffffff !important;
+      stroke: #ffffff !important;
+    }
+
+    /* ── Nearby Active ── */
+    #sdhModeToggleContainer #sdhModeNearbyBtn[data-active="true"],
+    #sdhModeToggleContainer #sdhModeNearbyBtn.sdh-mode-active {
+      background: linear-gradient(135deg, #10b981, #059669) !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      box-shadow: 0 3px 10px rgba(16, 185, 129, 0.45) !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    #sdhModeToggleContainer #sdhModeNearbyBtn[data-active="true"] .sdh-mode-text,
+    #sdhModeToggleContainer #sdhModeNearbyBtn.sdh-mode-active .sdh-mode-text {
+      color: #ffffff !important;
+      font-weight: 700 !important;
+    }
+    #sdhModeToggleContainer #sdhModeNearbyBtn[data-active="true"] svg,
+    #sdhModeToggleContainer #sdhModeNearbyBtn.sdh-mode-active svg {
+      color: #ffffff !important;
+      stroke: #ffffff !important;
+    }
+
+    /* ── Nearby Inactive ── */
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active) {
+      background: transparent !important;
+      color: #475569 !important;
+    }
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active) .sdh-mode-text {
+      color: #475569 !important;
+      font-weight: 600 !important;
+    }
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active) svg {
+      color: #64748b !important;
+      stroke: #64748b !important;
+    }
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active):hover {
+      background-color: rgba(0, 0, 0, 0.06) !important;
+      color: #0f172a !important;
+    }
+    [data-theme="light"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active):hover svg {
+      color: #0f172a !important;
+      stroke: #0f172a !important;
+    }
+
+    .dark #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active),
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active) {
+      background: transparent !important;
+      color: #cbd5e1 !important;
+    }
+    .dark #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active) .sdh-mode-text,
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active) .sdh-mode-text {
+      color: #cbd5e1 !important;
+      font-weight: 600 !important;
+    }
+    .dark #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active) svg,
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active) svg {
+      color: #94a3b8 !important;
+      stroke: #94a3b8 !important;
+    }
+    .dark #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active):hover,
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active):hover {
+      background-color: rgba(255, 255, 255, 0.08) !important;
+      color: #ffffff !important;
+    }
+    .dark #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active):hover svg,
+    [data-theme="dark"] #sdhModeToggleContainer #sdhModeNearbyBtn:not([data-active="true"]):not(.sdh-mode-active):hover svg {
+      color: #ffffff !important;
+      stroke: #ffffff !important;
     }
   </style>
 
@@ -323,37 +503,39 @@
           class="hidden absolute right-0 top-full mt-2 w-56 sm:w-60 bg-divine-card border border-divine-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-scale-in">
           
           <!-- Connection Mode Switcher (Cloud vs Nearby) -->
-          <div class="p-3 bg-black/[0.04] dark:bg-white/[0.03] border-b border-divine-border flex flex-col gap-2">
+          <div class="p-3 bg-black/[0.03] dark:bg-white/[0.03] border-b border-slate-200/80 dark:border-white/10 flex flex-col gap-2">
             <div class="flex items-center justify-between">
-              <span class="text-[10px] font-bold text-divine-muted uppercase tracking-wider">Network Mode</span>
-              <span id="sdhModeLabelBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Cloud</span>
+              <span class="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Network Mode</span>
+              <span id="sdhModeLabelBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700/50">Cloud</span>
             </div>
             
-            <div id="sdhModeToggleContainer" class="relative flex items-center justify-between bg-slate-900/90 dark:bg-black/90 p-1 rounded-full border border-slate-700/60 dark:border-white/15 shadow-inner" role="radiogroup" aria-label="Connection Mode">
+            <div id="sdhModeToggleContainer" class="relative flex items-center justify-between p-1 rounded-full shadow-inner" role="radiogroup" aria-label="Connection Mode">
               <!-- Cloud Mode Option -->
               <button id="sdhModeCloudBtn" type="button" onclick="event.stopPropagation(); SDH.toggleTransportMode('cloud')"
-                class="flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-300 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_12px_rgba(168,85,247,0.5)] border border-purple-400/30 cursor-pointer"
+                class="sdh-mode-btn sdh-mode-active"
+                data-active="true"
                 title="Cloud Mode: Online Messaging via Central Servers" role="radio" aria-checked="true">
                 <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z" />
                 </svg>
-                <span class="inline text-[11px] font-semibold tracking-wide">Cloud</span>
+                <span class="sdh-mode-text inline text-[11px] font-bold tracking-wide">Cloud</span>
               </button>
 
               <!-- Nearby Mode Option -->
               <button id="sdhModeNearbyBtn" type="button" onclick="event.stopPropagation(); SDH.toggleTransportMode('nearby')"
-                class="flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white dark:text-slate-300 dark:hover:text-white transition-all duration-300 bg-transparent hover:bg-white/10 cursor-pointer"
+                class="sdh-mode-btn"
+                data-active="false"
                 title="Nearby Mode: Offline Messaging via Local Wi-Fi / Hotspot" role="radio" aria-checked="false">
                 <span class="relative flex h-2 w-2 flex-shrink-0">
                   <span id="sdhNearbyPing" class="hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span id="sdhNearbyDot" class="relative inline-flex rounded-full h-2 w-2 bg-zinc-400"></span>
+                  <span id="sdhNearbyDot" class="relative inline-flex rounded-full h-2 w-2 bg-slate-400 dark:bg-zinc-500"></span>
                 </span>
                 <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.393 9.393c5.857-5.857 15.355-5.857 21.213 0" />
                 </svg>
-                <span class="inline text-[11px] font-semibold tracking-wide">Nearby</span>
+                <span class="sdh-mode-text inline text-[11px] font-semibold tracking-wide">Nearby</span>
               </button>
             </div>
           </div>
@@ -1560,35 +1742,39 @@
 
       if (mode === 'nearby') {
         if (cloudBtn) {
-          cloudBtn.className = 'flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white dark:text-slate-300 dark:hover:text-white transition-all duration-300 bg-transparent hover:bg-white/10 cursor-pointer';
+          cloudBtn.setAttribute('data-active', 'false');
           cloudBtn.setAttribute('aria-checked', 'false');
+          cloudBtn.classList.remove('sdh-mode-active');
         }
         if (nearbyBtn) {
-          nearbyBtn.className = 'flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white transition-all duration-300 bg-gradient-to-r from-emerald-600 to-teal-600 shadow-[0_0_15px_rgba(16,185,129,0.6)] border border-emerald-400/40 cursor-pointer';
+          nearbyBtn.setAttribute('data-active', 'true');
           nearbyBtn.setAttribute('aria-checked', 'true');
+          nearbyBtn.classList.add('sdh-mode-active');
         }
         if (ping) ping.classList.remove('hidden');
-        if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-400';
+        if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-white';
         if (banner) banner.classList.remove('hidden');
         if (badge) {
-          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400';
+          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700/50';
           badge.textContent = 'Nearby Mesh';
         }
         if (avatarDot) avatarDot.classList.remove('hidden');
       } else {
         if (cloudBtn) {
-          cloudBtn.className = 'flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white transition-all duration-300 bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_14px_rgba(168,85,247,0.6)] border border-purple-400/30 cursor-pointer';
+          cloudBtn.setAttribute('data-active', 'true');
           cloudBtn.setAttribute('aria-checked', 'true');
+          cloudBtn.classList.add('sdh-mode-active');
         }
         if (nearbyBtn) {
-          nearbyBtn.className = 'flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white dark:text-slate-300 dark:hover:text-white transition-all duration-300 bg-transparent hover:bg-white/10 cursor-pointer';
+          nearbyBtn.setAttribute('data-active', 'false');
           nearbyBtn.setAttribute('aria-checked', 'false');
+          nearbyBtn.classList.remove('sdh-mode-active');
         }
         if (ping) ping.classList.add('hidden');
-        if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-zinc-400';
+        if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-slate-400 dark:bg-zinc-500';
         if (banner) banner.classList.add('hidden');
         if (badge) {
-          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400';
+          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700/50';
           badge.textContent = 'Cloud';
         }
         if (avatarDot) avatarDot.classList.add('hidden');

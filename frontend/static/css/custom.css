@@ -3784,7 +3784,7 @@ input[type="password"]::-webkit-reveal {
 [data-theme="light"] #kebabDropdown a,
 [data-theme="light"] #kebabDropdown .sdh-kebab-item,
 [data-theme="light"] #userDropdown a,
-[data-theme="light"] #userDropdown button,
+[data-theme="light"] #userDropdown button:not(.sdh-mode-btn),
 [data-theme="light"] [id^="sidebarKebab-"] button {
   color: #1e293b !important;
   font-weight: 500 !important;
@@ -3794,7 +3794,7 @@ input[type="password"]::-webkit-reveal {
 [data-theme="light"] .msg-dropdown button svg,
 [data-theme="light"] .user-ctx-dropdown button svg,
 [data-theme="light"] #kebabDropdown svg,
-[data-theme="light"] #userDropdown svg,
+[data-theme="light"] #userDropdown svg:not(#sdhModeToggleContainer svg),
 [data-theme="light"] [id^="sidebarKebab-"] svg {
   color: #64748b !important;
   stroke: currentColor !important;
@@ -3808,7 +3808,7 @@ input[type="password"]::-webkit-reveal {
 [data-theme="light"] #kebabDropdown a:hover,
 [data-theme="light"] #kebabDropdown .sdh-kebab-item:hover,
 [data-theme="light"] #userDropdown a:hover,
-[data-theme="light"] #userDropdown button:hover,
+[data-theme="light"] #userDropdown button:not(.sdh-mode-btn):hover,
 [data-theme="light"] [id^="sidebarKebab-"] button:hover {
   background-color: #f1f5f9 !important;
   color: #0f172a !important;
@@ -3820,7 +3820,7 @@ input[type="password"]::-webkit-reveal {
 [data-theme="light"] #kebabDropdown a:hover svg,
 [data-theme="light"] #kebabDropdown .sdh-kebab-item:hover svg,
 [data-theme="light"] #userDropdown a:hover svg,
-[data-theme="light"] #userDropdown button:hover svg,
+[data-theme="light"] #userDropdown button:not(.sdh-mode-btn):hover svg,
 [data-theme="light"] [id^="sidebarKebab-"] button:hover svg {
   color: #7c3aed !important;
   stroke: #7c3aed !important;
@@ -3945,8 +3945,8 @@ input[type="password"]::-webkit-reveal {
 [data-theme="dark"] #kebabDropdown .sdh-kebab-item,
 .dark #userDropdown a,
 [data-theme="dark"] #userDropdown a,
-.dark #userDropdown button,
-[data-theme="dark"] #userDropdown button,
+.dark #userDropdown button:not(.sdh-mode-btn),
+[data-theme="dark"] #userDropdown button:not(.sdh-mode-btn),
 .dark [id^="sidebarKebab-"] button,
 [data-theme="dark"] [id^="sidebarKebab-"] button {
   color: #e2e8f0 !important;
@@ -3960,8 +3960,8 @@ input[type="password"]::-webkit-reveal {
 [data-theme="dark"] .user-ctx-dropdown button svg,
 .dark #kebabDropdown svg,
 [data-theme="dark"] #kebabDropdown svg,
-.dark #userDropdown svg,
-[data-theme="dark"] #userDropdown svg,
+.dark #userDropdown svg:not(#sdhModeToggleContainer svg),
+[data-theme="dark"] #userDropdown svg:not(#sdhModeToggleContainer svg),
 .dark [id^="sidebarKebab-"] svg,
 [data-theme="dark"] [id^="sidebarKebab-"] svg {
   color: #94a3b8 !important;
@@ -3981,8 +3981,8 @@ input[type="password"]::-webkit-reveal {
 [data-theme="dark"] #kebabDropdown .sdh-kebab-item:hover,
 .dark #userDropdown a:hover,
 [data-theme="dark"] #userDropdown a:hover,
-.dark #userDropdown button:hover,
-[data-theme="dark"] #userDropdown button:hover,
+.dark #userDropdown button:not(.sdh-mode-btn):hover,
+[data-theme="dark"] #userDropdown button:not(.sdh-mode-btn):hover,
 .dark [id^="sidebarKebab-"] button:hover,
 [data-theme="dark"] [id^="sidebarKebab-"] button:hover {
   background-color: rgba(255, 255, 255, 0.08) !important;
