@@ -61,7 +61,7 @@ def _hidden_user_ids(user):
     """Return User IDs hidden from the current user's contact surfaces.
 
     Only checks hidden_users (cosmetic hiding).
-    Blocked users stay visible per WhatsApp-style blocking.
+    Blocked users stay visible in sidebar.
     """
     try:
         profile = user.profile
@@ -77,7 +77,7 @@ def _hidden_user_ids(user):
 
 
 def _is_chat_blocked(user, other_user):
-    """WhatsApp-style blocking check.
+    """Blocking check.
 
     Returns a tuple: (blocked: bool, reason: str)
       - If user blocked other_user: blocked, "unblock to send"
@@ -176,7 +176,7 @@ def chat_view(request):
     except UserProfile.DoesNotExist:
         my_profile = UserProfile.objects.create(user=request.user)
 
-    # Get friends + blocked contacts (WhatsApp-style: blocked stay visible)
+    # Get friends + blocked contacts (blocked stay visible)
     hidden_ids = _hidden_user_ids(request.user)
     friend_profile_ids = Friendship.get_friend_profile_ids(my_profile)
     blocked_profile_ids = set(
@@ -224,7 +224,7 @@ def chat_view(request):
     # Build user list with online status and last_seen
     user_data = []
 
-    # Pinned self-chat (WhatsApp-style "message yourself")
+    # Pinned self-chat ("message yourself")
     user_data.append({
         'user': request.user,
         'is_online': True,
@@ -468,6 +468,17 @@ def message_history(request, username):
             'is_deleted_for_all': m.is_deleted_for_all,
             'is_view_once': getattr(m, 'is_view_once', False),
             'view_once_opened': getattr(m, 'view_once_opened', False),
+            'location': {
+                'latitude': m.latitude,
+                'longitude': m.longitude,
+                'location_name': m.location_name or '',
+                'location_address': m.location_address or '',
+                'is_live': m.is_live_location,
+                'live_duration': m.live_duration,
+                'live_expires_at': m.live_expires_at.isoformat() if m.live_expires_at else None,
+                'is_live_ended': m.is_live_ended or bool(m.live_expires_at and timezone.now() > m.live_expires_at),
+                'live_ended_at': m.live_ended_at.isoformat() if m.live_ended_at else None,
+            } if m.message_type == 'location' else None,
             'replied_moment': {
                 'id': m.replied_moment.id,
                 'media_url': m.replied_moment.media.url if m.replied_moment.media else '',
@@ -1701,7 +1712,7 @@ def call_view(request, username=None):
 
 
 # ---------------------------------------------------------------------------
-# Moments (Temporary Updates) API & WhatsApp-Style Status Privacy
+# Moments (Temporary Updates) API & Status Privacy
 # ---------------------------------------------------------------------------
 
 def _can_user_view_moment(user, moment):
@@ -1739,7 +1750,7 @@ def _can_user_view_moment(user, moment):
 def get_moments(request):
     """
     Returns active (unexpired) moments for the current user and their friends.
-    Grouped by user. Enforces WhatsApp-style status privacy settings.
+    Grouped by user. Enforces status privacy settings.
     """
     try:
         my_profile = request.user.profile
@@ -2944,6 +2955,17 @@ def group_message_history(request, group_id):
             'is_deleted_for_all': is_deleted,
             'is_view_once': is_vo,
             'view_once_opened': is_vo_opened,
+            'location': {
+                'latitude': msg.latitude,
+                'longitude': msg.longitude,
+                'location_name': msg.location_name or '',
+                'location_address': msg.location_address or '',
+                'is_live': msg.is_live_location,
+                'live_duration': msg.live_duration,
+                'live_expires_at': msg.live_expires_at.isoformat() if msg.live_expires_at else None,
+                'is_live_ended': msg.is_live_ended or bool(msg.live_expires_at and timezone.now() > msg.live_expires_at),
+                'live_ended_at': msg.live_ended_at.isoformat() if msg.live_ended_at else None,
+            } if msg.message_type == 'location' else None,
         }
         if msg.file and not is_deleted and not (is_vo and is_vo_opened):
             entry['has_file'] = True
@@ -3010,7 +3032,7 @@ def _serialize_group(group, user):
 
 
 # ---------------------------------------------------------------------------
-# WhatsApp-Style Chat Lock & Biometric / PIN Security Views
+# Sandesh Chat Lock & Biometric / PIN Security Views
 # ---------------------------------------------------------------------------
 
 @login_required
@@ -4264,3 +4286,338 @@ def batch_storage_delete(request):
         'freed_bytes': freed_bytes,
         'freed_formatted': _format_bytes(freed_bytes),
     })
+
+
+# ---------------------------------------------------------------------------
+# Location Sharing Views (Current Location & Live Location Tracking)
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_POST
+def send_location(request):
+    """
+    Share current location (static pin / landmark) or initiate live location tracking.
+    Supports both direct (1-on-1) and group chats.
+    """
+    try:
+        data = json.loads(request.body)
+        target = (data.get('target') or '').strip()
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        location_name = (data.get('location_name') or '').strip()
+        location_address = (data.get('location_address') or '').strip()
+        is_live = bool(data.get('is_live', False))
+        live_duration = int(data.get('live_duration', 0))
+        message_text = (data.get('message') or '').strip()
+
+        if latitude is None or longitude is None:
+            return JsonResponse({'error': 'Latitude and longitude are required.'}, status=400)
+        try:
+            latitude = float(latitude)
+            longitude = float(longitude)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid coordinates.'}, status=400)
+
+        if not target:
+            return JsonResponse({'error': 'Target chat is required.'}, status=400)
+
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+
+        is_group = target.startswith('group_')
+        live_expires_at = timezone.now() + timedelta(seconds=live_duration) if (is_live and live_duration > 0) else None
+
+        if is_group:
+            from .models import Group, GroupMembership, GroupMessage
+            group_id = int(target.replace('group_', ''))
+            group = get_object_or_404(Group, id=group_id)
+            if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+                return JsonResponse({'error': 'You are not a member of this group.'}, status=403)
+
+            msg = GroupMessage.objects.create(
+                group=group,
+                sender=request.user,
+                message=message_text,
+                message_type=GroupMessage.MESSAGE_TYPE_LOCATION,
+                latitude=latitude,
+                longitude=longitude,
+                location_name=location_name,
+                location_address=location_address,
+                is_live_location=is_live,
+                live_duration=live_duration,
+                live_expires_at=live_expires_at,
+            )
+
+            location_payload = {
+                'latitude': latitude,
+                'longitude': longitude,
+                'location_name': location_name,
+                'location_address': location_address,
+                'is_live': is_live,
+                'live_duration': live_duration,
+                'live_expires_at': live_expires_at.isoformat() if live_expires_at else None,
+                'is_live_ended': False,
+                'live_ended_at': None,
+            }
+
+            ws_payload = {
+                'type': 'broadcast_group_message',
+                'message_id': msg.id,
+                'sender': request.user.username,
+                'sender_id': request.user.id,
+                'message': message_text,
+                'message_type': 'location',
+                'location': location_payload,
+                'timestamp': msg.timestamp.isoformat(),
+                'group_id': group.id,
+                'is_system_message': False,
+            }
+
+            member_ids = list(GroupMembership.objects.filter(group=group).values_list('user_id', flat=True))
+            for uid in member_ids:
+                async_to_sync(channel_layer.group_send)(f'user_chat_{uid}', ws_payload)
+
+            return JsonResponse({
+                'status': 'ok',
+                'message_id': msg.id,
+                'is_group': True,
+                'group_id': group.id,
+                'location': location_payload,
+                'timestamp': msg.timestamp.isoformat(),
+            })
+
+        else:
+            # 1-on-1 direct chat
+            receiver = User.objects.filter(username=target).first()
+            if not receiver:
+                return JsonResponse({'error': 'Recipient not found.'}, status=404)
+
+            blocked, reason = _is_chat_blocked(request.user, receiver)
+            if blocked:
+                return JsonResponse({'error': reason}, status=403)
+
+            is_self_chat = (receiver.id == request.user.id)
+
+            msg = Message.objects.create(
+                sender=request.user,
+                receiver=receiver,
+                message=message_text,
+                message_type=Message.MESSAGE_TYPE_LOCATION,
+                latitude=latitude,
+                longitude=longitude,
+                location_name=location_name,
+                location_address=location_address,
+                is_live_location=is_live,
+                live_duration=live_duration,
+                live_expires_at=live_expires_at,
+                is_delivered=is_self_chat,
+                is_read=is_self_chat,
+            )
+
+            location_payload = {
+                'latitude': latitude,
+                'longitude': longitude,
+                'location_name': location_name,
+                'location_address': location_address,
+                'is_live': is_live,
+                'live_duration': live_duration,
+                'live_expires_at': live_expires_at.isoformat() if live_expires_at else None,
+                'is_live_ended': False,
+                'live_ended_at': None,
+            }
+
+            ws_payload = {
+                'type': 'broadcast_message',
+                'message_id': msg.id,
+                'sender': request.user.username,
+                'sender_id': request.user.id,
+                'receiver': receiver.username,
+                'receiver_id': receiver.id,
+                'message': message_text,
+                'message_type': 'location',
+                'location': location_payload,
+                'timestamp': msg.timestamp.isoformat(),
+            }
+
+            for uid in {request.user.id, receiver.id}:
+                async_to_sync(channel_layer.group_send)(f'user_chat_{uid}', ws_payload)
+
+            return JsonResponse({
+                'status': 'ok',
+                'message_id': msg.id,
+                'is_group': False,
+                'location': location_payload,
+                'timestamp': msg.timestamp.isoformat(),
+            })
+
+    except Exception as exc:
+        logger.error(f'[send_location] error: {exc}')
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@login_required
+@require_POST
+def update_live_location(request):
+    """
+    Stream updated coordinates for an active live location message.
+    """
+    try:
+        data = json.loads(request.body)
+        message_id = data.get('message_id')
+        is_group = bool(data.get('is_group', False))
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+
+        if message_id is None or latitude is None or longitude is None:
+            return JsonResponse({'error': 'message_id, latitude, and longitude are required.'}, status=400)
+
+        latitude = float(latitude)
+        longitude = float(longitude)
+
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+
+        if is_group:
+            from .models import GroupMessage, GroupMembership
+            msg = GroupMessage.objects.filter(id=message_id).first()
+            if not msg:
+                return JsonResponse({'error': 'Message not found.'}, status=404)
+            if msg.sender_id != request.user.id:
+                return JsonResponse({'error': 'Not authorized.'}, status=403)
+            if not msg.is_live_location:
+                return JsonResponse({'error': 'Not a live location message.'}, status=400)
+            if msg.is_live_ended or (msg.live_expires_at and timezone.now() > msg.live_expires_at):
+                return JsonResponse({'error': 'Live location has ended.'}, status=410)
+
+            msg.latitude = latitude
+            msg.longitude = longitude
+            msg.save(update_fields=['latitude', 'longitude'])
+
+            ws_payload = {
+                'type': 'broadcast_live_location_update',
+                'message_id': msg.id,
+                'group_id': msg.group_id,
+                'is_group': True,
+                'sender': request.user.username,
+                'latitude': latitude,
+                'longitude': longitude,
+                'updated_at': timezone.now().isoformat(),
+            }
+
+            member_ids = list(GroupMembership.objects.filter(group_id=msg.group_id).values_list('user_id', flat=True))
+            for uid in member_ids:
+                async_to_sync(channel_layer.group_send)(f'user_chat_{uid}', ws_payload)
+
+            return JsonResponse({'status': 'ok'})
+
+        else:
+            msg = Message.objects.filter(id=message_id).first()
+            if not msg:
+                return JsonResponse({'error': 'Message not found.'}, status=404)
+            if msg.sender_id != request.user.id:
+                return JsonResponse({'error': 'Not authorized.'}, status=403)
+            if not msg.is_live_location:
+                return JsonResponse({'error': 'Not a live location message.'}, status=400)
+            if msg.is_live_ended or (msg.live_expires_at and timezone.now() > msg.live_expires_at):
+                return JsonResponse({'error': 'Live location has ended.'}, status=410)
+
+            msg.latitude = latitude
+            msg.longitude = longitude
+            msg.save(update_fields=['latitude', 'longitude'])
+
+            ws_payload = {
+                'type': 'broadcast_live_location_update',
+                'message_id': msg.id,
+                'is_group': False,
+                'sender': request.user.username,
+                'latitude': latitude,
+                'longitude': longitude,
+                'updated_at': timezone.now().isoformat(),
+            }
+
+            for uid in {msg.sender_id, msg.receiver_id}:
+                async_to_sync(channel_layer.group_send)(f'user_chat_{uid}', ws_payload)
+
+            return JsonResponse({'status': 'ok'})
+
+    except Exception as exc:
+        logger.error(f'[update_live_location] error: {exc}')
+        return JsonResponse({'error': str(exc)}, status=500)
+
+
+@login_required
+@require_POST
+def stop_live_location(request):
+    """
+    Stop active live location sharing.
+    """
+    try:
+        data = json.loads(request.body)
+        message_id = data.get('message_id')
+        is_group = bool(data.get('is_group', False))
+
+        if not message_id:
+            return JsonResponse({'error': 'message_id is required.'}, status=400)
+
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        now = timezone.now()
+
+        if is_group:
+            from .models import GroupMessage, GroupMembership
+            msg = GroupMessage.objects.filter(id=message_id).first()
+            if not msg:
+                return JsonResponse({'error': 'Message not found.'}, status=404)
+            if msg.sender_id != request.user.id:
+                return JsonResponse({'error': 'Not authorized.'}, status=403)
+
+            msg.is_live_ended = True
+            msg.live_ended_at = now
+            msg.save(update_fields=['is_live_ended', 'live_ended_at'])
+
+            ws_payload = {
+                'type': 'broadcast_live_location_stopped',
+                'message_id': msg.id,
+                'group_id': msg.group_id,
+                'is_group': True,
+                'sender': request.user.username,
+                'ended_at': now.isoformat(),
+            }
+
+            member_ids = list(GroupMembership.objects.filter(group_id=msg.group_id).values_list('user_id', flat=True))
+            for uid in member_ids:
+                async_to_sync(channel_layer.group_send)(f'user_chat_{uid}', ws_payload)
+
+            return JsonResponse({'status': 'ok'})
+
+        else:
+            msg = Message.objects.filter(id=message_id).first()
+            if not msg:
+                return JsonResponse({'error': 'Message not found.'}, status=404)
+            if msg.sender_id != request.user.id:
+                return JsonResponse({'error': 'Not authorized.'}, status=403)
+
+            msg.is_live_ended = True
+            msg.live_ended_at = now
+            msg.save(update_fields=['is_live_ended', 'live_ended_at'])
+
+            ws_payload = {
+                'type': 'broadcast_live_location_stopped',
+                'message_id': msg.id,
+                'is_group': False,
+                'sender': request.user.username,
+                'ended_at': now.isoformat(),
+            }
+
+            for uid in {msg.sender_id, msg.receiver_id}:
+                async_to_sync(channel_layer.group_send)(f'user_chat_{uid}', ws_payload)
+
+            return JsonResponse({'status': 'ok'})
+
+    except Exception as exc:
+        logger.error(f'[stop_live_location] error: {exc}')
+        return JsonResponse({'error': str(exc)}, status=500)
+

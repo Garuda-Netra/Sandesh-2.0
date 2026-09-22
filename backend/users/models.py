@@ -242,7 +242,7 @@ def auto_delete_userprofile_avatar_on_delete(sender, instance, **kwargs):
 
 
 # ---------------------------------------------------------------------------
-# User Settings & Preferences (WhatsApp-Style)
+# User Settings & Preferences
 # ---------------------------------------------------------------------------
 class UserSettings(models.Model):
     """

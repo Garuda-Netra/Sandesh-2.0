@@ -533,6 +533,12 @@ SDH.Chat = (() => {
       case 'message_removed': handleMessageRemoved(data); break;
       case 'message_starred': handleMessageStarred(data); break;
       case 'chat_cleared': handleChatCleared(data); break;
+      case 'live_location_updated':
+        window.SDH?.LocationShare?.handleIncomingLiveUpdate?.(data);
+        break;
+      case 'live_location_stopped':
+        window.SDH?.LocationShare?.handleIncomingLiveStopped?.(data);
+        break;
       case 'user_removed': handleUserRemoved(data); break;
       case 'chat_setting_update': handleChatSettingUpdate(data); break;
       case 'friend_request': handleFriendRequest(data); break;
@@ -1055,7 +1061,11 @@ SDH.Chat = (() => {
         const isLocked = window.SDH?.ChatLock?.isChatLocked?.(chatTarget, isGroupMsg);
         let notifTitle = isGroupMsg ? `New message in Group` : `New message from ${data.sender}`;
         if (isGroupMsg && data.sender) notifTitle = `New message from ${data.sender} in Group`;
-        let previewText = data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`;
+        let previewText = data.message_type === 'text'
+          ? (data.message || 'New message')
+          : (data.message_type === 'location'
+            ? (data.location?.is_live || data.is_live_location ? '🔴 Live Location' : '📍 Current Location')
+            : `📎 ${data.original_filename || 'File'}`);
 
         if (isLocked && !window.SDH?.ChatLock?.isUnlocked?.()) {
           notifTitle = '🔒 Locked Chat';
@@ -1094,9 +1104,24 @@ SDH.Chat = (() => {
     const isViewOnce = Boolean(data.is_view_once);
     const viewOnceOpened = Boolean(data.view_once_opened);
     const hasFile = !(isViewOnce && viewOnceOpened) && !!(data.has_file || data.file_id || data.message_type === 'file' || data.message_type === 'image' || data.message_type === 'video');
+
+    const locPayload = data.location || (data.message_type === 'location' ? {
+      latitude: data.latitude,
+      longitude: data.longitude,
+      location_name: data.location_name,
+      location_address: data.location_address,
+      is_live: Boolean(data.is_live || data.is_live_location),
+      is_live_location: Boolean(data.is_live || data.is_live_location),
+      live_duration: data.live_duration,
+      live_expires_at: data.live_expires_at,
+      is_live_ended: Boolean(data.is_live_ended),
+      is_group: isGroupMsg
+    } : null);
+
     appendMessage({
       sender: data.sender, isFromMe: isFromMe, content: displayContent,
       messageType: data.message_type,
+      location: locPayload,
       originalFilename: data.original_filename, mimeType: data.mime_type,
       timestamp: data.timestamp, messageId: data.message_id,
       hasServerFile: hasFile,
@@ -1112,7 +1137,11 @@ SDH.Chat = (() => {
       playNotificationSound();
       if (document.visibilityState !== 'visible' || !document.hasFocus()) {
         const notifTitle = isGroupMsg ? `New message in Group` : `New message from ${data.sender}`;
-        const previewText = data.message_type === 'text' ? (data.message || 'New message') : `📎 ${data.original_filename || 'File'}`;
+        const previewText = data.message_type === 'text'
+          ? (data.message || 'New message')
+          : (data.message_type === 'location'
+            ? (data.location?.is_live || data.is_live_location ? '🔴 Live Location' : '📍 Current Location')
+            : `📎 ${data.original_filename || 'File'}`);
         Notif.show(notifTitle, previewText, `sdh-${chatTarget}`);
       }
     }
@@ -1710,7 +1739,7 @@ SDH.Chat = (() => {
   }
 
   /** Executes the confirmed "Block Contact" action.
-   * WhatsApp-style: user stays in sidebar with a blocked indicator.
+   * User stays in sidebar with a blocked indicator.
    */
   async function executeBlockUser() {
     const modal = document.getElementById('blockUserModal');
@@ -2151,7 +2180,8 @@ SDH.Chat = (() => {
       originalFilename, mimeType, timestamp, messageId,
       hasServerFile = false, fileId = null,
       isDelivered = false, isRead = false, repliedMoment = null,
-      isViewOnce = false, viewOnceOpened = false, isStarred = false
+      isViewOnce = false, viewOnceOpened = false, isStarred = false,
+      location = null
     } = opts;
 
     // ── Date separator ───────────────────────────────────────────────────
@@ -2194,7 +2224,7 @@ SDH.Chat = (() => {
 
     const innerHtml = _buildMessageContent({
       messageType, content, originalFilename, mimeType, hasServerFile, fileId,
-      isViewOnce, viewOnceOpened, messageId,
+      isViewOnce, viewOnceOpened, messageId, location, isFromMe, sender, timestamp
     });
 
     const isTemp = String(messageId).startsWith('temp_');
@@ -2328,7 +2358,19 @@ SDH.Chat = (() => {
   }
 
   function _buildMessageContent({ messageType, content, originalFilename, mimeType,
-    hasServerFile, fileId, isViewOnce, viewOnceOpened, messageId }) {
+    hasServerFile, fileId, isViewOnce, viewOnceOpened, messageId, location, isFromMe, sender, timestamp }) {
+
+    if (messageType === 'location' || location) {
+      if (window.SDH?.LocationShare?.buildCardHtml) {
+        return window.SDH.LocationShare.buildCardHtml({
+          location,
+          content,
+          messageId,
+          isFromMe,
+          timestamp
+        });
+      }
+    }
     if (isViewOnce) {
       if (viewOnceOpened) {
         return `
@@ -3268,7 +3310,7 @@ SDH.Chat = (() => {
         const isFromMe = msg.sender === window.SDH_DATA.currentUser;
         // Deleted-for-all messages render as a placeholder; no menu shown
         const effectiveType = msg.is_deleted_for_all ? 'deleted' : msg.message_type;
-        let content = effectiveType === 'text' ? (msg.message || '') : null;
+        let content = (effectiveType === 'text' || effectiveType === 'location') ? (msg.message || '') : null;
         if (effectiveType === 'text' && msg.is_encrypted && msg.encryption_iv && window.SDH?.E2E) {
           content = await window.SDH.E2E.decrypt(msg.message, msg.encryption_iv, username);
         }
@@ -3276,6 +3318,7 @@ SDH.Chat = (() => {
         appendMessage({
           sender: msg.sender, isFromMe, content,
           messageType: effectiveType,
+          location: msg.location || null,
           originalFilename: msg.original_filename, mimeType: msg.mime_type,
           timestamp: msg.timestamp, messageId: msg.id,
           hasServerFile: !msg.is_deleted_for_all && !(msg.is_view_once && msg.view_once_opened) && (msg.has_file || false),
@@ -6835,7 +6878,7 @@ SDH.Chat = (() => {
           continue;
         }
 
-        let content = effectiveType === 'text' ? (msg.message || '') : null;
+        let content = (effectiveType === 'text' || effectiveType === 'location') ? (msg.message || '') : null;
         if (effectiveType === 'text' && msg.is_encrypted && msg.encryption_iv && window.SDH?.E2E) {
           content = await window.SDH.E2E.decryptGroupMessage(msg.message, msg.encryption_iv, groupId);
         }
@@ -6845,6 +6888,7 @@ SDH.Chat = (() => {
           isFromMe: isFromMe,
           content: content,
           messageType: effectiveType,
+          location: msg.location || null,
           originalFilename: msg.original_filename,
           mimeType: msg.mime_type,
           timestamp: msg.timestamp,
@@ -6910,7 +6954,7 @@ SDH.Chat = (() => {
   }
 
 
-  // ── View Once Handlers (WhatsApp Style) ──────────────────────────────────
+  // ── View Once Handlers ───────────────────────────────────────────────────
   function updateViewOnceBtn() {
     const btn = document.getElementById('viewOnceBtn');
     if (!btn) return;
@@ -6922,7 +6966,7 @@ SDH.Chat = (() => {
       return;
     }
 
-    // Media/file selected: reveal button (just like WhatsApp)
+    // Media/file selected: reveal button
     btn.classList.remove('hidden');
     btn.style.display = 'inline-flex';
 
@@ -7125,7 +7169,7 @@ SDH.Chat = (() => {
     loadStarredMessages,
     jumpToMessage,
     handleMessageStarred,
-    // Dedicated Workspaces (WhatsApp style)
+    // Dedicated Workspaces
     openDedicatedMediaWorkspace,
     openDedicatedStorageWorkspace,
     openDedicatedStarredWorkspace,
@@ -7148,6 +7192,8 @@ SDH.Chat = (() => {
     openGroupInfoModal: (groupId) => showGroupProfile(groupId),
     isCurrentChatGroup: () => Boolean(activeUser && activeUser.startsWith('group_')),
     getCurrentGroupMembers: () => currentGroupMembers,
+    appendMessage: (opts, targetContainer) => appendMessage(opts, targetContainer),
+    scrollToBottom: (instant) => scrollToBottom(instant),
   };
 
 })();

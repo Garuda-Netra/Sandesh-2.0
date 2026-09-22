@@ -7,7 +7,7 @@
  *  - Stale-While-Revalidate for static assets (CSS, images, icons, fonts)
  */
 
-const CACHE_VERSION = 'sandesh-pwa-v1.2.0';
+const CACHE_VERSION = 'sandesh-pwa-v1.3.0';
 const STATIC_CACHE = `sandesh-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `sandesh-runtime-${CACHE_VERSION}`;
 
@@ -15,6 +15,9 @@ const PRECACHE_ASSETS = [
   '/offline/',
   '/manifest.webmanifest',
   '/static/css/custom.css',
+  '/static/js/localIdentity.js',
+  '/static/js/nearbyTransport.js',
+  '/static/js/transportManager.js',
   '/static/icons/icon-192x192.png',
   '/static/icons/icon-512x512.png',
   '/static/icons/apple-touch-icon.png',

@@ -342,8 +342,7 @@ def _get_hidden_user_ids(user):
     """Return User IDs that should be hidden from `user`'s contact list.
 
     Only checks hidden_users (cosmetic removal).
-    Blocked users are NOT hidden — they remain visible in the chat list
-    (WhatsApp-style blocking).
+    Blocked users are NOT hidden — they remain visible in the chat list.
     """
     try:
         profile = user.profile
@@ -429,7 +428,7 @@ def remove_user_view(request):
 
     When block=false: adds target to hidden_users (cosmetic removal).
     When block=true: adds target to blocked_users ONLY (user stays visible
-    in chat list but messaging is disabled — WhatsApp-style).
+    in chat list but messaging is disabled).
     """
     try:
         body = json.loads(request.body)
@@ -457,7 +456,7 @@ def remove_user_view(request):
     should_block = bool(body.get('block'))
 
     if should_block:
-        # WhatsApp-style: block only — do NOT hide from chat list
+        # Block only — do NOT hide from chat list
         my_profile.blocked_users.add(target_profile)
         
         from channels.layers import get_channel_layer
@@ -810,7 +809,7 @@ def user_list(request):
     convo_recv = Message.objects.filter(receiver=request.user).values_list('sender_id', flat=True)
     convo_ids = set(convo_sent) | set(convo_recv)
 
-    # Show friends + conversation contacts + people I blocked (they remain visible per WhatsApp style)
+    # Show friends + conversation contacts + people I blocked (they remain visible)
     visible_ids = set(friend_ids) | set(convo_ids) | set(blocked_ids)
     # Remove hidden users
     visible_ids -= set(hidden_ids)
@@ -1516,7 +1515,7 @@ def terminate_other_sessions_api(request):
 
 
 # ---------------------------------------------------------------------------
-# User Settings & Preferences (WhatsApp-Style)
+# User Settings & Preferences
 # ---------------------------------------------------------------------------
 def _format_bytes(bytes_count):
     if bytes_count < 1024:

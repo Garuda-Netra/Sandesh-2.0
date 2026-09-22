@@ -186,6 +186,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if msg_type == 'chat_message':
             await self.handle_chat_message(data)
+        elif msg_type == 'location_message':
+            await self.handle_location_message(data)
+        elif msg_type == 'live_location_update':
+            await self.handle_live_location_update(data)
+        elif msg_type == 'stop_live_location':
+            await self.handle_stop_live_location(data)
         elif msg_type == 'file_notification':
             await self.handle_file_notification(data)
         elif msg_type == 'typing':
@@ -250,7 +256,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send_error('Missing field: message')
             return
 
-        # Block enforcement: WhatsApp-style — check blocked_users only
+        # Block enforcement: check blocked_users only
         blocked, reason = await self.is_chat_blocked()
         if blocked:
             await self.send_error(reason)
@@ -287,6 +293,85 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 grp,
                 {'type': 'broadcast_message', **payload}
             )
+
+    async def handle_location_message(self, data: dict):
+        """Persists a location message (current location or live location) and broadcasts to both users."""
+        blocked, reason = await self.is_chat_blocked()
+        if blocked:
+            await self.send_error(reason)
+            return
+
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        if latitude is None or longitude is None:
+            await self.send_error('Missing coordinates.')
+            return
+
+        message = await self.save_location_message(data)
+        if not message:
+            await self.send_error('Failed to save location message.')
+            return
+
+        payload = {
+            'message_id': message['id'],
+            'sender': self.me.username,
+            'sender_id': self.me.id,
+            'receiver': self.other_username,
+            'receiver_id': self.other_user_id,
+            'message': data.get('message', ''),
+            'message_type': 'location',
+            'location': message.get('location', {}),
+            'timestamp': message['timestamp'],
+        }
+
+        target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
+        for grp in target_groups:
+            await self.channel_layer.group_send(
+                grp,
+                {'type': 'broadcast_message', **payload}
+            )
+
+    async def handle_live_location_update(self, data: dict):
+        """Receives live GPS updates and broadcasts to participants."""
+        message_id = data.get('message_id')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        if not message_id or latitude is None or longitude is None:
+            return
+
+        success = await self._update_live_location_coords(int(message_id), float(latitude), float(longitude))
+        if success:
+            payload = {
+                'type': 'broadcast_live_location_update',
+                'message_id': int(message_id),
+                'is_group': False,
+                'sender': self.me.username,
+                'latitude': float(latitude),
+                'longitude': float(longitude),
+                'updated_at': data.get('updated_at', ''),
+            }
+            target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
+            for grp in target_groups:
+                await self.channel_layer.group_send(grp, payload)
+
+    async def handle_stop_live_location(self, data: dict):
+        """Stops active live location sharing."""
+        message_id = data.get('message_id')
+        if not message_id:
+            return
+
+        ended_at_iso = await self._end_live_location(int(message_id))
+        if ended_at_iso:
+            payload = {
+                'type': 'broadcast_live_location_stopped',
+                'message_id': int(message_id),
+                'is_group': False,
+                'sender': self.me.username,
+                'ended_at': ended_at_iso,
+            }
+            target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
+            for grp in target_groups:
+                await self.channel_layer.group_send(grp, payload)
 
     async def handle_file_notification(self, data: dict):
         """
@@ -451,6 +536,30 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'status': event['status'],
         }))
 
+    async def broadcast_live_location_update(self, event):
+        """Relay live location coordinates to frontend."""
+        await self.send(text_data=json.dumps({
+            'type': 'live_location_updated',
+            'message_id': event['message_id'],
+            'is_group': event.get('is_group', False),
+            'group_id': event.get('group_id'),
+            'sender': event.get('sender', ''),
+            'latitude': event['latitude'],
+            'longitude': event['longitude'],
+            'updated_at': event.get('updated_at'),
+        }))
+
+    async def broadcast_live_location_stopped(self, event):
+        """Relay live location stopped signal to frontend."""
+        await self.send(text_data=json.dumps({
+            'type': 'live_location_stopped',
+            'message_id': event['message_id'],
+            'is_group': event.get('is_group', False),
+            'group_id': event.get('group_id'),
+            'sender': event.get('sender', ''),
+            'ended_at': event.get('ended_at'),
+        }))
+
     async def group_message_status(self, event):
         """Relay group message status events (sent / delivered / read) to client."""
         await self.send(text_data=json.dumps({
@@ -551,7 +660,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def is_chat_blocked(self) -> tuple:
-        """WhatsApp-style blocking: only checks blocked_users.
+        """Blocking check: only checks blocked_users.
 
         Returns (blocked: bool, reason: str).
         """
@@ -634,6 +743,95 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return result
         except Exception as exc:
             logger.error(f'[WS] save_message error: {exc}')
+            return None
+
+    @database_sync_to_async
+    def save_location_message(self, data: dict) -> dict | None:
+        from .models import Message, ChatSetting
+        from django.utils import timezone
+        from datetime import timedelta
+        try:
+            is_self_chat = (self.me.id == self.other_user.id)
+            lo_user, hi_user = sorted([self.me, self.other_user], key=lambda u: u.id)
+            setting, _ = ChatSetting.objects.get_or_create(user1=lo_user, user2=hi_user)
+            retention_days = setting.retention_days
+            expires_at = timezone.now() + timedelta(days=retention_days)
+
+            is_live = bool(data.get('is_live', False))
+            live_duration = int(data.get('live_duration', 0))
+            live_expires_at = timezone.now() + timedelta(seconds=live_duration) if (is_live and live_duration > 0) else None
+
+            msg = Message.objects.create(
+                sender=self.me,
+                receiver=self.other_user,
+                message=data.get('message', ''),
+                message_type=Message.MESSAGE_TYPE_LOCATION,
+                latitude=float(data.get('latitude')),
+                longitude=float(data.get('longitude')),
+                location_name=(data.get('location_name') or '').strip(),
+                location_address=(data.get('location_address') or '').strip(),
+                is_live_location=is_live,
+                live_duration=live_duration,
+                live_expires_at=live_expires_at,
+                is_delivered=is_self_chat,
+                is_read=is_self_chat,
+                expires_at=expires_at,
+            )
+
+            location_payload = {
+                'latitude': msg.latitude,
+                'longitude': msg.longitude,
+                'location_name': msg.location_name,
+                'location_address': msg.location_address,
+                'is_live': msg.is_live_location,
+                'live_duration': msg.live_duration,
+                'live_expires_at': msg.live_expires_at.isoformat() if msg.live_expires_at else None,
+                'is_live_ended': False,
+                'live_ended_at': None,
+            }
+
+            return {
+                'id': msg.id,
+                'timestamp': msg.timestamp.isoformat(),
+                'location': location_payload
+            }
+        except Exception as exc:
+            logger.error(f'[WS] save_location_message error: {exc}')
+            return None
+
+    @database_sync_to_async
+    def _update_live_location_coords(self, message_id: int, latitude: float, longitude: float) -> bool:
+        from .models import Message
+        from django.utils import timezone
+        try:
+            msg = Message.objects.filter(id=message_id, sender=self.me).first()
+            if not msg or not msg.is_live_location:
+                return False
+            if msg.is_live_ended or (msg.live_expires_at and timezone.now() > msg.live_expires_at):
+                return False
+            msg.latitude = latitude
+            msg.longitude = longitude
+            msg.save(update_fields=['latitude', 'longitude'])
+            return True
+        except Exception as exc:
+            logger.error(f'[WS] _update_live_location_coords error: {exc}')
+            return False
+
+    @database_sync_to_async
+    def _end_live_location(self, message_id: int) -> str | None:
+        from .models import Message
+        from django.utils import timezone
+        try:
+            msg = Message.objects.filter(id=message_id, sender=self.me).first()
+            if not msg:
+                return None
+            now = timezone.now()
+            msg.is_live_ended = True
+            msg.live_ended_at = now
+            msg.save(update_fields=['is_live_ended', 'live_ended_at'])
+            return now.isoformat()
+        except Exception as exc:
+            logger.error(f'[WS] _end_live_location error: {exc}')
             return None
 
     @database_sync_to_async
@@ -1219,7 +1417,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
     def _is_signal_blocked(self, target_user) -> bool:
         """Block WebRTC signaling when either side has blocked the other.
 
-        Only checks blocked_users (WhatsApp-style). hidden_users is
+        Only checks blocked_users. hidden_users is
         cosmetic only and does not affect calls.
         """
         try:
@@ -1335,6 +1533,12 @@ class GroupChatConsumer(ChatConsumer):
 
         if msg_type == 'group_message':
             await self.handle_group_message(data)
+        elif msg_type == 'location_message':
+            await self.handle_group_location_message(data)
+        elif msg_type == 'live_location_update':
+            await self.handle_group_live_location_update(data)
+        elif msg_type == 'stop_live_location':
+            await self.handle_group_stop_live_location(data)
         elif msg_type == 'typing':
             await self.handle_typing(data)
         elif msg_type == 'mark_read':
@@ -1383,6 +1587,80 @@ class GroupChatConsumer(ChatConsumer):
                 f'user_chat_{user_id}',
                 payload
             )
+
+    async def handle_group_location_message(self, data: dict):
+        """Persist and broadcast a location message to the group."""
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        if latitude is None or longitude is None:
+            await self.send_error('Missing coordinates.')
+            return
+
+        msg = await self._save_group_location_message(data)
+        if not msg:
+            await self.send_error('Failed to save group location message.')
+            return
+
+        payload = {
+            'type': 'broadcast_group_message',
+            'message_id': msg['id'],
+            'sender': self.me.username,
+            'sender_id': self.me.id,
+            'message': data.get('message', ''),
+            'message_type': 'location',
+            'location': msg['location'],
+            'timestamp': msg['timestamp'],
+            'is_system_message': False,
+            'group_id': self.group_id,
+        }
+
+        member_ids = await self._get_group_member_ids()
+        for user_id in member_ids:
+            await self.channel_layer.group_send(f'user_chat_{user_id}', payload)
+
+    async def handle_group_live_location_update(self, data: dict):
+        """Stream live GPS coordinate update to group members."""
+        message_id = data.get('message_id')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        if not message_id or latitude is None or longitude is None:
+            return
+
+        success = await self._update_group_live_location_coords(int(message_id), float(latitude), float(longitude))
+        if success:
+            payload = {
+                'type': 'broadcast_live_location_update',
+                'message_id': int(message_id),
+                'group_id': self.group_id,
+                'is_group': True,
+                'sender': self.me.username,
+                'latitude': float(latitude),
+                'longitude': float(longitude),
+                'updated_at': data.get('updated_at', ''),
+            }
+            member_ids = await self._get_group_member_ids()
+            for user_id in member_ids:
+                await self.channel_layer.group_send(f'user_chat_{user_id}', payload)
+
+    async def handle_group_stop_live_location(self, data: dict):
+        """Stop group live location sharing."""
+        message_id = data.get('message_id')
+        if not message_id:
+            return
+
+        ended_at_iso = await self._end_group_live_location(int(message_id))
+        if ended_at_iso:
+            payload = {
+                'type': 'broadcast_live_location_stopped',
+                'message_id': int(message_id),
+                'group_id': self.group_id,
+                'is_group': True,
+                'sender': self.me.username,
+                'ended_at': ended_at_iso,
+            }
+            member_ids = await self._get_group_member_ids()
+            for user_id in member_ids:
+                await self.channel_layer.group_send(f'user_chat_{user_id}', payload)
 
     @database_sync_to_async
     def _get_group_member_ids(self):
@@ -1524,6 +1802,82 @@ class GroupChatConsumer(ChatConsumer):
             return {'id': msg.id, 'timestamp': msg.timestamp.isoformat()}
         except Exception as exc:
             logger.error(f'[WS-Group] save_group_message error: {exc}')
+            return None
+
+    @database_sync_to_async
+    def _save_group_location_message(self, data: dict):
+        from .models import GroupMessage, Group
+        from django.utils import timezone
+        from datetime import timedelta
+        try:
+            is_live = bool(data.get('is_live', False))
+            live_duration = int(data.get('live_duration', 0))
+            live_expires_at = timezone.now() + timedelta(seconds=live_duration) if (is_live and live_duration > 0) else None
+
+            msg = GroupMessage.objects.create(
+                group_id=self.group_id,
+                sender=self.me,
+                message=data.get('message', ''),
+                message_type=GroupMessage.MESSAGE_TYPE_LOCATION,
+                latitude=float(data.get('latitude')),
+                longitude=float(data.get('longitude')),
+                location_name=(data.get('location_name') or '').strip(),
+                location_address=(data.get('location_address') or '').strip(),
+                is_live_location=is_live,
+                live_duration=live_duration,
+                live_expires_at=live_expires_at,
+            )
+            Group.objects.filter(id=self.group_id).update(updated_at=msg.timestamp)
+
+            location_payload = {
+                'latitude': msg.latitude,
+                'longitude': msg.longitude,
+                'location_name': msg.location_name,
+                'location_address': msg.location_address,
+                'is_live': msg.is_live_location,
+                'live_duration': msg.live_duration,
+                'live_expires_at': msg.live_expires_at.isoformat() if msg.live_expires_at else None,
+                'is_live_ended': False,
+                'live_ended_at': None,
+            }
+            return {'id': msg.id, 'timestamp': msg.timestamp.isoformat(), 'location': location_payload}
+        except Exception as exc:
+            logger.error(f'[WS-Group] _save_group_location_message error: {exc}')
+            return None
+
+    @database_sync_to_async
+    def _update_group_live_location_coords(self, message_id: int, latitude: float, longitude: float) -> bool:
+        from .models import GroupMessage
+        from django.utils import timezone
+        try:
+            msg = GroupMessage.objects.filter(id=message_id, sender=self.me, group_id=self.group_id).first()
+            if not msg or not msg.is_live_location:
+                return False
+            if msg.is_live_ended or (msg.live_expires_at and timezone.now() > msg.live_expires_at):
+                return False
+            msg.latitude = latitude
+            msg.longitude = longitude
+            msg.save(update_fields=['latitude', 'longitude'])
+            return True
+        except Exception as exc:
+            logger.error(f'[WS-Group] _update_group_live_location_coords error: {exc}')
+            return False
+
+    @database_sync_to_async
+    def _end_group_live_location(self, message_id: int) -> str | None:
+        from .models import GroupMessage
+        from django.utils import timezone
+        try:
+            msg = GroupMessage.objects.filter(id=message_id, sender=self.me, group_id=self.group_id).first()
+            if not msg:
+                return None
+            now = timezone.now()
+            msg.is_live_ended = True
+            msg.live_ended_at = now
+            msg.save(update_fields=['is_live_ended', 'live_ended_at'])
+            return now.isoformat()
+        except Exception as exc:
+            logger.error(f'[WS-Group] _end_group_live_location error: {exc}')
             return None
 
     @database_sync_to_async

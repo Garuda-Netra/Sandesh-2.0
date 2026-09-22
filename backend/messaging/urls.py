@@ -23,7 +23,7 @@ urlpatterns = [
     path('upload-file/', views.upload_file, name='upload_file'),
     path('download-file/<int:file_id>/', views.download_file, name='download_file'),
 
-    # ── WhatsApp-Style Chat Lock & Security ───────────────────────
+    # ── Sandesh Chat Lock & Security ──────────────────────────────
     path('api/security/setup-pin/', views.setup_security_pin, name='setup_security_pin'),
     path('api/security/verify-pin/', views.verify_security_pin, name='verify_security_pin'),
     path('api/security/webauthn-register-options/', views.webauthn_register_options, name='webauthn_register_options'),
@@ -79,5 +79,10 @@ urlpatterns = [
     path('api/messages/<int:message_id>/star/', views.toggle_star_message, name='toggle_star_message'),
     path('api/starred-messages/', views.starred_messages_api, name='starred_messages_api'),
     path('api/storage/batch-delete/', views.batch_storage_delete, name='batch_storage_delete'),
+
+    # ── Location Sharing (Current & Live Tracking) ───────────────────
+    path('api/location/send/', views.send_location, name='send_location'),
+    path('api/location/update/', views.update_live_location, name='update_live_location'),
+    path('api/location/stop/', views.stop_live_location, name='stop_live_location'),
 ]
 

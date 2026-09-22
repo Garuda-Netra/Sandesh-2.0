@@ -1,7 +1,7 @@
 /**
  * SDH – Chat Lock & Biometric / PIN Security Module
  * ==================================================
- * WhatsApp-style Chat Lock with Device Biometrics (Fingerprint / Face ID / Windows Hello)
+ * Sandesh Chat Lock with Device Biometrics (Fingerprint / Face ID / Windows Hello)
  * and 4-6 digit Security PIN fallback.
  */
 

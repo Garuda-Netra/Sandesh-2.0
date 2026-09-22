@@ -39,7 +39,7 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 
 ---
 
-### 🔐 WhatsApp-Style Chat Lock & Biometric Security
+### 🔐 Sandesh Chat Lock & Biometric Security
 - **Granular Per-Chat Locking**: Lock any individual direct chat, group conversation, or your private Saved Messages notebook with one click.
 - **Dedicated "Locked Chats" Vault**: Pinned right at the top of your sidebar. When locked, conversations are completely tucked away from view.
 - **Device Biometrics (WebAuthn)**: Seamlessly unlock with your fingerprint, Face ID, Touch ID, or Windows Hello using secure hardware-backed platform credentials.
@@ -67,14 +67,14 @@ Sandesh blends **timeless philosophy** with **modern, fluid aesthetics**:
 
 ### 📸 Moments, Status Privacy & Media
 - **📸 24-Hour Moments (Stories)**: Post temporary visual stories with viewer tracking, emoji reactions, and built-in Spotify music integration.
-- **👁️ WhatsApp-Style Status Privacy**: Granular audience control for every story update:
+- **👁️ Status Privacy**: Granular audience control for every story update:
   - *My Contacts:* Visible to all mutual friends.
   - *My Contacts Except...:* Hide stories from specific individuals with contact exclusion counters.
   - *Only Share With...:* Whitelist specific friends who can view your moment.
   - *Persistent Defaults & Live Broadcast Filtering:* Settings persist across uploads and WebSocket events are strictly routed only to permitted friends.
-- **👁️‍🗨️ WhatsApp-Style "View Once" Ephemeral Media *(New!)*:**
+- **👁️‍🗨️ View Once Ephemeral Media *(New!)*:**
   - *One-Time Photo & Video Sharing:* Send photos and videos that can only be opened and viewed once by the recipient.
-  - *Iconic WhatsApp `①` Composer Toggle:* Quick-toggle circular badge in the composer bar and file staging chips that glows in emerald when enabled.
+  - *Iconic ① Composer Toggle:* Quick-toggle circular badge in the composer bar and file staging chips that glows in emerald when enabled.
   - *Privacy-First In-Stream Card:* Conceals thumbnails in the chat stream, rendering clean `① Photo` / `① Video` with "Tap to view".
   - *Guaranteed Physical Destruction:* Unlinking and permanently purging the file from disk/storage immediately upon closing (`msg.file.delete()` & `os.remove`).
   - *Real-Time `① Opened` Sync:* Seamless WebSocket event (`view_once_opened`) transitions both participants' cards to `① Opened` in real time with zero page reload.

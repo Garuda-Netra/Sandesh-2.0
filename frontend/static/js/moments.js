@@ -405,7 +405,7 @@ SDH.Moments = (function() {
         formData.append('moment_type', type);
         formData.append('caption', caption);
         
-        // Include WhatsApp-style privacy settings
+        // Include status privacy settings
         const privacyType = uploadPrivacyType || privacySettings.privacy_type;
         const customIds = uploadCustomUserIds !== null ? uploadCustomUserIds : privacySettings.custom_user_ids;
         formData.append('privacy_type', privacyType);
@@ -914,7 +914,7 @@ SDH.Moments = (function() {
         getPrivacySettings: () => privacySettings
     };
 
-    // ─── STATUS PRIVACY LOGIC (WhatsApp-style) ──────────────────────────────
+    // ─── STATUS PRIVACY LOGIC ───────────────────────────────────────────────
 
     async function loadPrivacySettings() {
         try {

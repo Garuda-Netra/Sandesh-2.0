@@ -2450,7 +2450,7 @@ body {
   transform: scaleY(1.08) scaleX(1.05);
 }
 
-/* ─── Emoji picker (WhatsApp-style compact) ────────────────────── */
+/* ─── Emoji picker (compact) ────────────────────── */
 .sdh-emoji-picker {
   background: rgba(14, 11, 30, 0.97);
   border: 1px solid rgba(168, 85, 247, 0.22);
@@ -2524,7 +2524,7 @@ body {
   }
 }
 
-/* Mobile responsiveness: WhatsApp style bottom docked/anchored */
+/* Mobile responsiveness: bottom docked/anchored */
 @media (max-width: 640px) {
   .sdh-emoji-picker {
     left: auto !important;

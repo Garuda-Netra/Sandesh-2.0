@@ -21,6 +21,7 @@ class Message(models.Model):
     MESSAGE_TYPE_IMAGE = 'image'
     MESSAGE_TYPE_VIDEO = 'video'
     MESSAGE_TYPE_CALL = 'call'
+    MESSAGE_TYPE_LOCATION = 'location'
 
     MESSAGE_TYPES = [
         (MESSAGE_TYPE_TEXT, 'Text'),
@@ -28,6 +29,7 @@ class Message(models.Model):
         (MESSAGE_TYPE_IMAGE, 'Image'),
         (MESSAGE_TYPE_VIDEO, 'Video'),
         (MESSAGE_TYPE_CALL, 'Call Log'),
+        (MESSAGE_TYPE_LOCATION, 'Location'),
     ]
 
     sender = models.ForeignKey(
@@ -134,6 +136,17 @@ class Message(models.Model):
         help_text='Timestamp when view-once media was opened'
     )
 
+    # ── Location Sharing ──────────────────────────────────────────────────
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    location_name = models.CharField(max_length=255, blank=True, default='')
+    location_address = models.CharField(max_length=500, blank=True, default='')
+    is_live_location = models.BooleanField(default=False)
+    live_duration = models.IntegerField(default=0)  # in seconds (e.g. 900 for 15m, 3600 for 1h, 28800 for 8h)
+    live_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    is_live_ended = models.BooleanField(default=False)
+    live_ended_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ['timestamp']
         verbose_name = 'Message'
@@ -234,7 +247,7 @@ class Moment(models.Model):
     caption = models.CharField(max_length=255, blank=True, default='')
     moment_type = models.CharField(max_length=10, choices=MOMENT_TYPES, default=MOMENT_TYPE_IMAGE)
     
-    # Privacy fields (WhatsApp status privacy)
+    # Privacy fields (status privacy)
     privacy_type = models.CharField(
         max_length=10,
         choices=PRIVACY_CHOICES,
@@ -275,7 +288,7 @@ class Moment(models.Model):
 class MomentPrivacySetting(models.Model):
     """
     Stores default status/moment privacy preferences for a user,
-    similar to WhatsApp Status Privacy settings.
+    similar to Status Privacy settings.
     """
     user = models.OneToOneField(
         User,
@@ -470,6 +483,7 @@ class GroupMessage(models.Model):
     MESSAGE_TYPE_IMAGE = 'image'
     MESSAGE_TYPE_VIDEO = 'video'
     MESSAGE_TYPE_SYSTEM = 'system'
+    MESSAGE_TYPE_LOCATION = 'location'
 
     MESSAGE_TYPES = [
         (MESSAGE_TYPE_TEXT, 'Text'),
@@ -477,6 +491,7 @@ class GroupMessage(models.Model):
         (MESSAGE_TYPE_IMAGE, 'Image'),
         (MESSAGE_TYPE_VIDEO, 'Video'),
         (MESSAGE_TYPE_SYSTEM, 'System'),
+        (MESSAGE_TYPE_LOCATION, 'Location'),
     ]
 
     group = models.ForeignKey(
@@ -526,6 +541,17 @@ class GroupMessage(models.Model):
         blank=True,
         help_text='Timestamp when view-once media was opened'
     )
+
+    # ── Location Sharing ──────────────────────────────────────────────────
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    location_name = models.CharField(max_length=255, blank=True, default='')
+    location_address = models.CharField(max_length=500, blank=True, default='')
+    is_live_location = models.BooleanField(default=False)
+    live_duration = models.IntegerField(default=0)  # in seconds
+    live_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    is_live_ended = models.BooleanField(default=False)
+    live_ended_at = models.DateTimeField(null=True, blank=True)
 
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -717,7 +743,7 @@ class AutoWishMessage(models.Model):
 # ---------------------------------------------------------------------------
 class UserSecurityCredential(models.Model):
     """
-    Stores security credentials for WhatsApp-style chat locking:
+    Stores security credentials for chat locking:
     - Hashed PIN (PBKDF2)
     - Biometric WebAuthn platform authenticator credentials (Fingerprint/Touch ID/Face ID)
     - Rate-limiting counters to prevent brute-force attacks
