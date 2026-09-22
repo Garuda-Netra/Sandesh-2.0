@@ -356,15 +356,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def handle_stop_live_location(self, data: dict):
         """Stops active live location sharing."""
-        message_id = data.get('message_id')
-        if not message_id:
+        raw_id = data.get('message_id')
+        if not raw_id:
             return
 
-        ended_at_iso = await self._end_live_location(int(message_id))
+        try:
+            message_id = int(raw_id)
+        except (ValueError, TypeError):
+            return
+
+        ended_at_iso = await self._end_live_location(message_id)
         if ended_at_iso:
             payload = {
                 'type': 'broadcast_live_location_stopped',
-                'message_id': int(message_id),
+                'message_id': message_id,
                 'is_group': False,
                 'sender': self.me.username,
                 'ended_at': ended_at_iso,
@@ -1644,15 +1649,20 @@ class GroupChatConsumer(ChatConsumer):
 
     async def handle_group_stop_live_location(self, data: dict):
         """Stop group live location sharing."""
-        message_id = data.get('message_id')
-        if not message_id:
+        raw_id = data.get('message_id')
+        if not raw_id:
             return
 
-        ended_at_iso = await self._end_group_live_location(int(message_id))
+        try:
+            message_id = int(raw_id)
+        except (ValueError, TypeError):
+            return
+
+        ended_at_iso = await self._end_group_live_location(message_id)
         if ended_at_iso:
             payload = {
                 'type': 'broadcast_live_location_stopped',
-                'message_id': int(message_id),
+                'message_id': message_id,
                 'group_id': self.group_id,
                 'is_group': True,
                 'sender': self.me.username,

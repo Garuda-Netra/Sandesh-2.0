@@ -4561,6 +4561,11 @@ def stop_live_location(request):
         if not message_id:
             return JsonResponse({'error': 'message_id is required.'}, status=400)
 
+        try:
+            mid = int(message_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid message_id format.'}, status=400)
+
         from channels.layers import get_channel_layer
         from asgiref.sync import async_to_sync
         channel_layer = get_channel_layer()
@@ -4568,7 +4573,7 @@ def stop_live_location(request):
 
         if is_group:
             from .models import GroupMessage, GroupMembership
-            msg = GroupMessage.objects.filter(id=message_id).first()
+            msg = GroupMessage.objects.filter(id=mid).first()
             if not msg:
                 return JsonResponse({'error': 'Message not found.'}, status=404)
             if msg.sender_id != request.user.id:
@@ -4594,7 +4599,7 @@ def stop_live_location(request):
             return JsonResponse({'status': 'ok'})
 
         else:
-            msg = Message.objects.filter(id=message_id).first()
+            msg = Message.objects.filter(id=mid).first()
             if not msg:
                 return JsonResponse({'error': 'Message not found.'}, status=404)
             if msg.sender_id != request.user.id:

@@ -202,6 +202,61 @@
     transition: all 0.15s ease-in-out !important;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     Location Message Card High-Contrast & Link Isolation
+     ═══════════════════════════════════════════════════════════════ */
+  .sdh-location-msg-card {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+
+  /* Prevent parent bubble link rules from forcing underline on buttons */
+  .sdh-location-msg-card a,
+  .msg-bubble .sdh-location-msg-card a,
+  .msg-bubble-sender .sdh-location-msg-card a,
+  .msg-bubble-receiver .sdh-location-msg-card a,
+  [data-theme="dark"] .msg-bubble-receiver .sdh-location-msg-card a,
+  [data-theme="light"] .msg-bubble-receiver .sdh-location-msg-card a {
+    text-decoration: none !important;
+    color: #ffffff !important;
+  }
+
+  .sdh-location-msg-card .sdh-loc-title {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+  }
+
+  .sdh-location-msg-card .sdh-loc-subtitle {
+    color: #cbd5e1 !important;
+  }
+
+  .sdh-location-msg-card .sdh-loc-btn-view {
+    background-color: #059669 !important;
+    color: #ffffff !important;
+  }
+  .sdh-location-msg-card .sdh-loc-btn-view:hover {
+    background-color: #10b981 !important;
+  }
+
+  .sdh-location-msg-card .sdh-loc-btn-dir {
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  }
+  .sdh-location-msg-card .sdh-loc-btn-dir:hover {
+    background: rgba(255, 255, 255, 0.28) !important;
+    color: #ffffff !important;
+  }
+
+  .sdh-location-msg-card .sdh-loc-btn-stop {
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  }
+  .sdh-location-msg-card .sdh-loc-btn-stop:hover {
+    background-color: #ef4444 !important;
+  }
+
   /* Sender Bubbles (Dark theme purple/indigo gradient & Light theme saffron/orange gradient)
      Backgrounds are deep and saturated with white text. Links are pure luminous white with crisp underline. */
   .msg-bubble-sender .sdh-chat-link,
@@ -1270,32 +1325,33 @@
   <div class="sdh-chat-panel flex flex-col flex-1 min-w-0 min-h-0">
 
     <!-- ── Ambient Nearby Mode Status Banner ──────────────────────── -->
-    <div id="sdhNearbyBanner" class="hidden relative z-[45] w-full px-4 py-2.5 bg-gradient-to-r from-emerald-950/80 via-teal-950/70 to-emerald-950/80 border-b border-emerald-500/30 backdrop-blur-xl animate-fade-in flex items-center justify-between shadow-[0_4px_20px_rgba(16,185,129,0.15)]">
-      <div class="flex items-center gap-3 min-w-0">
+    <div id="sdhNearbyBanner" class="hidden relative z-[45] w-full px-3.5 sm:px-5 py-2.5 bg-slate-900/95 dark:bg-[#061e16]/95 border-b border-emerald-500/40 backdrop-blur-xl animate-fade-in flex flex-wrap items-center justify-between gap-2.5 shadow-lg shadow-emerald-950/20">
+      <div class="flex items-center gap-2.5 min-w-0 flex-1">
         <span class="relative flex h-3 w-3 flex-shrink-0">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-400 shadow-[0_0_10px_#34d399]"></span>
         </span>
-        <div class="min-w-0 flex items-center gap-2">
-          <span class="text-xs font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs leading-tight min-w-0">
+          <span class="font-extrabold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
+            <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.393 9.393c5.857-5.857 15.355-5.857 21.213 0" />
             </svg>
             Nearby Mode Active
           </span>
-          <span class="hidden sm:inline text-slate-400 text-xs">—</span>
-          <span class="hidden sm:inline text-xs text-slate-300 truncate">
-            Connected via Local Wi-Fi / Hotspot. Internet not required.
+          <span class="hidden md:inline text-emerald-500/60 font-bold">•</span>
+          <span class="text-slate-200 dark:text-emerald-100/90 font-medium whitespace-normal">
+            Local Wi-Fi / Hotspot mesh (No Internet required)
           </span>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
-        <span id="sdhNearbyPeerBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-          Local Mesh
+        <span id="sdhNearbyPeerBadge" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 shadow-sm flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>Local Mesh</span>
         </span>
         <button type="button" onclick="SDH.toggleTransportMode('cloud')"
-          class="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-emerald-200 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all">
+          class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 border border-emerald-400/50 shadow-md shadow-emerald-900/30 transition-all cursor-pointer whitespace-nowrap">
           Switch to Cloud
         </button>
       </div>
@@ -4092,17 +4148,21 @@
 
           <div>
             <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Share for:</label>
-            <div class="grid grid-cols-3 gap-2">
-              <button type="button" onclick="SDH.LocationShare.selectDuration(900, this)"
-                class="loc-duration-btn py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500 transition-all">
-                15 Minutes
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button type="button" onclick="SDH.LocationShare.selectDuration(1200, this)"
+                class="loc-duration-btn py-2 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500 transition-all text-center">
+                20 Minutes
               </button>
               <button type="button" onclick="SDH.LocationShare.selectDuration(3600, this)"
-                class="loc-duration-btn active py-2 px-3 rounded-xl border border-emerald-500 bg-emerald-500/15 text-xs font-bold text-emerald-600 dark:text-emerald-400 transition-all">
+                class="loc-duration-btn active py-2 px-2.5 rounded-xl border border-emerald-500 bg-emerald-500/15 text-xs font-bold text-emerald-600 dark:text-emerald-400 transition-all text-center">
                 1 Hour
               </button>
+              <button type="button" onclick="SDH.LocationShare.selectDuration(14400, this)"
+                class="loc-duration-btn py-2 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500 transition-all text-center">
+                4 Hours
+              </button>
               <button type="button" onclick="SDH.LocationShare.selectDuration(28800, this)"
-                class="loc-duration-btn py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500 transition-all">
+                class="loc-duration-btn py-2 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500 transition-all text-center">
                 8 Hours
               </button>
             </div>
@@ -4259,7 +4319,8 @@
       const badge = document.getElementById('sdhNearbyPeerBadge');
       if (badge) {
         const count = e.detail?.count || 0;
-        badge.textContent = count === 1 ? '1 Peer Nearby' : `${count} Peers Nearby`;
+        const text = count === 1 ? '1 Peer Nearby' : `${count} Peers Nearby`;
+        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span>${text}</span>`;
       }
     });
 

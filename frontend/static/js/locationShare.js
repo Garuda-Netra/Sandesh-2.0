@@ -45,17 +45,12 @@ SDH.LocationShare = (function () {
   let viewerAccuracyCircle = null;
   let currentViewingLoc = null;
 
-  // Tile layers (CartoDB dark matter / positron and OSM fallback)
-  const darkTileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-  const lightTileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-  function isDarkTheme() {
-    return document.documentElement.getAttribute('data-theme') !== 'light';
-  }
+  // Tile layer: Standard OpenStreetMap (100% free, zero watermarks, no API key required)
+  const osmTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
 
   function getTileUrl() {
-    return isDarkTheme() ? darkTileUrl : lightTileUrl;
+    return osmTileUrl;
   }
 
   // Custom Leaflet DivIcon for Current & Live location
@@ -159,10 +154,10 @@ SDH.LocationShare = (function () {
   function selectDuration(seconds, btnEl) {
     liveDuration = seconds;
     document.querySelectorAll('.loc-duration-btn').forEach(b => {
-      b.className = 'loc-duration-btn py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500 transition-all';
+      b.className = 'loc-duration-btn py-2 px-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-black/20 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-emerald-500 transition-all text-center';
     });
     if (btnEl) {
-      btnEl.className = 'loc-duration-btn active py-2 px-3 rounded-xl border border-emerald-500 bg-emerald-500/15 text-xs font-bold text-emerald-600 dark:text-emerald-400 transition-all';
+      btnEl.className = 'loc-duration-btn active py-2 px-2.5 rounded-xl border border-emerald-500 bg-emerald-500/15 text-xs font-bold text-emerald-600 dark:text-emerald-400 transition-all text-center';
     }
   }
 
@@ -447,15 +442,16 @@ SDH.LocationShare = (function () {
 
     const isGroup = activeTarget.startsWith('group_');
 
+    const expiresAtMs = Date.now() + (liveDuration || 3600) * 1000;
     const locPayload = {
       latitude: selectedLat,
       longitude: selectedLng,
-      location_name: selectedPlaceName || (isLive ? 'Live Location' : 'Current Location'),
+      location_name: isLive ? 'Live Location' : (selectedPlaceName || 'Current Location'),
       location_address: selectedAddress || `${selectedLat.toFixed(4)}, ${selectedLng.toFixed(4)}`,
       is_live: isLive,
       is_live_location: isLive,
       live_duration: isLive ? liveDuration : 0,
-      live_expires_at: isLive ? new Date(Date.now() + liveDuration * 1000).toISOString() : null,
+      live_expires_at: isLive ? new Date(expiresAtMs).toISOString() : null,
       is_live_ended: false,
       is_group: isGroup
     };
@@ -486,6 +482,11 @@ SDH.LocationShare = (function () {
       SDH.Chat.scrollToBottom?.();
     }
 
+    if (isLive) {
+      activeLiveMsgId = tempId;
+      startLiveGeolocationWatch(tempId, isGroup, expiresAtMs);
+    }
+
     // Close modal immediately for optimal responsive feel
     closeModal();
 
@@ -504,22 +505,36 @@ SDH.LocationShare = (function () {
         const respData = await res.json();
         const realId = respData.message_id;
         if (realId) {
+          activeLiveMsgId = realId;
           // Update temp DOM element with real message id
           const tempBubble = document.getElementById(`msg-${tempId}`);
           if (tempBubble) {
             tempBubble.id = `msg-${realId}`;
             tempBubble.dataset.messageId = String(realId);
-            const cardEl = tempBubble.querySelector(`#loc-bubble-${tempId}`);
+            const cardEl = tempBubble.querySelector(`#loc-bubble-${tempId}`) || tempBubble.querySelector('.sdh-location-msg-card');
             if (cardEl) {
               cardEl.id = `loc-bubble-${realId}`;
               cardEl.dataset.messageId = String(realId);
+              cardEl.setAttribute('data-msg-id', String(realId));
+            }
+            const stopBtn = tempBubble.querySelector('.sdh-loc-btn-stop') || tempBubble.querySelector('.sdh-loc-stop-btn');
+            if (stopBtn) {
+              stopBtn.setAttribute('onclick', `event.stopPropagation(); SDH.LocationShare.stopLiveLocation('${realId}', ${isGroup});`);
+            }
+            const mapThumb = tempBubble.querySelector('[onclick*="openViewer"]');
+            if (mapThumb) {
+              mapThumb.setAttribute('onclick', `SDH.LocationShare.openViewer('${realId}', true)`);
+            }
+            const viewBtn = tempBubble.querySelector('.sdh-loc-btn-view');
+            if (viewBtn) {
+              viewBtn.setAttribute('onclick', `SDH.LocationShare.openViewer('${realId}', true)`);
             }
           }
           locPayload.message_id = realId;
           messageLocations.set(String(realId), locPayload);
 
           if (isLive) {
-            startLiveGeolocationWatch(realId, isGroup);
+            startLiveGeolocationWatch(realId, isGroup, expiresAtMs);
           }
         }
       }
@@ -532,14 +547,21 @@ SDH.LocationShare = (function () {
 
   function buildCardHtml({ location, content, messageId, isFromMe, timestamp }) {
     if (!location) {
-      return `<p class="text-sm italic text-divine-muted">Location data unavailable</p>`;
+      return `<p class="text-sm italic text-slate-300">Location data unavailable</p>`;
     }
 
     const lat = parseFloat(location.latitude) || 0;
     const lng = parseFloat(location.longitude) || 0;
-    const isLive = Boolean(location.is_live || location.is_live_location);
-    const isEnded = Boolean(location.is_live_ended) || (location.live_expires_at && new Date() > new Date(location.live_expires_at));
-    const locName = location.location_name || (isLive ? 'Live Location' : 'Current Location');
+    const isLive = Boolean(location.is_live === true || location.is_live === 'true' || location.is_live_location === true || location.is_live_location === 'true');
+    const isEnded = isLive && (Boolean(location.is_live_ended === true || location.is_live_ended === 'true') || (location.live_expires_at && new Date() > new Date(location.live_expires_at)));
+    
+    // Strict title distinction: Live Location vs landmark/place name vs Current Location
+    let locTitle = '';
+    if (isLive) {
+      locTitle = 'Live Location';
+    } else {
+      locTitle = (location.location_name && location.location_name !== 'Live Location') ? location.location_name : 'Current Location';
+    }
     const locAddress = location.location_address || `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
     const comment = content || '';
 
@@ -548,7 +570,7 @@ SDH.LocationShare = (function () {
       message_id: messageId,
       latitude: lat,
       longitude: lng,
-      location_name: locName,
+      location_name: locTitle,
       location_address: locAddress,
       is_live: isLive,
       is_live_ended: isEnded,
@@ -557,121 +579,146 @@ SDH.LocationShare = (function () {
     };
     messageLocations.set(String(messageId), locData);
 
-    // Calculate map tile numbers at zoom 15 for a static background preview without API keys
+    // Calculate map tile numbers at zoom 15 for OpenStreetMap (Clean, zero watermarks, no API key required)
     const z = 15;
     const n = Math.pow(2, z);
     const x = Math.floor((lng + 180) / 360 * n);
     const latRad = lat * Math.PI / 180;
     const y = Math.floor((1 - Math.log(Math.tan(latRad) + (1 / Math.cos(latRad))) / Math.PI) / 2 * n);
-    const tileSub = ['a', 'b', 'c', 'd'][Math.abs((x + y) % 4)];
-    const tileUrl = `https://${tileSub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
+    const tileSub = ['a', 'b', 'c'][Math.abs((x + y) % 3)];
+    const tileUrl = `https://${tileSub}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
-    // Status badge: Live vs Ended vs Current Pinpoint
+    // Calculate live expiration & remaining time
+    let liveRemainingText = '';
+    let remainingMs = 0;
+    if (isLive && !isEnded && location.live_expires_at) {
+      const expiresAtMs = new Date(location.live_expires_at).getTime();
+      remainingMs = expiresAtMs - Date.now();
+      if (remainingMs > 0) {
+        const remainingMinutes = Math.ceil(remainingMs / 60000);
+        if (remainingMinutes >= 60) {
+          const hours = Math.floor(remainingMinutes / 60);
+          const mins = remainingMinutes % 60;
+          liveRemainingText = mins > 0 ? `${hours}h ${mins}m left` : `${hours}h left`;
+        } else {
+          liveRemainingText = `${remainingMinutes}m left`;
+        }
+
+        // Schedule auto-expiry on the card so badge changes to 'Live ended' automatically
+        setTimeout(() => {
+          handleIncomingLiveStopped({ message_id: messageId });
+        }, remainingMs);
+      }
+    }
+
+    // Status badge: Live Active vs Live Ended vs Current Pinpoint
     let badgeHtml = '';
     if (isLive) {
-      if (isEnded) {
+      if (isEnded || (location.live_expires_at && remainingMs <= 0 && isLive)) {
         badgeHtml = `
-          <div class="sdh-loc-badge inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30">
+          <div class="sdh-loc-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-900/90 text-slate-300 border border-slate-600 shadow-md backdrop-blur-md">
             <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
             <span>Live ended</span>
           </div>`;
       } else {
         badgeHtml = `
-          <div class="sdh-loc-badge inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+          <div class="sdh-loc-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-950/90 text-emerald-300 border border-emerald-400/50 shadow-md backdrop-blur-md">
             <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
             </span>
-            <span>Live Location</span>
+            <span>Live Location${liveRemainingText ? ` · ${liveRemainingText}` : ''}</span>
           </div>`;
       }
     } else {
       badgeHtml = `
-        <div class="sdh-loc-badge inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+        <div class="sdh-loc-badge inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-900/90 text-emerald-300 border border-emerald-500/40 shadow-md backdrop-blur-md">
           <span>📍</span>
           <span>Current Location</span>
         </div>`;
     }
 
-    // Stop live button for sender if still actively sharing
+    // Stop live button ONLY for sender when live is active
     const stopBtnHtml = (isLive && !isEnded && isFromMe) ? `
       <button type="button"
-              onclick="event.stopPropagation(); SDH.LocationShare.stopLiveLocation(${messageId}, ${Boolean(location.is_group)});"
-              class="sdh-loc-stop-btn flex items-center justify-center gap-1 py-1.5 px-3 rounded-lg text-xs font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all cursor-pointer">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        <span>Stop Sharing</span>
+              onclick="event.stopPropagation(); SDH.LocationShare.stopLiveLocation('${messageId}', ${Boolean(location.is_group)});"
+              class="sdh-loc-btn-stop flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+              title="Stop sharing live location">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        <span class="whitespace-nowrap">Stop Sharing</span>
       </button>` : '';
 
     return `
-      <div class="sdh-location-msg-card w-[270px] sm:w-[320px] max-w-full flex flex-col box-border select-none" id="loc-bubble-${messageId}">
+      <div class="sdh-location-msg-card w-[280px] sm:w-[325px] max-w-full flex flex-col box-border select-none rounded-2xl bg-slate-900/95 dark:bg-[#0b1120]/95 text-white p-2 border border-white/20 shadow-xl backdrop-blur-md" id="loc-bubble-${messageId}" data-msg-id="${messageId}">
         <!-- Map Thumbnail Preview -->
-        <div class="relative w-full h-36 sm:h-40 rounded-xl overflow-hidden cursor-pointer group/map border border-black/10 dark:border-white/10 shadow-sm bg-slate-900"
+        <div class="relative w-full h-36 sm:h-44 rounded-xl overflow-hidden cursor-pointer group/map border border-white/15 shadow-sm bg-slate-950"
              onclick="SDH.LocationShare.openViewer('${messageId}', ${isFromMe})">
           
-          <!-- Static tile background -->
+          <!-- Static OpenStreetMap tile (zero watermark, no API key required) -->
           <img src="${tileUrl}"
                alt="Map Preview"
-               class="w-full h-full object-cover group-hover/map:scale-105 transition-transform duration-500 opacity-85"
+               class="w-full h-full object-cover group-hover/map:scale-105 transition-transform duration-500"
+               loading="lazy"
                onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" />
 
           <!-- Fallback pattern background if tile fails to load -->
-          <div class="hidden absolute inset-0 bg-gradient-to-br from-emerald-950/80 via-slate-900 to-teal-950/80 flex items-center justify-center">
-            <svg class="w-16 h-16 text-emerald-500/20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+          <div class="hidden absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 flex items-center justify-center">
+            <svg class="w-16 h-16 text-emerald-500/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
           </div>
 
           <!-- Center Map Pin / Live Beacon -->
           <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
             ${isLive ? `
               <div class="relative flex items-center justify-center">
-                ${!isEnded ? `<span class="animate-ping absolute -inset-3 rounded-full bg-emerald-500/40"></span>` : ''}
-                <div class="w-10 h-10 rounded-full ${isEnded ? 'bg-slate-600' : 'bg-emerald-500'} flex items-center justify-center text-white text-lg shadow-xl border-2 border-white">
+                ${!isEnded ? `<span class="animate-ping absolute -inset-3 rounded-full bg-emerald-500/50"></span>` : ''}
+                <div class="w-10 h-10 rounded-full ${isEnded ? 'bg-slate-700 border-slate-400' : 'bg-emerald-500 border-white'} flex items-center justify-center text-white text-lg shadow-2xl border-2">
                   ${isEnded ? '⚪' : '📍'}
                 </div>
               </div>
             ` : `
-              <div class="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white text-lg shadow-xl border-2 border-white hover:scale-110 transition-transform">
+              <div class="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white text-lg shadow-2xl border-2 border-white hover:scale-110 transition-transform">
                 📍
               </div>
             `}
           </div>
 
-          <!-- Top Pill Overlay (Live or Static status) -->
+          <!-- Top Badge Overlay (Live or Static status) -->
           <div class="absolute top-2 left-2 z-10 pointer-events-none">
             ${badgeHtml}
           </div>
 
           <!-- Hover "View Live Map" Overlay Indicator -->
-          <div class="absolute inset-0 bg-black/35 opacity-0 group-hover/map:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
-            <span class="py-1.5 px-3 rounded-full bg-black/75 text-white backdrop-blur-md border border-white/20 text-xs font-semibold shadow-xl flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover/map:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
+            <span class="py-1.5 px-3.5 rounded-full bg-black/85 text-white backdrop-blur-md border border-white/25 text-xs font-bold shadow-2xl flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               <span>View Map</span>
             </span>
           </div>
         </div>
 
         <!-- Place Details Card Info -->
-        <div class="mt-2 px-1">
-          <p class="text-sm font-bold text-divine-text leading-tight truncate" title="${escapeHtml(locName)}">${escapeHtml(locName)}</p>
-          <p class="sdh-loc-subtitle text-xs text-divine-muted mt-0.5 truncate" title="${escapeHtml(locAddress)}">${escapeHtml(locAddress)}</p>
-          ${comment ? `<p class="text-xs text-divine-text/90 mt-1.5 italic bg-black/5 dark:bg-white/5 p-2 rounded-lg">${escapeHtml(comment)}</p>` : ''}
+        <div class="mt-2.5 px-1.5">
+          <p class="sdh-loc-title text-sm sm:text-base font-bold text-white leading-tight truncate" title="${escapeHtml(locTitle)}">${escapeHtml(locTitle)}</p>
+          <p class="sdh-loc-subtitle text-xs text-slate-300 mt-1 line-clamp-2 leading-relaxed" title="${escapeHtml(locAddress)}">${escapeHtml(locAddress)}</p>
+          ${comment ? `<p class="sdh-loc-comment text-xs text-slate-100 mt-2 italic p-2 rounded-xl bg-white/10 border border-white/15">${escapeHtml(comment)}</p>` : ''}
         </div>
 
-        <!-- Action Buttons -->
-        <div class="mt-2.5 flex items-center gap-2">
+        <!-- Action Buttons (Responsive flex-wrap) -->
+        <div class="mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
           <button type="button"
                   onclick="SDH.LocationShare.openViewer('${messageId}', ${isFromMe})"
-                  class="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-            <span>View on Map</span>
+                  class="sdh-loc-btn-view flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer">
+            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+            <span class="whitespace-nowrap">View Map</span>
           </button>
 
           <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}"
              target="_blank"
              rel="noopener noreferrer"
-             class="py-1.5 px-2.5 rounded-lg text-xs font-medium text-divine-muted hover:text-divine-text bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-all flex items-center justify-center gap-1 border border-black/5 dark:border-white/10"
+             class="sdh-loc-btn-dir flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-semibold text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer no-underline"
              title="Get Directions">
-            <svg class="w-3.5 h-3.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-            <span>Directions</span>
+            <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            <span class="whitespace-nowrap">Directions</span>
           </a>
 
           ${stopBtnHtml}
@@ -682,7 +729,7 @@ SDH.LocationShare = (function () {
 
   // ── Real-Time Live Location Watch & Streaming ─────────────────────────────
 
-  function startLiveGeolocationWatch(messageId, isGroup) {
+  function startLiveGeolocationWatch(messageId, isGroup, expiresAtMs) {
     if (activeWatchId !== null) {
       navigator.geolocation.clearWatch(activeWatchId);
       activeWatchId = null;
@@ -714,9 +761,14 @@ SDH.LocationShare = (function () {
     }
 
     // Schedule auto-stop when duration expires
+    const now = Date.now();
+    let delayMs = (liveDuration || 3600) * 1000;
+    if (expiresAtMs && typeof expiresAtMs === 'number' && expiresAtMs > now) {
+      delayMs = Math.max(1000, expiresAtMs - now);
+    }
     activeLiveExpirationTimer = setTimeout(() => {
       stopLiveLocation(messageId, isGroup);
-    }, (liveDuration || 3600) * 1000);
+    }, delayMs);
   }
 
   function broadcastLiveCoords(messageId, isGroup, lat, lng) {
@@ -754,17 +806,31 @@ SDH.LocationShare = (function () {
       clearTimeout(activeLiveExpirationTimer);
       activeLiveExpirationTimer = null;
     }
+
+    const targetMsgId = (messageId && !String(messageId).startsWith('temp_'))
+      ? messageId
+      : (activeLiveMsgId || messageId);
+
     activeLiveMsgId = null;
+
+    if (isGroup === undefined || isGroup === null) {
+      const activeTarget = (typeof SDH.Chat?.getActiveUser === 'function' ? SDH.Chat.getActiveUser() : '') || '';
+      isGroup = activeTarget.startsWith('group_');
+    }
 
     const payload = {
       type: 'stop_live_location',
-      message_id: messageId,
-      is_group: isGroup
+      message_id: targetMsgId,
+      is_group: Boolean(isGroup)
     };
 
     const ws = SDH.WS?.getSocket?.();
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload));
+      try {
+        ws.send(JSON.stringify(payload));
+      } catch (err) {
+        console.warn('[SDH.LocationShare] ws send stop error:', err);
+      }
     }
 
     try {
@@ -781,7 +847,10 @@ SDH.LocationShare = (function () {
     }
 
     // Optimistically update card in DOM
-    handleIncomingLiveStopped({ message_id: messageId });
+    handleIncomingLiveStopped({ message_id: targetMsgId });
+    if (messageId && messageId !== targetMsgId) {
+      handleIncomingLiveStopped({ message_id: messageId });
+    }
   }
 
   // ── Full-screen Location Viewer Modal ─────────────────────────────────────
@@ -940,26 +1009,54 @@ SDH.LocationShare = (function () {
   }
 
   function handleIncomingLiveStopped(data) {
-    const msgId = data.message_id;
+    const msgId = data?.message_id;
+    if (!msgId) return;
+
+    // Update in-memory cached location object
+    const loc = messageLocations.get(String(msgId));
+    if (loc) {
+      loc.is_live_ended = true;
+    }
 
     // Update in-bubble card badge
-    const bubbleCard = document.getElementById(`loc-bubble-${msgId}`);
+    const cardSelectors = [
+      `#loc-bubble-${msgId}`,
+      `[data-message-id="${msgId}"] .sdh-location-msg-card`,
+      `[data-msg-id="${msgId}"]`,
+      `#msg-${msgId} .sdh-location-msg-card`
+    ];
+
+    let bubbleCard = null;
+    for (const sel of cardSelectors) {
+      const found = document.querySelector(sel);
+      if (found) {
+        bubbleCard = found;
+        break;
+      }
+    }
+
     if (bubbleCard) {
       const badge = bubbleCard.querySelector('.sdh-loc-badge');
       if (badge) {
-        badge.className = 'sdh-loc-badge flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30';
+        badge.className = 'sdh-loc-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-900/90 text-slate-300 border border-slate-600 shadow-md backdrop-blur-md';
         badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span><span>Live ended</span>`;
       }
-      const stopBtn = bubbleCard.querySelector('.sdh-loc-stop-btn');
+      const stopBtn = bubbleCard.querySelector('.sdh-loc-btn-stop') || bubbleCard.querySelector('.sdh-loc-stop-btn');
       if (stopBtn) stopBtn.remove();
     }
 
     // Update viewer modal if open
-    if (currentViewingLoc && currentViewingLoc.message_id === msgId) {
+    if (currentViewingLoc && String(currentViewingLoc.message_id) === String(msgId)) {
+      currentViewingLoc.is_live_ended = true;
       const stopBtn = document.getElementById('locViewerStopBtn');
       if (stopBtn) stopBtn.classList.add('hidden');
       const liveBanner = document.getElementById('locViewerLiveBanner');
       if (liveBanner) liveBanner.classList.add('hidden');
+      const liveStatus = document.getElementById('locViewerLiveStatus');
+      if (liveStatus) liveStatus.textContent = 'Live ended';
+      if (viewerMarker) {
+        viewerMarker.setIcon(createPinIcon(false));
+      }
     }
   }
 

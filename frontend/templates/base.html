@@ -276,35 +276,6 @@
 
       {% block nav_actions %}{% endblock %}
 
-      <!-- ── Transport Mode Toggle (Cloud vs Nearby) ──────────────── -->
-      <div id="sdhModeToggleContainer" class="relative flex items-center bg-black/40 dark:bg-black/60 p-0.5 sm:p-1 rounded-full border border-purple-500/25 shadow-inner backdrop-blur-md" role="radiogroup" aria-label="Connection Mode">
-        <!-- Cloud Mode Option -->
-        <button id="sdhModeCloudBtn" type="button" onclick="SDH.toggleTransportMode('cloud')"
-          class="relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-300 bg-purple-600 text-white shadow-[0_0_12px_rgba(168,85,247,0.5)]"
-          title="Cloud Mode: Online Messaging via Central Servers" role="radio" aria-checked="true">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z" />
-          </svg>
-          <span class="hidden md:inline text-[11px] tracking-wide">Cloud</span>
-        </button>
-
-        <!-- Nearby Mode Option -->
-        <button id="sdhModeNearbyBtn" type="button" onclick="SDH.toggleTransportMode('nearby')"
-          class="relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium text-divine-muted hover:text-divine-text transition-all duration-300 bg-transparent"
-          title="Nearby Mode: Offline Messaging via Local Wi-Fi / Hotspot" role="radio" aria-checked="false">
-          <span class="relative flex h-2 w-2">
-            <span id="sdhNearbyPing" class="hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span id="sdhNearbyDot" class="relative inline-flex rounded-full h-2 w-2 bg-zinc-500"></span>
-          </span>
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.393 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-          </svg>
-          <span class="hidden md:inline text-[11px] tracking-wide">Nearby</span>
-        </button>
-      </div>
-
       <!-- Theme Toggle -->
       <button id="themeToggle" onclick="SDH.toggleTheme(event)"
         class="sdh-icon-btn p-2 rounded-full text-divine-text hover:text-divine-gold transition-colors"
@@ -335,9 +306,12 @@
       <div class="relative" id="userMenuContainer">
         <button onclick="document.getElementById('userDropdown').classList.toggle('hidden')"
           class="flex items-center gap-2 group">
-          <div
-            class="w-8 h-8 rounded-full bg-divine-gold/20 border border-divine-gold/40 flex items-center justify-center text-divine-gold text-sm font-semibold">
-            {{ user.username|slice:":1"|upper }}
+          <div class="relative">
+            <div
+              class="w-8 h-8 rounded-full bg-divine-gold/20 border border-divine-gold/40 flex items-center justify-center text-divine-gold text-sm font-semibold">
+              {{ user.username|slice:":1"|upper }}
+            </div>
+            <span id="userAvatarNearbyDot" class="hidden absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900 shadow-[0_0_8px_#34d399]"></span>
           </div>
           <span class="hidden sm:block text-sm text-divine-muted group-hover:text-divine-text transition-colors">
             {{ user.username }}
@@ -346,7 +320,44 @@
 
         <!-- Dropdown -->
         <div id="userDropdown"
-          class="hidden absolute right-0 top-full mt-2 w-44 bg-divine-card border border-divine-border rounded-xl shadow-2xl overflow-hidden z-50">
+          class="hidden absolute right-0 top-full mt-2 w-56 sm:w-60 bg-divine-card border border-divine-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-scale-in">
+          
+          <!-- Connection Mode Switcher (Cloud vs Nearby) -->
+          <div class="p-3 bg-black/[0.04] dark:bg-white/[0.03] border-b border-divine-border flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-divine-muted uppercase tracking-wider">Network Mode</span>
+              <span id="sdhModeLabelBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400">Cloud</span>
+            </div>
+            
+            <div id="sdhModeToggleContainer" class="relative flex items-center justify-between bg-slate-900/90 dark:bg-black/90 p-1 rounded-full border border-slate-700/60 dark:border-white/15 shadow-inner" role="radiogroup" aria-label="Connection Mode">
+              <!-- Cloud Mode Option -->
+              <button id="sdhModeCloudBtn" type="button" onclick="event.stopPropagation(); SDH.toggleTransportMode('cloud')"
+                class="flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-300 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-[0_0_12px_rgba(168,85,247,0.5)] border border-purple-400/30 cursor-pointer"
+                title="Cloud Mode: Online Messaging via Central Servers" role="radio" aria-checked="true">
+                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 00-9.78 2.096A4.001 4.001 0 003 15z" />
+                </svg>
+                <span class="inline text-[11px] font-semibold tracking-wide">Cloud</span>
+              </button>
+
+              <!-- Nearby Mode Option -->
+              <button id="sdhModeNearbyBtn" type="button" onclick="event.stopPropagation(); SDH.toggleTransportMode('nearby')"
+                class="flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white dark:text-slate-300 dark:hover:text-white transition-all duration-300 bg-transparent hover:bg-white/10 cursor-pointer"
+                title="Nearby Mode: Offline Messaging via Local Wi-Fi / Hotspot" role="radio" aria-checked="false">
+                <span class="relative flex h-2 w-2 flex-shrink-0">
+                  <span id="sdhNearbyPing" class="hidden animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span id="sdhNearbyDot" class="relative inline-flex rounded-full h-2 w-2 bg-zinc-400"></span>
+                </span>
+                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.393 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                </svg>
+                <span class="inline text-[11px] font-semibold tracking-wide">Nearby</span>
+              </button>
+            </div>
+          </div>
+
           <a href="{% url 'users:profile' %}"
             class="flex items-center gap-2 px-4 py-3 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1544,31 +1555,43 @@
       const ping = document.getElementById('sdhNearbyPing');
       const dot = document.getElementById('sdhNearbyDot');
       const banner = document.getElementById('sdhNearbyBanner');
+      const badge = document.getElementById('sdhModeLabelBadge');
+      const avatarDot = document.getElementById('userAvatarNearbyDot');
 
       if (mode === 'nearby') {
         if (cloudBtn) {
-          cloudBtn.className = 'relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium text-divine-muted hover:text-divine-text transition-all duration-300 bg-transparent';
+          cloudBtn.className = 'flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white dark:text-slate-300 dark:hover:text-white transition-all duration-300 bg-transparent hover:bg-white/10 cursor-pointer';
           cloudBtn.setAttribute('aria-checked', 'false');
         }
         if (nearbyBtn) {
-          nearbyBtn.className = 'relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold text-white transition-all duration-300 bg-gradient-to-r from-emerald-600 to-teal-600 shadow-[0_0_15px_rgba(16,185,129,0.5)]';
+          nearbyBtn.className = 'flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white transition-all duration-300 bg-gradient-to-r from-emerald-600 to-teal-600 shadow-[0_0_15px_rgba(16,185,129,0.6)] border border-emerald-400/40 cursor-pointer';
           nearbyBtn.setAttribute('aria-checked', 'true');
         }
         if (ping) ping.classList.remove('hidden');
         if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-400';
         if (banner) banner.classList.remove('hidden');
+        if (badge) {
+          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400';
+          badge.textContent = 'Nearby Mesh';
+        }
+        if (avatarDot) avatarDot.classList.remove('hidden');
       } else {
         if (cloudBtn) {
-          cloudBtn.className = 'relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-semibold text-white transition-all duration-300 bg-purple-600 shadow-[0_0_12px_rgba(168,85,247,0.5)]';
+          cloudBtn.className = 'flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white transition-all duration-300 bg-gradient-to-r from-purple-600 to-indigo-600 shadow-[0_0_14px_rgba(168,85,247,0.6)] border border-purple-400/30 cursor-pointer';
           cloudBtn.setAttribute('aria-checked', 'true');
         }
         if (nearbyBtn) {
-          nearbyBtn.className = 'relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium text-divine-muted hover:text-divine-text transition-all duration-300 bg-transparent';
+          nearbyBtn.className = 'flex-1 relative flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white dark:text-slate-300 dark:hover:text-white transition-all duration-300 bg-transparent hover:bg-white/10 cursor-pointer';
           nearbyBtn.setAttribute('aria-checked', 'false');
         }
         if (ping) ping.classList.add('hidden');
-        if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-zinc-500';
+        if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-zinc-400';
         if (banner) banner.classList.add('hidden');
+        if (badge) {
+          badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400';
+          badge.textContent = 'Cloud';
+        }
+        if (avatarDot) avatarDot.classList.add('hidden');
       }
     };
 
