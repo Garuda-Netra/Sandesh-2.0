@@ -468,6 +468,43 @@ SDH.LocalIdentity = (() => {
     }
   }
 
+  /**
+   * Retrieves a single cached local peer by peerId.
+   */
+  async function getPeer(peerId) {
+    if (!peerId) return null;
+    try {
+      const db = await getDB();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(STORES.PEERS, 'readonly');
+        const req = tx.objectStore(STORES.PEERS).get(peerId);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
+   * Updates an existing peer record to mark it as verified with a Safety Code.
+   */
+  async function verifyPeer(peerId, safetyCode) {
+    if (!peerId) return false;
+    try {
+      const peer = await getPeer(peerId);
+      if (!peer) return false;
+      peer.isVerified = true;
+      peer.safetyCode = safetyCode || peer.safetyCode || '';
+      peer.verifiedAt = new Date().toISOString();
+      await upsertPeer(peer);
+      return true;
+    } catch (err) {
+      console.warn('[SDH.LocalIdentity] Error verifying peer:', err);
+      return false;
+    }
+  }
+
   // ── Public API ───────────────────────────────────────────────────────
 
   return {
@@ -476,6 +513,8 @@ SDH.LocalIdentity = (() => {
     getIdentity,
     clearLocalIdentity,
     upsertPeer,
+    getPeer,
+    verifyPeer,
     getAllPeers,
     removePeer,
     enqueueOfflineMessage,
@@ -484,3 +523,4 @@ SDH.LocalIdentity = (() => {
   };
 
 })();
+

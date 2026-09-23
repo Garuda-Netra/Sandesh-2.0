@@ -107,6 +107,34 @@ SDH.NearbyTransport = (() => {
     const cachedPeers = await window.SDH.LocalIdentity.getAllPeers();
     cachedPeers.forEach(p => activePeers.set(p.peerId, p));
 
+    // Wire up direct peer-to-peer WebRTC DataChannel handlers
+    if (window.SDH?.NearbyWebRTC && !window.SDH.NearbyWebRTC._transportHooked) {
+      window.SDH.NearbyWebRTC._transportHooked = true;
+
+      window.SDH.NearbyWebRTC.onMessage((incomingFrame, remotePeer) => {
+        console.log('[SDH.NearbyTransport] Received frame via WebRTC DataChannel:', incomingFrame?.type, incomingFrame);
+        _dispatchIncoming(incomingFrame);
+
+        // Acknowledge incoming chat message with delivered receipt
+        if (incomingFrame?.type === 'chat_message' && incomingFrame?.message_id) {
+          window.SDH.NearbyWebRTC.send({
+            type: 'delivered_receipt',
+            message_id: incomingFrame.message_id,
+            sender: localIdentity?.username || 'me',
+            is_nearby: true
+          });
+        }
+      });
+
+      window.SDH.NearbyWebRTC.onStateChange((event) => {
+        console.log('[SDH.NearbyTransport] NearbyWebRTC connection state changed:', event.state);
+        if (event.state === 'connected' && event.peer) {
+          registerDiscoveredPeer(event.peer);
+          _flushOfflineQueue(event.peer.username);
+        }
+      });
+    }
+
     _startScanning();
     return true;
   }
@@ -135,6 +163,27 @@ SDH.NearbyTransport = (() => {
 
     // Announce presence to the target peer
     _announcePresence();
+  }
+
+  /**
+   * Flushes any pending offline messages for a connected peer.
+   */
+  async function _flushOfflineQueue(targetUsername) {
+    if (!window.SDH?.LocalIdentity || !window.SDH?.NearbyWebRTC?.isConnected()) return;
+    try {
+      const queue = await window.SDH.LocalIdentity.getOfflineQueue();
+      for (const item of queue) {
+        if (!targetUsername || item.recipient === targetUsername) {
+          const sent = window.SDH.NearbyWebRTC.send(item.payload);
+          if (sent) {
+            await window.SDH.LocalIdentity.dequeueOfflineMessage(item.tempId);
+            console.log('[SDH.NearbyTransport] Flushed queued offline message:', item.tempId);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[SDH.NearbyTransport] Queue flush error:', e);
+    }
   }
 
   /**
@@ -176,8 +225,15 @@ SDH.NearbyTransport = (() => {
         is_nearby: true
       };
 
-      // Persist in local offline queue
-      if (window.SDH?.LocalIdentity) {
+      // 1. Transmit directly over WebRTC DataChannel if peer is connected!
+      let sentOverWebRTC = false;
+      if (window.SDH?.NearbyWebRTC?.isConnected()) {
+        sentOverWebRTC = window.SDH.NearbyWebRTC.send(outgoingFrame);
+        console.log('[SDH.NearbyTransport] Sent over direct WebRTC DataChannel:', sentOverWebRTC);
+      }
+
+      // 2. Persist in local offline queue if peer is not currently connected
+      if (!sentOverWebRTC && window.SDH?.LocalIdentity) {
         window.SDH.LocalIdentity.enqueueOfflineMessage({
           tempId: messageId,
           recipient: targetUser,
