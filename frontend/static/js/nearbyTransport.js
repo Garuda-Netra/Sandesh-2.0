@@ -111,19 +111,105 @@ SDH.NearbyTransport = (() => {
     if (window.SDH?.NearbyWebRTC && !window.SDH.NearbyWebRTC._transportHooked) {
       window.SDH.NearbyWebRTC._transportHooked = true;
 
-      window.SDH.NearbyWebRTC.onMessage((incomingFrame, remotePeer) => {
+      window.SDH.NearbyWebRTC.onMessage(async (incomingFrame, remotePeer) => {
         console.log('[SDH.NearbyTransport] Received frame via WebRTC DataChannel:', incomingFrame?.type, incomingFrame);
-        _dispatchIncoming(incomingFrame);
+        if (!_validateIncomingFrame(incomingFrame)) return;
 
-        // Acknowledge incoming chat message with delivered receipt
-        if (incomingFrame?.type === 'chat_message' && incomingFrame?.message_id) {
-          window.SDH.NearbyWebRTC.send({
-            type: 'delivered_receipt',
-            message_id: incomingFrame.message_id,
-            sender: localIdentity?.username || 'me',
+        // 1. File transfer frames routing
+        if (incomingFrame.type === 'file_chunk_meta' && window.SDH?.NearbyFileTransfer) {
+          window.SDH.NearbyFileTransfer.handleIncomingChunkMeta(incomingFrame);
+          return;
+        }
+        if (incomingFrame.type === 'file_chunk' && window.SDH?.NearbyFileTransfer) {
+          window.SDH.NearbyFileTransfer.handleIncomingChunk(incomingFrame);
+          return;
+        }
+        if (incomingFrame.type === 'file_cancel' && window.SDH?.NearbyFileTransfer) {
+          window.SDH.NearbyFileTransfer.handleIncomingCancel(incomingFrame);
+          return;
+        }
+
+        // 2. Chat message handling
+        if (incomingFrame.type === 'chat_message' || incomingFrame.type === 'group_message') {
+          const msgId = incomingFrame.id || incomingFrame.message_id;
+          if (_isDuplicate(msgId)) {
+            console.log('[SDH.NearbyTransport] Ignored duplicate message:', msgId);
+            return;
+          }
+
+          let content = incomingFrame.message || '';
+          // Standard E2EE decryption
+          if (incomingFrame.is_encrypted && incomingFrame.encryption_iv && window.SDH?.E2E) {
+            try {
+              content = await window.SDH.E2E.decrypt(incomingFrame.message, incomingFrame.encryption_iv, incomingFrame.sender);
+            } catch (e) {
+              console.warn('[SDH.NearbyTransport] Decryption failed:', e);
+            }
+          }
+
+          const synthesizedFrame = {
+            type: incomingFrame.type,
+            message_id: msgId,
+            sender: incomingFrame.sender,
+            sender_id: incomingFrame.sender_id || 0,
+            receiver: incomingFrame.receiver || (localIdentity?.username || window.SDH_DATA?.currentUser),
+            receiver_id: null,
+            message: content,
+            message_type: incomingFrame.message_type || 'text',
+            location: incomingFrame.location || null,
+            original_filename: incomingFrame.original_filename || '',
+            mime_type: incomingFrame.mime_type || '',
+            is_encrypted: Boolean(incomingFrame.is_encrypted),
+            encryption_iv: incomingFrame.encryption_iv || '',
+            timestamp: incomingFrame.ts || incomingFrame.timestamp || new Date().toISOString(),
+            is_nearby: true
+          };
+
+          // Persist in IndexedDB
+          if (window.SDH?.LocalIdentity?.saveNearbyMessage) {
+            await window.SDH.LocalIdentity.saveNearbyMessage(synthesizedFrame);
+          }
+
+          // Acknowledge with delivered receipt
+          if (window.SDH?.NearbyWebRTC?.isConnected()) {
+            window.SDH.NearbyWebRTC.send({
+              v: 1,
+              type: 'delivered_receipt',
+              id: 'del_' + Date.now(),
+              message_id: msgId,
+              sender: localIdentity?.username || 'me',
+              recipient: incomingFrame.sender,
+              ts: new Date().toISOString(),
+              is_nearby: true
+            });
+          }
+
+          // Forward to Chat UI
+          _dispatchIncoming(synthesizedFrame);
+          return;
+        }
+
+        // 3. Receipt updates
+        if (incomingFrame.type === 'delivered_receipt' || incomingFrame.type === 'read_receipt') {
+          const msgId = incomingFrame.message_id;
+          if (msgId && window.SDH?.LocalIdentity) {
+            if (incomingFrame.type === 'read_receipt') {
+              await window.SDH.LocalIdentity.markNearbyMessageRead(msgId);
+            } else {
+              await window.SDH.LocalIdentity.markNearbyMessageDelivered(msgId);
+            }
+          }
+          _dispatchIncoming({
+            type: 'message_status',
+            message_id: msgId,
+            status: incomingFrame.type === 'read_receipt' ? 'read' : 'delivered',
             is_nearby: true
           });
+          return;
         }
+
+        // 4. Other frames (typing, presence)
+        _dispatchIncoming(incomingFrame);
       });
 
       window.SDH.NearbyWebRTC.onStateChange((event) => {
@@ -136,6 +222,38 @@ SDH.NearbyTransport = (() => {
     }
 
     _startScanning();
+    return true;
+  }
+
+  // ── Deduplication & Validation ───────────────────────────────────────
+  const processedMessageIds = new Set();
+
+  function _isDuplicate(msgId) {
+    if (!msgId) return false;
+    if (processedMessageIds.has(String(msgId))) return true;
+    processedMessageIds.add(String(msgId));
+    if (processedMessageIds.size > 2000) {
+      const first = processedMessageIds.values().next().value;
+      processedMessageIds.delete(first);
+    }
+    return false;
+  }
+
+  function _validateIncomingFrame(frame) {
+    if (!frame || typeof frame !== 'object') return false;
+    if (frame.v !== 1 && !frame.type) return false;
+    // Max payload limit check (64KB for control/text frames)
+    if (frame.type !== 'file_chunk') {
+      try {
+        const strLen = JSON.stringify(frame).length;
+        if (strLen > 65536) {
+          console.warn('[SDH.NearbyTransport] Rejected oversized frame:', strLen, 'bytes');
+          return false;
+        }
+      } catch (e) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -190,9 +308,9 @@ SDH.NearbyTransport = (() => {
    * Transmits a message payload over local transport.
    *
    * @param {Object} payload - Message payload
-   * @returns {boolean} True if processed or queued
+   * @returns {Promise<boolean>} True if processed or queued
    */
-  function sendMessage(payload) {
+  async function sendMessage(payload) {
     if (!payload || !payload.type) {
       console.warn('[SDH.NearbyTransport] Invalid payload', payload);
       return false;
@@ -205,22 +323,48 @@ SDH.NearbyTransport = (() => {
 
     if (payload.type === 'chat_message' || payload.type === 'group_message') {
       const targetUser = payload.receiver || currentTargetId;
-      const messageId = 'nearby_msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const messageId = payload.message_id || ('nearby_msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
 
-      // Create standardized message response packet
+      let isEncrypted = Boolean(payload.is_encrypted);
+      let encryptionIv = payload.encryption_iv || '';
+      let messageContent = payload.message || '';
+
+      // Standard E2EE encryption if not already encrypted
+      if (!isEncrypted && window.SDH?.E2E && payload.message && typeof payload.message === 'string') {
+        try {
+          const encRes = await window.SDH.E2E.encrypt(payload.message, targetUser);
+          if (encRes && encRes.is_encrypted) {
+            isEncrypted = true;
+            encryptionIv = encRes.iv;
+            messageContent = encRes.ciphertext;
+          }
+        } catch (e) {
+          console.warn('[SDH.NearbyTransport] E2EE encryption error:', e);
+        }
+      }
+
+      // Create standardized versioned protocol packet
       const outgoingFrame = {
+        v: 1,
+        id: messageId,
         type: payload.type,
         message_id: messageId,
         sender: senderUsername,
         sender_id: localIdentity?.userId || 0,
+        sender_device_id: localIdentity?.deviceId || 'device_' + senderUsername,
         receiver: targetUser,
         receiver_id: null,
-        message: payload.message || '',
+        recipient: targetUser,
+        message: messageContent,
         message_type: payload.message_type || 'text',
+        location: payload.location || null,
         original_filename: payload.original_filename || '',
         mime_type: payload.mime_type || '',
-        is_encrypted: !!payload.is_encrypted,
-        encryption_iv: payload.encryption_iv || '',
+        file_id: payload.file_id || null,
+        file_data: payload.file_data || null,
+        is_encrypted: isEncrypted,
+        encryption_iv: encryptionIv,
+        ts: timestamp,
         timestamp: timestamp,
         is_nearby: true
       };
@@ -232,7 +376,15 @@ SDH.NearbyTransport = (() => {
         console.log('[SDH.NearbyTransport] Sent over direct WebRTC DataChannel:', sentOverWebRTC);
       }
 
-      // 2. Persist in local offline queue if peer is not currently connected
+      // 2. Persist in local IndexedDB store
+      if (window.SDH?.LocalIdentity?.saveNearbyMessage) {
+        await window.SDH.LocalIdentity.saveNearbyMessage({
+          ...outgoingFrame,
+          message: payload.message || messageContent // save decrypted plaintext locally for self
+        });
+      }
+
+      // 3. Persist in offline queue if peer is not currently connected
       if (!sentOverWebRTC && window.SDH?.LocalIdentity) {
         window.SDH.LocalIdentity.enqueueOfflineMessage({
           tempId: messageId,
@@ -257,23 +409,30 @@ SDH.NearbyTransport = (() => {
     }
 
     if (payload.type === 'typing') {
-      // Broadcast typing indicator to local network
-      _broadcastToPeers({
+      const typingFrame = {
+        v: 1,
         type: 'typing',
         sender: senderUsername,
+        recipient: payload.receiver || currentTargetId,
         is_typing: !!payload.is_typing,
+        ts: timestamp,
         is_nearby: true
-      });
+      };
+      _broadcastToPeers(typingFrame);
       return true;
     }
 
     if (payload.type === 'read_receipt' || payload.type === 'delivered_receipt') {
-      _broadcastToPeers({
+      const receiptFrame = {
+        v: 1,
         type: payload.type,
         message_id: payload.message_id,
         sender: senderUsername,
+        recipient: payload.receiver || currentTargetId,
+        ts: timestamp,
         is_nearby: true
-      });
+      };
+      _broadcastToPeers(receiptFrame);
       return true;
     }
 

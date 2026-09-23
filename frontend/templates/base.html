@@ -441,15 +441,33 @@
   <nav
     class="fixed top-0 left-0 right-0 z-50 h-14 bg-divine-surface/90 backdrop-blur-md border-b border-divine-border flex items-center justify-between px-4 sm:px-6">
 
-    <!-- Logo -->
-    <a href="{% url 'users:index' %}" class="flex items-center gap-2 group">
-      <span class="sandesh-nav-brand text-xl font-bold tracking-wider">
-        ✦ Sandesh
-      </span>
-      <span class="hidden sm:block text-divine-muted text-xs uppercase tracking-widest">
-        Sandesh Messenger
-      </span>
-    </a>
+    <!-- Logo & Nearby Mode Indicator -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <a href="{% url 'users:index' %}" class="flex items-center gap-2 group">
+        <span class="sandesh-nav-brand text-xl font-bold tracking-wider">
+          ✦ Sandesh
+        </span>
+        <span class="hidden sm:block text-divine-muted text-xs uppercase tracking-widest">
+          Sandesh Messenger
+        </span>
+      </a>
+
+      <!-- ── Nearby Mode Symbol Indicator in Navbar ── -->
+      <button id="navNearbySymbolBtn" type="button" onclick="SDH.toggleNearbyControls()"
+        class="hidden items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-xs font-bold shadow-[0_0_12px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95 flex-shrink-0"
+        title="Nearby Mode Active (Local Wi-Fi Mesh) — Tap to view controls">
+        <span class="relative flex h-2 w-2 flex-shrink-0">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+        </span>
+        <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.393 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+        </svg>
+        <span class="text-[11px] font-bold tracking-wide">Nearby</span>
+        <span id="navNearbyPeerMiniCount" class="hidden text-[9px] font-black px-1 rounded-full bg-emerald-500/30 text-emerald-200"></span>
+      </button>
+    </div>
 
     <!-- Nav Actions -->
     <div class="flex items-center gap-4">
@@ -580,6 +598,75 @@
 
     </div>
   </nav>
+
+  <!-- ── Floating Nearby Mode Notification Toast (Responsive & Dismissible) ── -->
+  <div id="sdhNearbyBanner"
+    class="hidden fixed top-16 left-3 right-3 sm:left-auto sm:right-6 sm:w-[400px] z-[70] p-3 sm:p-3.5 rounded-2xl bg-slate-900/95 dark:bg-[#061e16]/95 border border-emerald-500/40 backdrop-blur-2xl shadow-2xl shadow-emerald-950/60 transform transition-all duration-300 -translate-y-4 opacity-0 pointer-events-none select-none sm:select-auto"
+    onmouseenter="if(window._nearbyNotifTimer){clearTimeout(window._nearbyNotifTimer);window._nearbyNotifTimer=null;}"
+    ontouchstart="if(window._nearbyNotifTimer){clearTimeout(window._nearbyNotifTimer);window._nearbyNotifTimer=null;}"
+    role="alert" aria-live="polite">
+    <div class="flex flex-col gap-2 w-full">
+
+      <!-- Top Row: Beacon, Title, Subtitle, and Close (✕) button -->
+      <div class="flex items-start justify-between gap-2 min-w-0">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="relative flex h-2.5 w-2.5 flex-shrink-0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+          </span>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.393 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+              </svg>
+              <h4 class="font-extrabold text-emerald-300 text-xs uppercase tracking-wider truncate">
+                Nearby Mode Active
+              </h4>
+            </div>
+            <p class="text-[11px] text-slate-300 dark:text-emerald-100/80 font-normal truncate mt-0.5">
+              Local Wi-Fi / Hotspot mesh (No Internet)
+            </p>
+          </div>
+        </div>
+
+        <!-- Dismiss button (✕) -->
+        <button type="button" onclick="SDH.dismissNearbyBanner()"
+          class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 active:scale-90 transition-all flex-shrink-0 cursor-pointer"
+          title="Dismiss notification (Symbol remains active in header)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Action buttons row: 3-column equal grid, 100% responsive, never overflows on any mobile screen -->
+      <div class="grid grid-cols-3 gap-1.5 w-full pt-1.5 border-t border-emerald-500/20">
+        <!-- Peer Count Badge -->
+        <span id="sdhNearbyPeerBadge"
+          class="px-2 py-1.5 rounded-xl text-[11px] font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 shadow-sm flex items-center justify-center gap-1 truncate text-center">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0"></span>
+          <span class="truncate">0 Peers</span>
+        </span>
+
+        <!-- Pair Device Button -->
+        <button type="button" onclick="if(window.SDH?.NearbySignaling?.openPairingModal){window.SDH.NearbySignaling.openPairingModal();}else{window.location.href='{% url 'messaging:chat' %}';}" id="sdhNearbyPairBtn"
+          class="px-2 py-1.5 rounded-xl text-[11px] font-bold text-emerald-200 hover:text-white bg-emerald-500/20 hover:bg-emerald-500/35 active:scale-95 border border-emerald-400/40 shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1 truncate">
+          <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+          </svg>
+          <span class="truncate">Pair</span>
+        </button>
+
+        <!-- Switch to Cloud Button -->
+        <button type="button" onclick="SDH.toggleTransportMode('cloud')"
+          class="px-2 py-1.5 rounded-xl text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 border border-emerald-400/50 shadow-sm transition-all cursor-pointer text-center truncate">
+          <span class="truncate">Cloud</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
   {% endif %}
 
   <!-- ── Flash Messages ─────────────────────────────────────── -->
@@ -1737,14 +1824,61 @@
       }
     };
 
-    SDH.updateTransportUI = function (mode) {
+    window._nearbyNotifTimer = null;
+
+    SDH.showNearbyNotification = function (autoDismiss = true) {
+      const banner = document.getElementById('sdhNearbyBanner');
+      if (!banner) return;
+      if (window._nearbyNotifTimer) {
+        clearTimeout(window._nearbyNotifTimer);
+        window._nearbyNotifTimer = null;
+      }
+      banner.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        banner.classList.remove('-translate-y-4', 'opacity-0', 'pointer-events-none');
+        banner.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
+      });
+      if (autoDismiss) {
+        window._nearbyNotifTimer = setTimeout(() => {
+          SDH.dismissNearbyBanner();
+        }, 6500);
+      }
+    };
+
+    SDH.dismissNearbyBanner = function () {
+      const banner = document.getElementById('sdhNearbyBanner');
+      if (!banner) return;
+      if (window._nearbyNotifTimer) {
+        clearTimeout(window._nearbyNotifTimer);
+        window._nearbyNotifTimer = null;
+      }
+      banner.classList.add('-translate-y-4', 'opacity-0', 'pointer-events-none');
+      banner.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+      setTimeout(() => {
+        banner.classList.add('hidden');
+      }, 300);
+    };
+
+    SDH.toggleNearbyControls = function () {
+      const banner = document.getElementById('sdhNearbyBanner');
+      if (!banner) return;
+      if (banner.classList.contains('hidden') || banner.classList.contains('opacity-0')) {
+        SDH.showNearbyNotification(false);
+      } else {
+        SDH.dismissNearbyBanner();
+      }
+    };
+
+    SDH.updateTransportUI = function (mode, isInitial = false) {
       const cloudBtn = document.getElementById('sdhModeCloudBtn');
       const nearbyBtn = document.getElementById('sdhModeNearbyBtn');
       const ping = document.getElementById('sdhNearbyPing');
       const dot = document.getElementById('sdhNearbyDot');
-      const banner = document.getElementById('sdhNearbyBanner');
       const badge = document.getElementById('sdhModeLabelBadge');
       const avatarDot = document.getElementById('userAvatarNearbyDot');
+      const navSymbolBtn = document.getElementById('navNearbySymbolBtn');
+      const sidebarPill = document.getElementById('sidebarNearbyPill');
+      const chatNearbySymbol = document.getElementById('chatNearbySymbol');
 
       if (mode === 'nearby') {
         if (cloudBtn) {
@@ -1759,12 +1893,28 @@
         }
         if (ping) ping.classList.remove('hidden');
         if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-white';
-        if (banner) banner.classList.remove('hidden');
+        if (navSymbolBtn) {
+          navSymbolBtn.classList.remove('hidden');
+          navSymbolBtn.classList.add('inline-flex');
+        }
+        if (sidebarPill) {
+          sidebarPill.classList.remove('hidden');
+          sidebarPill.classList.add('inline-flex');
+        }
+        if (chatNearbySymbol) {
+          chatNearbySymbol.classList.remove('hidden');
+          chatNearbySymbol.classList.add('inline-flex');
+        }
         if (badge) {
           badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700/50';
           badge.textContent = 'Nearby Mesh';
         }
         if (avatarDot) avatarDot.classList.remove('hidden');
+
+        // Only pop up the notification on user switch or if not initial load
+        if (!isInitial) {
+          SDH.showNearbyNotification(true);
+        }
       } else {
         if (cloudBtn) {
           cloudBtn.setAttribute('data-active', 'true');
@@ -1778,18 +1928,49 @@
         }
         if (ping) ping.classList.add('hidden');
         if (dot) dot.className = 'relative inline-flex rounded-full h-2 w-2 bg-slate-400 dark:bg-zinc-500';
-        if (banner) banner.classList.add('hidden');
+        if (navSymbolBtn) {
+          navSymbolBtn.classList.add('hidden');
+          navSymbolBtn.classList.remove('inline-flex');
+        }
+        if (sidebarPill) {
+          sidebarPill.classList.add('hidden');
+          sidebarPill.classList.remove('inline-flex');
+        }
+        if (chatNearbySymbol) {
+          chatNearbySymbol.classList.add('hidden');
+          chatNearbySymbol.classList.remove('inline-flex');
+        }
         if (badge) {
           badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700/50';
           badge.textContent = 'Cloud';
         }
         if (avatarDot) avatarDot.classList.add('hidden');
+        SDH.dismissNearbyBanner();
       }
     };
 
+    // Global Peer Count listener
+    window.addEventListener('sdh:nearby-peers-changed', function (e) {
+      const count = e.detail?.count || 0;
+      const text = count === 1 ? '1 Peer' : `${count} Peers`;
+      const badge = document.getElementById('sdhNearbyPeerBadge');
+      if (badge) {
+        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0"></span><span class="truncate">${text}</span>`;
+      }
+      const mini = document.getElementById('navNearbyPeerMiniCount');
+      if (mini) {
+        if (count > 0) {
+          mini.textContent = count;
+          mini.classList.remove('hidden');
+        } else {
+          mini.classList.add('hidden');
+        }
+      }
+    });
+
     window.addEventListener('sdh:modechange', function (e) {
       if (e.detail?.mode) {
-        SDH.updateTransportUI(e.detail.mode);
+        SDH.updateTransportUI(e.detail.mode, false);
       }
     });
 
@@ -1803,6 +1984,9 @@
           displayName: "{{ user.get_full_name|default:user.username|escapejs }}",
           avatarUrl: "{% if user.profile.avatar %}{{ user.profile.avatar.url|escapejs }}{% endif %}"
         });
+      }
+      if (window.SDH?.TransportManager) {
+        SDH.updateTransportUI(window.SDH.TransportManager.getMode(), true);
       }
     });
     {% endif %}

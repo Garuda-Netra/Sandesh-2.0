@@ -21,12 +21,15 @@ window.SDH = window.SDH || {};
 SDH.LocalIdentity = (() => {
 
   const DB_NAME = 'SandeshLocalDB';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORES = {
     IDENTITY: 'identity',
     KEYS: 'keys',
     PEERS: 'nearby_peers',
-    OFFLINE_QUEUE: 'offline_queue'
+    OFFLINE_QUEUE: 'offline_queue',
+    MESSAGES: 'nearby_messages',
+    CONVERSATIONS: 'nearby_conversations',
+    FILES: 'nearby_files'
   };
 
   const KEY_ID = 'device_signing_key';
@@ -64,6 +67,20 @@ SDH.LocalIdentity = (() => {
             const queueStore = db.createObjectStore(STORES.OFFLINE_QUEUE, { keyPath: 'tempId' });
             queueStore.createIndex('recipient', 'recipient', { unique: false });
             queueStore.createIndex('timestamp', 'timestamp', { unique: false });
+          }
+          if (!db.objectStoreNames.contains(STORES.MESSAGES)) {
+            const msgStore = db.createObjectStore(STORES.MESSAGES, { keyPath: 'id' });
+            msgStore.createIndex('conversationId', 'conversationId', { unique: false });
+            msgStore.createIndex('timestamp', 'timestamp', { unique: false });
+            msgStore.createIndex('message_id', 'message_id', { unique: false });
+          }
+          if (!db.objectStoreNames.contains(STORES.CONVERSATIONS)) {
+            const convStore = db.createObjectStore(STORES.CONVERSATIONS, { keyPath: 'id' });
+            convStore.createIndex('peerUsername', 'peerUsername', { unique: false });
+            convStore.createIndex('lastTimestamp', 'lastTimestamp', { unique: false });
+          }
+          if (!db.objectStoreNames.contains(STORES.FILES)) {
+            db.createObjectStore(STORES.FILES, { keyPath: 'fileId' });
           }
         };
 
@@ -505,6 +522,206 @@ SDH.LocalIdentity = (() => {
     }
   }
 
+  // ── Nearby Message & Conversation Persistence ────────────────────────
+
+  /**
+   * Saves a nearby message in IndexedDB and updates conversation index.
+   * @param {Object} msg - Standardized message packet
+   */
+  async function saveNearbyMessage(msg) {
+    if (!msg || !msg.message_id) return;
+    try {
+      const db = await getDB();
+      const id = msg.message_id || msg.id;
+      const conversationId = msg.conversation_id || (
+        msg.sender === (cachedIdentity?.username || window.SDH_DATA?.currentUser)
+          ? msg.receiver
+          : msg.sender
+      );
+      const timestamp = msg.timestamp || new Date().toISOString();
+
+      const record = {
+        id: String(id),
+        message_id: String(id),
+        conversationId: String(conversationId),
+        sender: msg.sender,
+        receiver: msg.receiver,
+        message: msg.message || '',
+        message_type: msg.message_type || 'text',
+        original_filename: msg.original_filename || '',
+        mime_type: msg.mime_type || '',
+        file_id: msg.file_id || null,
+        file_data: msg.file_data || null,
+        is_encrypted: !!msg.is_encrypted,
+        encryption_iv: msg.encryption_iv || '',
+        timestamp: timestamp,
+        is_delivered: msg.is_delivered !== undefined ? msg.is_delivered : true,
+        is_read: msg.is_read !== undefined ? msg.is_read : false,
+        is_nearby: true
+      };
+
+      // 1. Put message into MESSAGES store
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORES.MESSAGES, 'readwrite');
+        tx.objectStore(STORES.MESSAGES).put(record);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+
+      // 2. Upsert conversation summary in CONVERSATIONS store
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORES.CONVERSATIONS, 'readwrite');
+        const store = tx.objectStore(STORES.CONVERSATIONS);
+        const convSummary = {
+          id: String(conversationId),
+          peerUsername: String(conversationId),
+          displayName: msg.displayName || String(conversationId),
+          lastMessage: msg.message_type === 'image' ? '📷 Photo' : (msg.message_type === 'file' ? '📎 Attachment' : msg.message || ''),
+          lastTimestamp: timestamp,
+          lastMessageType: msg.message_type || 'text',
+          is_nearby: true
+        };
+        store.put(convSummary);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+
+      console.log('[SDH.LocalIdentity] Saved nearby message to IndexedDB:', record.id, 'for conversation:', conversationId);
+      return record;
+    } catch (err) {
+      console.warn('[SDH.LocalIdentity] Error saving nearby message:', err);
+    }
+  }
+
+  /**
+   * Retrieves all nearby messages for a given conversation, sorted chronologically.
+   * @param {string} conversationId - Peer username
+   * @returns {Promise<Array>} List of messages
+   */
+  async function getNearbyHistory(conversationId) {
+    if (!conversationId) return [];
+    try {
+      const db = await getDB();
+      const messages = await new Promise((resolve) => {
+        const tx = db.transaction(STORES.MESSAGES, 'readonly');
+        const index = tx.objectStore(STORES.MESSAGES).index('conversationId');
+        const req = index.getAll(String(conversationId));
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+
+      // Sort chronologically
+      return messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    } catch (err) {
+      console.warn('[SDH.LocalIdentity] Error getting nearby history:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Retrieves all active nearby conversations.
+   */
+  async function getNearbyConversations() {
+    try {
+      const db = await getDB();
+      const conversations = await new Promise((resolve) => {
+        const tx = db.transaction(STORES.CONVERSATIONS, 'readonly');
+        const req = tx.objectStore(STORES.CONVERSATIONS).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+      return conversations.sort((a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime());
+    } catch (err) {
+      return [];
+    }
+  }
+
+  /**
+   * Caches a binary file or photo blob in IndexedDB for offline access.
+   */
+  async function saveNearbyFile(fileId, fileBlobOrBuffer, metadata = {}) {
+    if (!fileId || !fileBlobOrBuffer) return;
+    try {
+      const db = await getDB();
+      const record = {
+        fileId: String(fileId),
+        filename: metadata.filename || 'file',
+        mimeType: metadata.mimeType || 'application/octet-stream',
+        size: metadata.size || fileBlobOrBuffer.size || fileBlobOrBuffer.byteLength || 0,
+        data: fileBlobOrBuffer,
+        createdAt: new Date().toISOString()
+      };
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORES.FILES, 'readwrite');
+        tx.objectStore(STORES.FILES).put(record);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+      console.log('[SDH.LocalIdentity] Cached nearby file:', fileId);
+    } catch (err) {
+      console.warn('[SDH.LocalIdentity] Error caching file:', err);
+    }
+  }
+
+  /**
+   * Retrieves a cached file blob from IndexedDB.
+   */
+  async function getNearbyFile(fileId) {
+    if (!fileId) return null;
+    try {
+      const db = await getDB();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(STORES.FILES, 'readonly');
+        const req = tx.objectStore(STORES.FILES).get(String(fileId));
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (err) {
+      return null;
+    }
+  }
+
+  /**
+   * Marks a message as delivered.
+   */
+  async function markNearbyMessageDelivered(messageId) {
+    if (!messageId) return;
+    try {
+      const db = await getDB();
+      const tx = db.transaction(STORES.MESSAGES, 'readwrite');
+      const store = tx.objectStore(STORES.MESSAGES);
+      const req = store.get(String(messageId));
+      req.onsuccess = () => {
+        const msg = req.result;
+        if (msg) {
+          msg.is_delivered = true;
+          store.put(msg);
+        }
+      };
+    } catch (err) { }
+  }
+
+  /**
+   * Marks a message as read.
+   */
+  async function markNearbyMessageRead(messageId) {
+    if (!messageId) return;
+    try {
+      const db = await getDB();
+      const tx = db.transaction(STORES.MESSAGES, 'readwrite');
+      const store = tx.objectStore(STORES.MESSAGES);
+      const req = store.get(String(messageId));
+      req.onsuccess = () => {
+        const msg = req.result;
+        if (msg) {
+          msg.is_read = true;
+          msg.is_delivered = true;
+          store.put(msg);
+        }
+      };
+    } catch (err) { }
+  }
+
   // ── Public API ───────────────────────────────────────────────────────
 
   return {
@@ -519,8 +736,16 @@ SDH.LocalIdentity = (() => {
     removePeer,
     enqueueOfflineMessage,
     getOfflineQueue,
-    dequeueOfflineMessage
+    dequeueOfflineMessage,
+    saveNearbyMessage,
+    getNearbyHistory,
+    getNearbyConversations,
+    saveNearbyFile,
+    getNearbyFile,
+    markNearbyMessageDelivered,
+    markNearbyMessageRead
   };
 
 })();
+
 

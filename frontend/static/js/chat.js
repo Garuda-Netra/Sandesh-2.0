@@ -2178,7 +2178,7 @@ SDH.Chat = (() => {
     const {
       sender, isFromMe, content, messageType,
       originalFilename, mimeType, timestamp, messageId,
-      hasServerFile = false, fileId = null,
+      hasServerFile = false, fileId = null, fileData = null,
       isDelivered = false, isRead = false, repliedMoment = null,
       isViewOnce = false, viewOnceOpened = false, isStarred = false,
       location = null
@@ -2223,7 +2223,7 @@ SDH.Chat = (() => {
       : '';
 
     const innerHtml = _buildMessageContent({
-      messageType, content, originalFilename, mimeType, hasServerFile, fileId,
+      messageType, content, originalFilename, mimeType, hasServerFile, fileId, fileData,
       isViewOnce, viewOnceOpened, messageId, location, isFromMe, sender, timestamp
     });
 
@@ -2446,6 +2446,22 @@ SDH.Chat = (() => {
     }
 
     if (messageType === 'image') {
+      if (fileData) {
+        return `
+            <div class="file-msg media-msg w-[260px] sm:w-[310px] max-w-full flex flex-col box-border">
+              <div class="relative group/img overflow-hidden rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm w-full box-border cursor-pointer select-none"
+                   onclick="SDH.MediaViewer?.open({fileName:'${_esc(originalFilename)}',mimeType:'${_esc(mimeType || 'image/jpeg')}',messageType:'image',src:'${fileData}'})">
+                <img src="${fileData}"
+                    alt="${escapeHtml(originalFilename)}"
+                    class="w-full max-h-80 object-cover rounded-xl hover:opacity-95 transition-all block"
+                    loading="lazy" style="min-height:120px;" />
+              </div>
+              <div class="flex items-center justify-between gap-2 mt-1.5 px-2.5 py-1.5 rounded-xl bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/10 w-full min-w-0 box-border">
+                <p class="text-[11px] font-medium text-divine-text/80 truncate flex-1 min-w-0">${escapeHtml(originalFilename)}</p>
+                <a href="${fileData}" download="${escapeHtml(originalFilename)}" class="sdh-file-download-btn flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex-shrink-0 shadow-sm">Download</a>
+              </div>
+            </div>`;
+      }
       if (hasServerFile && fileId) {
         const fid = Number(fileId);
         const autoDl = window.SDH_SETTINGS?.media_auto_download || 'all';
@@ -2532,6 +2548,14 @@ SDH.Chat = (() => {
     }
 
     if (messageType === 'video') {
+      if (fileData) {
+        return `
+            <div class="file-msg media-msg w-[260px] sm:w-[310px] max-w-full">
+              <div class="relative overflow-hidden rounded-xl bg-black/10 border border-white/10">
+                <video src="${fileData}" controls class="w-full max-h-80 rounded-xl object-contain"></video>
+              </div>
+            </div>`;
+      }
       if (hasServerFile && fileId) {
         const fid = Number(fileId);
         return `
@@ -2567,6 +2591,20 @@ SDH.Chat = (() => {
                 <p class="text-sm font-medium text-divine-text truncate">${escapeHtml(originalFilename)}</p>
                 <p class="text-xs text-divine-muted">Video</p>
               </div>
+            </div>
+          </div>`;
+    }
+
+    if (fileData) {
+      return `
+          <div class="file-msg w-[260px] sm:w-[310px] max-w-full">
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10">
+              <div class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold text-xs">FILE</div>
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-semibold text-divine-text truncate">${escapeHtml(originalFilename)}</p>
+                <span class="text-[10px] text-emerald-400 font-bold">Nearby Direct</span>
+              </div>
+              <a href="${fileData}" download="${escapeHtml(originalFilename)}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all">Save</a>
             </div>
           </div>`;
     }
@@ -2722,10 +2760,47 @@ SDH.Chat = (() => {
           const item = filesToSend[i];
           const file = item.file;
           try {
-            const msgData = await SDH.FileUpload.handleFileUpload(
-              file, activeUser, stage => console.debug('[Chat] File upload:', file.name, stage),
-              viewOnceForBatch,
-            );
+            let msgData;
+            const isNearbyMode = window.SDH?.TransportManager?.getMode() === 'nearby';
+            if (isNearbyMode && window.SDH?.NearbyFileTransfer) {
+              const transferRes = await window.SDH.NearbyFileTransfer.sendFile(
+                file,
+                activeUser,
+                {
+                  isViewOnce: viewOnceForBatch,
+                  onProgress: (fId, sent, total, pct) => {
+                    console.debug('[Chat] Nearby transfer:', file.name, `${pct}%`);
+                  }
+                }
+              );
+              msgData = {
+                message_id: 'msg_' + transferRes.file_id,
+                file_id: transferRes.file_id,
+                message_type: transferRes.mime_type.startsWith('image/') ? 'image' : (transferRes.mime_type.startsWith('video/') ? 'video' : 'file'),
+                original_filename: transferRes.filename,
+                mime_type: transferRes.mime_type,
+                timestamp: new Date().toISOString(),
+                is_view_once: Boolean(transferRes.is_view_once),
+                view_once_opened: false,
+                file_data: URL.createObjectURL(file)
+              };
+
+              // Persist locally in IndexedDB
+              if (window.SDH?.LocalIdentity?.saveNearbyMessage) {
+                await window.SDH.LocalIdentity.saveNearbyMessage({
+                  ...msgData,
+                  sender: window.SDH_DATA.currentUser,
+                  receiver: activeUser,
+                  has_file: true
+                });
+              }
+            } else {
+              msgData = await SDH.FileUpload.handleFileUpload(
+                file, activeUser, stage => console.debug('[Chat] File upload:', file.name, stage),
+                viewOnceForBatch,
+              );
+            }
+
             const realMsgId = msgData.message_id || msgData.file_id;
             if (realMsgId) {
               renderedIds.add(String(realMsgId));
@@ -2735,7 +2810,8 @@ SDH.Chat = (() => {
               messageType: msgData.message_type,
               originalFilename: msgData.original_filename, mimeType: msgData.mime_type,
               timestamp: msgData.timestamp, messageId: realMsgId,
-              hasServerFile: true, fileId: msgData.file_id || realMsgId,
+              hasServerFile: !msgData.file_data, fileId: msgData.file_id || realMsgId,
+              fileData: msgData.file_data || null,
               isViewOnce: Boolean(msgData.is_view_once),
               viewOnceOpened: Boolean(msgData.view_once_opened),
             });
@@ -3272,25 +3348,39 @@ SDH.Chat = (() => {
   async function loadHistory(username) {
     const container = document.getElementById('messagesContainer');
     try {
-      const res = await fetch(`${window.SDH_DATA?.historyUrl || '/messaging/api/history/'}${username}/`);
-      if (!res.ok) {
-        if (res.status === 423) {
-          if (window.SDH?.ChatLock) {
-            window.SDH.ChatLock.showAuthModal({
-              reason: `Unlock to view this chat`,
-              onSuccess: () => loadHistory(username)
-            });
+      let messages = [];
+
+      // If in Nearby Mode, read from local IndexedDB store
+      if (window.SDH?.TransportManager?.getMode() === 'nearby' && window.SDH?.LocalIdentity) {
+        messages = await window.SDH.LocalIdentity.getNearbyHistory(username);
+      } else {
+        const res = await fetch(`${window.SDH_DATA?.historyUrl || '/messaging/api/history/'}${username}/`);
+        if (!res.ok) {
+          if (res.status === 423) {
+            if (window.SDH?.ChatLock) {
+              window.SDH.ChatLock.showAuthModal({
+                reason: `Unlock to view this chat`,
+                onSuccess: () => loadHistory(username)
+              });
+            }
+            return;
           }
-          return;
+          // If offline fetch failed, fallback to local IndexedDB
+          if (window.SDH?.LocalIdentity) {
+            messages = await window.SDH.LocalIdentity.getNearbyHistory(username);
+          } else {
+            throw new Error(res.statusText);
+          }
+        } else {
+          const data = await res.json();
+          messages = data.messages || [];
         }
-        throw new Error(res.statusText);
       }
-      const data = await res.json();
 
       if (container) container.innerHTML = '';
       dateSeparators.clear();
 
-      if (data.messages.length === 0) {
+      if (messages.length === 0) {
         if (container) {
           const title = _isSelfChat(username) ? 'Saved Messages' : 'No messages yet';
           const subtitle = _isSelfChat(username) ? 'Write notes and keep things handy' : 'Start a conversation';
@@ -3306,7 +3396,7 @@ SDH.Chat = (() => {
       }
 
       const fragment = document.createDocumentFragment();
-      for (const msg of data.messages) {
+      for (const msg of messages) {
         const isFromMe = msg.sender === window.SDH_DATA.currentUser;
         // Deleted-for-all messages render as a placeholder; no menu shown
         const effectiveType = msg.is_deleted_for_all ? 'deleted' : msg.message_type;
@@ -3314,15 +3404,17 @@ SDH.Chat = (() => {
         if (effectiveType === 'text' && msg.is_encrypted && msg.encryption_iv && window.SDH?.E2E) {
           content = await window.SDH.E2E.decrypt(msg.message, msg.encryption_iv, username);
         }
-        renderedIds.add(String(msg.id));
+        const realMsgId = msg.id || msg.message_id;
+        renderedIds.add(String(realMsgId));
         appendMessage({
           sender: msg.sender, isFromMe, content,
           messageType: effectiveType,
           location: msg.location || null,
           originalFilename: msg.original_filename, mimeType: msg.mime_type,
-          timestamp: msg.timestamp, messageId: msg.id,
-          hasServerFile: !msg.is_deleted_for_all && !(msg.is_view_once && msg.view_once_opened) && (msg.has_file || false),
+          timestamp: msg.timestamp, messageId: realMsgId,
+          hasServerFile: !msg.is_deleted_for_all && !(msg.is_view_once && msg.view_once_opened) && (msg.has_file || Boolean(msg.file_id)),
           fileId: msg.is_deleted_for_all ? null : (msg.file_id || null),
+          fileData: msg.file_data || null,
           isDelivered: msg.is_delivered || false,
           isRead: msg.is_read || false,
           repliedMoment: msg.replied_moment,
