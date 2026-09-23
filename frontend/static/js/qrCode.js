@@ -1,19 +1,24 @@
 /**
- * Sandesh 2.0 - Standalone Offline QR Engine
- * ============================================
- * Zero-dependency pure JavaScript QR code generator and camera scanner.
- * Designed to operate 100% offline without external CDN or network requests.
+ * Sandesh 2.0 - Universal Offline QR Code Engine
+ * ==================================================
+ * 100% Offline, Zero-External-Network QR Code Generator & Scanner.
  *
  * Capabilities:
- * 1. QR Code Generation:
- *    - Encodes strings/tokens into standard QR Code symbols (Model 2, Byte Mode).
- *    - Automatic version sizing (Versions 1 through 15) with Reed-Solomon error correction (Level L / M).
- *    - Renders directly to HTML5 Canvas or SVG string.
+ * 1. Standard ISO/IEC 18004 QR Generation:
+ *    - Powered by the JIS X 0510 / ISO 18004 compliant engine (`qrcode.min.js`).
+ *    - Supports all standard QR versions (1 through 40) with Reed-Solomon ECC.
+ *    - High-contrast, sharp rendering on HTML5 Canvas with proper quiet zone margin.
  *
- * 2. QR Code Scanning:
- *    - Utilizes native browser BarcodeDetector API when available (Chrome, Edge, Android WebView).
- *    - Manages camera stream lifecycle (getUserMedia) with fallback camera selection.
- *    - Built-in canvas frame extraction and robust error handling.
+ * 2. Universal Dual-Engine Camera Scanner:
+ *    - Engine 1: Native BarcodeDetector API (hardware-accelerated on supported browsers).
+ *    - Engine 2: Pure-JS `jsQR` Engine (`jsQR.min.js`) for iOS Safari, Firefox, and all
+ *      browsers without BarcodeDetector support.
+ *    - Throttled sampling loop for 60 FPS video smoothness with low CPU/battery consumption.
+ *
+ * 3. Advanced Mobile Controls:
+ *    - Camera Flipping (Back / Environment camera <-> Front / User camera).
+ *    - Flashlight / Torch toggle for low-light scanning.
+ *    - Photo / Image File scanning from the device gallery.
  */
 
 'use strict';
@@ -22,336 +27,126 @@ window.SDH = window.SDH || {};
 
 SDH.QRCode = (() => {
 
-  // ── QR Code Specification Tables & Polynomials ──────────────────────
-
-  const QR_VERSION_CAPACITIES_M = [
-    0, 14, 26, 42, 62, 84, 106, 122, 152, 180, 213, 251, 287, 331, 362, 412, 480, 544, 608, 698, 770
-  ];
-
-  const QR_VERSION_CAPACITIES_L = [
-    0, 19, 34, 55, 80, 108, 136, 156, 194, 232, 274, 324, 370, 428, 461, 523, 610, 690, 770, 880, 980
-  ];
-
-  // Galois Field GF(256) tables for Reed-Solomon encoding
-  const EXP_TABLE = new Uint8Array(512);
-  const LOG_TABLE = new Uint8Array(256);
-
-  (function initGaloisField() {
-    let x = 1;
-    for (let i = 0; i < 255; i++) {
-      EXP_TABLE[i] = x;
-      LOG_TABLE[x] = i;
-      x <<= 1;
-      if (x & 256) {
-        x ^= 0x11d; // Primitive polynomial x^8 + x^4 + x^3 + x^2 + 1
-      }
-    }
-    for (let i = 255; i < 512; i++) {
-      EXP_TABLE[i] = EXP_TABLE[i - 255];
-    }
-  })();
-
-  function gfMul(x, y) {
-    if (x === 0 || y === 0) return 0;
-    return EXP_TABLE[LOG_TABLE[x] + LOG_TABLE[y]];
-  }
-
-  function polyMultiply(p1, p2) {
-    const result = new Uint8Array(p1.length + p2.length - 1);
-    for (let i = 0; i < p1.length; i++) {
-      for (let j = 0; j < p2.length; j++) {
-        result[i + j] ^= gfMul(p1[i], p2[j]);
-      }
-    }
-    return result;
-  }
-
-  function getGeneratorPoly(degree) {
-    let poly = new Uint8Array([1]);
-    for (let i = 0; i < degree; i++) {
-      poly = polyMultiply(poly, new Uint8Array([1, EXP_TABLE[i]]));
-    }
-    return poly;
-  }
-
-  function rsCalculateECC(data, eccLength) {
-    const generator = getGeneratorPoly(eccLength);
-    const msg = new Uint8Array(data.length + eccLength);
-    msg.set(data);
-
-    for (let i = 0; i < data.length; i++) {
-      const coef = msg[i];
-      if (coef !== 0) {
-        for (let j = 0; j < generator.length; j++) {
-          msg[i + j] ^= gfMul(generator[j], coef);
-        }
-      }
-    }
-    return msg.subarray(data.length);
-  }
-
-  // ── Standalone QR Matrix Builder ─────────────────────────────────────
-
-  /**
-   * Minimalist, robust QR matrix generator for standard Byte Mode.
-   */
-  class MinimalQR {
-    constructor(text, errorLevel = 'L') {
-      this.text = text;
-      this.errorLevel = errorLevel.toUpperCase();
-      this.bytes = new TextEncoder().encode(text);
-      this.version = this._selectVersion();
-      this.size = this.version * 4 + 17;
-      this.modules = Array.from({ length: this.size }, () => new Array(this.size).fill(null));
-      this.isFunction = Array.from({ length: this.size }, () => new Array(this.size).fill(false));
-
-      this._build();
-    }
-
-    _selectVersion() {
-      const len = this.bytes.length;
-      const caps = this.errorLevel === 'M' ? QR_VERSION_CAPACITIES_M : QR_VERSION_CAPACITIES_L;
-      for (let v = 1; v < caps.length; v++) {
-        if (len <= caps[v]) return v;
-      }
-      return 20; // Fallback to large version
-    }
-
-    _build() {
-      this._addFinderPatterns();
-      this._addTimingPatterns();
-      this._addAlignmentPatterns();
-      this._addData();
-      this._applyMask(0); // Mask 0: (row + col) % 2 === 0
-      this._addFormatInfo();
-    }
-
-    _setModule(r, c, val, isFunc = true) {
-      if (r >= 0 && r < this.size && c >= 0 && c < this.size) {
-        this.modules[r][c] = !!val;
-        if (isFunc) this.isFunction[r][c] = true;
-      }
-    }
-
-    _addFinderPattern(top, left) {
-      for (let r = -1; r <= 7; r++) {
-        for (let c = -1; c <= 7; c++) {
-          const row = top + r;
-          const col = left + c;
-          if (row < 0 || row >= this.size || col < 0 || col >= this.size) continue;
-          const isEdge = r === -1 || r === 7 || c === -1 || c === 7;
-          if (isEdge) {
-            this._setModule(row, col, false);
-          } else {
-            const isBorder = r === 0 || r === 6 || c === 0 || c === 6;
-            const isCenter = r >= 2 && r <= 4 && c >= 2 && c <= 4;
-            this._setModule(row, col, isBorder || isCenter);
-          }
-        }
-      }
-    }
-
-    _addFinderPatterns() {
-      this._addFinderPattern(0, 0);
-      this._addFinderPattern(0, this.size - 7);
-      this._addFinderPattern(this.size - 7, 0);
-    }
-
-    _addTimingPatterns() {
-      for (let i = 8; i < this.size - 8; i++) {
-        const val = i % 2 === 0;
-        this._setModule(6, i, val);
-        this._setModule(i, 6, val);
-      }
-    }
-
-    _addAlignmentPatterns() {
-      if (this.version < 2) return;
-      const positions = [];
-      const step = Math.floor((this.size - 13) / (Math.floor(this.version / 7) + 1));
-      for (let pos = this.size - 7; pos >= 6; pos -= step) {
-        positions.unshift(pos);
-      }
-      positions[0] = 6;
-
-      for (let r of positions) {
-        for (let c of positions) {
-          // Skip corners covered by finder patterns
-          if ((r === 6 && c === 6) ||
-              (r === 6 && c === positions[positions.length - 1]) ||
-              (r === positions[positions.length - 1] && c === 6)) {
-            continue;
-          }
-          for (let dr = -2; dr <= 2; dr++) {
-            for (let dc = -2; dc <= 2; dc++) {
-              const border = Math.max(Math.abs(dr), Math.abs(dc)) === 2;
-              const center = dr === 0 && dc === 0;
-              this._setModule(r + dr, c + dc, border || center);
-            }
-          }
-        }
-      }
-    }
-
-    _addData() {
-      // 1. Bitstream assembly: [Mode Indicator: 0100 (Byte)] + [Char Count] + [Data] + [Terminator]
-      const bits = [];
-      const addBits = (val, len) => {
-        for (let i = len - 1; i >= 0; i--) {
-          bits.push((val >> i) & 1);
-        }
-      };
-
-      addBits(0b0100, 4); // Byte mode
-      const countBits = this.version < 10 ? 8 : 16;
-      addBits(this.bytes.length, countBits);
-
-      for (let b of this.bytes) {
-        addBits(b, 8);
-      }
-
-      // Terminator
-      const totalDataBytes = this.errorLevel === 'M' ? QR_VERSION_CAPACITIES_M[this.version] : QR_VERSION_CAPACITIES_L[this.version];
-      const totalDataBits = totalDataBytes * 8;
-      const termLen = Math.min(4, totalDataBits - bits.length);
-      for (let i = 0; i < termLen; i++) bits.push(0);
-
-      // Pad to byte boundary
-      while (bits.length % 8 !== 0) bits.push(0);
-
-      // Pad codewords 0xEC, 0x11
-      const padBytes = [0xEC, 0x11];
-      let padIndex = 0;
-      while (bits.length < totalDataBits) {
-        addBits(padBytes[padIndex % 2], 8);
-        padIndex++;
-      }
-
-      // Convert data bits to Uint8Array
-      const dataBytes = new Uint8Array(totalDataBytes);
-      for (let i = 0; i < totalDataBytes; i++) {
-        let b = 0;
-        for (let j = 0; j < 8; j++) {
-          b = (b << 1) | bits[i * 8 + j];
-        }
-        dataBytes[i] = b;
-      }
-
-      // Calculate Reed-Solomon ECC codewords
-      const eccLength = Math.max(7, Math.floor(this.version * (this.errorLevel === 'M' ? 3.5 : 2.5)));
-      const eccCodewords = rsCalculateECC(dataBytes, eccLength);
-
-      // Interleave / Combine data + ecc bits
-      const combinedBits = [];
-      for (let b of dataBytes) {
-        for (let j = 7; j >= 0; j--) combinedBits.push((b >> j) & 1);
-      }
-      for (let b of eccCodewords) {
-        for (let j = 7; j >= 0; j--) combinedBits.push((b >> j) & 1);
-      }
-
-      // Place bits into matrix via zigzag scan
-      let bitIndex = 0;
-      let dir = -1; // up
-      let r = this.size - 1;
-      let c = this.size - 1;
-
-      while (c > 0) {
-        if (c === 6) c--; // Skip vertical timing column
-        for (let i = 0; i < 2; i++) {
-          const col = c - i;
-          if (!this.isFunction[r][col]) {
-            const val = bitIndex < combinedBits.length ? !!combinedBits[bitIndex++] : false;
-            this.modules[r][col] = val;
-          }
-        }
-        r += dir;
-        if (r < 0 || r >= this.size) {
-          dir = -dir;
-          r += dir;
-          c -= 2;
-        }
-      }
-    }
-
-    _applyMask(pattern) {
-      for (let r = 0; r < this.size; r++) {
-        for (let c = 0; c < this.size; c++) {
-          if (!this.isFunction[r][c]) {
-            let invert = false;
-            if (pattern === 0) invert = (r + c) % 2 === 0;
-            else if (pattern === 1) invert = r % 2 === 0;
-            else if (pattern === 2) invert = c % 3 === 0;
-            if (invert) {
-              this.modules[r][c] = !this.modules[r][c];
-            }
-          }
-        }
-      }
-    }
-
-    _addFormatInfo() {
-      // Standard Format string for Level L (01), Mask 0 (000) = 0x77c4 with BCH
-      // or Level M (00), Mask 0 (000) = 0x5412
-      const formatBits = this.errorLevel === 'M' ? 0x5412 : 0x77c4;
-
-      for (let i = 0; i < 15; i++) {
-        const bit = ((formatBits >> (14 - i)) & 1) === 1;
-
-        // Top-left
-        let r, c;
-        if (i < 6) { r = 8; c = i; }
-        else if (i < 8) { r = 8; c = i + 1; }
-        else if (i === 8) { r = 7; c = 8; }
-        else { r = 14 - i; c = 8; }
-        this._setModule(r, c, bit);
-
-        // Top-right and bottom-left
-        if (i < 8) {
-          this._setModule(this.size - 1 - i, 8, bit);
-        } else {
-          this._setModule(8, this.size - 15 + i, bit);
-        }
-      }
-      this._setModule(this.size - 8, 8, true); // Dark module
-    }
-
-    renderToCanvas(canvas, options = {}) {
-      if (!canvas) return;
-      const size = options.size || 280;
-      const margin = options.margin !== undefined ? options.margin : 2;
-      const fgColor = options.fgColor || '#000000';
-      const bgColor = options.bgColor || '#ffffff';
-
-      const ctx = canvas.getContext('2d');
-      canvas.width = size;
-      canvas.height = size;
-
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, size, size);
-
-      const cellCount = this.size + margin * 2;
-      const cellSize = Math.floor(size / cellCount);
-      const offset = Math.floor((size - cellSize * cellCount) / 2) + margin * cellSize;
-
-      ctx.fillStyle = fgColor;
-      for (let r = 0; r < this.size; r++) {
-        for (let c = 0; c < this.size; c++) {
-          if (this.modules[r][c]) {
-            ctx.fillRect(offset + c * cellSize, offset + r * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-    }
-  }
-
-  // ── QR Scanner Engine ────────────────────────────────────────────────
-
   let currentMediaStream = null;
   let scanAnimationId = null;
+  let isScanning = false;
+  let currentFacingMode = 'environment';
+  let isTorchOn = false;
+  let offscreenCanvas = null;
+  let offscreenCtx = null;
+  let nativeBarcodeDetector = null;
+
+  // Initialize offscreen canvas for frame extraction
+  function _getOffscreenCanvas() {
+    if (!offscreenCanvas) {
+      offscreenCanvas = document.createElement('canvas');
+      offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+    }
+    return { canvas: offscreenCanvas, ctx: offscreenCtx };
+  }
+
+  // Check and initialize native BarcodeDetector if available
+  function _initBarcodeDetector() {
+    if (nativeBarcodeDetector) return nativeBarcodeDetector;
+    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+      try {
+        nativeBarcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      } catch (err) {
+        nativeBarcodeDetector = null;
+      }
+    }
+    return nativeBarcodeDetector;
+  }
+
+  // ── 1. QR Code Generation ─────────────────────────────────────────────
 
   /**
-   * Initializes video stream and starts continuous frame scanning.
+   * Generates a standard ISO/IEC 18004 QR code on an HTML5 canvas.
+   *
+   * @param {string} text - The payload string or token to encode
+   * @param {HTMLCanvasElement} canvas - Target canvas element
+   * @param {Object} options - { size: 260, margin: 4, errorLevel: 'M', fgColor: '#000', bgColor: '#fff' }
+   */
+  function generate(text, canvas, options = {}) {
+    if (!text) {
+      console.warn('[SDH.QRCode] generate called with empty text.');
+      return;
+    }
+
+    const errorLevel = options.errorLevel || 'M'; // 'L', 'M', 'Q', 'H'
+    const size = options.size || 260;
+    const margin = options.margin !== undefined ? options.margin : 4; // ISO quiet zone
+    const fgColor = options.fgColor || '#000000';
+    const bgColor = options.bgColor || '#ffffff';
+
+    // Verify qrcode library is loaded
+    const qrcodeFn = typeof window !== 'undefined' && window.qrcode ? window.qrcode : null;
+
+    if (!qrcodeFn) {
+      console.error('[SDH.QRCode] qrcode library (qrcode.min.js) is not loaded.');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fee2e2';
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = '#991b1b';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('QR Engine Unavailable', size / 2, size / 2);
+      }
+      return;
+    }
+
+    try {
+      // Type number 0 auto-detects minimum required version
+      const qr = qrcodeFn(0, errorLevel);
+      qr.addData(text);
+      qr.make();
+
+      if (canvas) {
+        const moduleCount = qr.getModuleCount();
+        const totalModules = moduleCount + margin * 2;
+        const cellSize = Math.max(1, Math.floor(size / totalModules));
+        const renderedSize = cellSize * totalModules;
+
+        canvas.width = renderedSize;
+        canvas.height = renderedSize;
+        canvas.style.width = size + 'px';
+        canvas.style.height = size + 'px';
+
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        // Draw crisp background
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, renderedSize, renderedSize);
+
+        // Draw QR modules
+        ctx.fillStyle = fgColor;
+        for (let row = 0; row < moduleCount; row++) {
+          for (let col = 0; col < moduleCount; col++) {
+            if (qr.isDark(row, col)) {
+              ctx.fillRect(
+                (col + margin) * cellSize,
+                (row + margin) * cellSize,
+                cellSize,
+                cellSize
+              );
+            }
+          }
+        }
+      }
+
+      return qr;
+    } catch (err) {
+      console.error('[SDH.QRCode] Error generating QR code:', err);
+      throw err;
+    }
+  }
+
+  // ── 2. Universal Dual-Engine QR Scanner ───────────────────────────────
+
+  /**
+   * Starts real-time camera scanning with automatic dual-engine decoding.
    *
    * @param {HTMLVideoElement} videoElement
    * @param {Function} onResult - callback(decodedString)
@@ -361,15 +156,18 @@ SDH.QRCode = (() => {
     stopScanner();
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      if (onError) onError(new Error('Camera access is not supported by your browser.'));
+      const err = new Error('Camera access is not supported by your browser.');
+      if (onError) onError(err);
       return;
     }
 
     try {
-      // Prefer environment (rear) camera on mobile, fallback to user camera
+      isScanning = true;
+      isTorchOn = false;
+
       const constraints = {
         video: {
-          facingMode: { ideal: 'environment' },
+          facingMode: { ideal: currentFacingMode },
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
@@ -379,84 +177,234 @@ SDH.QRCode = (() => {
       currentMediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       videoElement.srcObject = currentMediaStream;
       videoElement.setAttribute('playsinline', 'true');
-      await videoElement.play();
+      videoElement.setAttribute('autoplay', 'true');
+      videoElement.muted = true;
 
-      // Check native BarcodeDetector API
-      const hasBarcodeDetector = ('BarcodeDetector' in window);
-      let barcodeDetector = null;
-      if (hasBarcodeDetector) {
-        try {
-          barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
-        } catch (e) {
-          barcodeDetector = null;
-        }
+      try {
+        await videoElement.play();
+      } catch (playErr) {
+        console.warn('[SDH.QRCode] Video autoplay notice:', playErr);
       }
 
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const detector = _initBarcodeDetector();
+      const { canvas, ctx } = _getOffscreenCanvas();
+
+      let lastScanTime = 0;
+      const SCAN_INTERVAL_MS = 40; // ~25 scans/sec (optimal for mobile responsiveness & battery)
 
       const scanLoop = async () => {
-        if (!currentMediaStream || videoElement.readyState < 2) {
-          scanAnimationId = requestAnimationFrame(scanLoop);
-          return;
-        }
+        if (!isScanning || !currentMediaStream) return;
 
-        try {
-          if (barcodeDetector) {
-            const barcodes = await barcodeDetector.detect(videoElement);
-            if (barcodes && barcodes.length > 0) {
-              const rawValue = barcodes[0].rawValue;
-              if (rawValue && onResult) {
-                stopScanner();
-                onResult(rawValue);
-                return;
+        const now = Date.now();
+        if (now - lastScanTime >= SCAN_INTERVAL_MS) {
+          lastScanTime = now;
+
+          if (videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
+            let detectedText = null;
+
+            // Strategy 1: Fast hardware BarcodeDetector if available
+            if (detector) {
+              try {
+                const barcodes = await detector.detect(videoElement);
+                if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                  detectedText = barcodes[0].rawValue;
+                }
+              } catch (e) {
+                // If native detector fails or throws on frame, fallback to jsQR
               }
             }
-          } else {
-            // Frame fallback: sample center crop to detect QR pattern / barcode
-            canvas.width = videoElement.videoWidth || 640;
-            canvas.height = videoElement.videoHeight || 480;
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+            // Strategy 2: Pure-JS jsQR Engine (universal across all browsers & iOS)
+            if (!detectedText && typeof window !== 'undefined' && window.jsQR) {
+              try {
+                const vw = videoElement.videoWidth;
+                const vh = videoElement.videoHeight;
+
+                // Scale down large frames (max dimension 640px) for high-speed analysis
+                const maxDim = 640;
+                let targetW = vw;
+                let targetH = vh;
+                if (vw > maxDim || vh > maxDim) {
+                  if (vw >= vh) {
+                    targetW = maxDim;
+                    targetH = Math.round((vh / vw) * maxDim);
+                  } else {
+                    targetH = maxDim;
+                    targetW = Math.round((vw / vh) * maxDim);
+                  }
+                }
+
+                canvas.width = targetW;
+                canvas.height = targetH;
+                ctx.drawImage(videoElement, 0, 0, targetW, targetH);
+
+                const imageData = ctx.getImageData(0, 0, targetW, targetH);
+                const code = window.jsQR(imageData.data, targetW, targetH, {
+                  inversionAttempts: 'attemptBoth'
+                });
+
+                if (code && code.data) {
+                  detectedText = code.data;
+                }
+              } catch (jsQrErr) {
+                // Ignore transient frame extraction errors
+              }
+            }
+
+            if (detectedText) {
+              console.log('[SDH.QRCode] Successfully scanned QR code!');
+              stopScanner();
+              if (onResult) onResult(detectedText);
+              return;
+            }
           }
-        } catch (scanErr) {
-          // Non-fatal frame capture error, continue scanning
         }
 
         scanAnimationId = requestAnimationFrame(scanLoop);
       };
 
       scanAnimationId = requestAnimationFrame(scanLoop);
+
     } catch (err) {
       console.warn('[SDH.QRCode] Camera access error:', err);
+      isScanning = false;
       if (onError) onError(err);
     }
   }
 
+  /**
+   * Stops camera streams and cancels scanning loop.
+   */
   function stopScanner() {
+    isScanning = false;
     if (scanAnimationId) {
       cancelAnimationFrame(scanAnimationId);
       scanAnimationId = null;
     }
     if (currentMediaStream) {
-      currentMediaStream.getTracks().forEach(track => track.stop());
+      try {
+        currentMediaStream.getTracks().forEach((track) => track.stop());
+      } catch (e) { }
       currentMediaStream = null;
     }
+    isTorchOn = false;
+  }
+
+  // ── 3. Mobile Camera Controls ─────────────────────────────────────────
+
+  /**
+   * Toggles camera torch/flashlight on supported mobile devices.
+   *
+   * @returns {Promise<boolean>} Current torch status (true = on, false = off)
+   */
+  async function toggleTorch() {
+    if (!currentMediaStream) return false;
+    const track = currentMediaStream.getVideoTracks()[0];
+    if (!track) return false;
+
+    try {
+      const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+      if (!capabilities.torch) {
+        console.log('[SDH.QRCode] Flashlight/torch is not supported on this camera.');
+        return false;
+      }
+
+      isTorchOn = !isTorchOn;
+      await track.applyConstraints({
+        advanced: [{ torch: isTorchOn }]
+      });
+      return isTorchOn;
+    } catch (err) {
+      console.warn('[SDH.QRCode] Torch toggle error:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Flips between rear/environment and front/user camera.
+   *
+   * @param {HTMLVideoElement} videoElement
+   * @param {Function} onResult
+   * @param {Function} onError
+   */
+  async function switchCamera(videoElement, onResult, onError) {
+    currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+    console.log('[SDH.QRCode] Switching camera facingMode to:', currentFacingMode);
+    await startScanner(videoElement, onResult, onError);
+    return currentFacingMode;
+  }
+
+  /**
+   * Scans a QR code from an image file (e.g. user gallery / screenshot).
+   *
+   * @param {File|Blob} file
+   * @returns {Promise<string>} Decoded string payload
+   */
+  function scanImageFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error('No image file selected.'));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            const { canvas, ctx } = _getOffscreenCanvas();
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            ctx.drawImage(img, 0, 0);
+
+            // Try BarcodeDetector first
+            const detector = _initBarcodeDetector();
+            if (detector) {
+              try {
+                const barcodes = await detector.detect(canvas);
+                if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                  resolve(barcodes[0].rawValue);
+                  return;
+                }
+              } catch (e) { }
+            }
+
+            // Fallback to jsQR
+            if (typeof window !== 'undefined' && window.jsQR) {
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = window.jsQR(imageData.data, canvas.width, canvas.height, {
+                inversionAttempts: 'attemptBoth'
+              });
+              if (code && code.data) {
+                resolve(code.data);
+                return;
+              }
+            }
+
+            reject(new Error('No valid QR code was detected in the selected image.'));
+          } catch (decodeErr) {
+            reject(decodeErr);
+          }
+        };
+        img.onerror = () => reject(new Error('Failed to load image file.'));
+        img.src = reader.result;
+      };
+      reader.onerror = () => reject(new Error('Failed to read image file.'));
+      reader.readAsDataURL(file);
+    });
   }
 
   // ── Public API ───────────────────────────────────────────────────────
 
-  function generate(text, canvas, options = {}) {
-    const qr = new MinimalQR(text, options.errorLevel || 'L');
-    if (canvas) {
-      qr.renderToCanvas(canvas, options);
-    }
-    return qr;
-  }
-
   return {
     generate,
     startScanner,
-    stopScanner
+    stopScanner,
+    toggleTorch,
+    switchCamera,
+    scanImageFile,
+    isScanning: () => isScanning,
+    getFacingMode: () => currentFacingMode
   };
 
 })();
