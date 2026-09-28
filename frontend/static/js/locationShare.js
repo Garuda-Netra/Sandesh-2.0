@@ -45,12 +45,12 @@ SDH.LocationShare = (function () {
   let viewerAccuracyCircle = null;
   let currentViewingLoc = null;
 
-  // Tile layer: Standard OpenStreetMap (100% free, zero watermarks, no API key required)
-  const osmTileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+  // Tile layer: CARTO Voyager (Fast global CDN, OpenStreetMap data, no referrer block, no API key required)
+  const cartoTileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
 
   function getTileUrl() {
-    return osmTileUrl;
+    return cartoTileUrl;
   }
 
   // Custom Leaflet DivIcon for Current & Live location
@@ -251,6 +251,7 @@ SDH.LocationShare = (function () {
 
       L.tileLayer(getTileUrl(), {
         maxZoom: 19,
+        subdomains: 'abcd',
         attribution: tileAttrib
       }).addTo(shareMap);
 
@@ -423,9 +424,11 @@ SDH.LocationShare = (function () {
     if (clearBtn) clearBtn.classList.add('hidden');
   }
 
-  // ── Send / Submit Location ────────────────────────────────────────────────
+  let isSubmittingLocation = false;
 
   async function submitLocation() {
+    if (isSubmittingLocation) return;
+
     const activeTarget = (typeof SDH.Chat?.getActiveUser === 'function' ? SDH.Chat.getActiveUser() : '') || '';
     if (!activeTarget) return;
 
@@ -434,6 +437,13 @@ SDH.LocationShare = (function () {
         SDH.showNotification('GPS location not ready yet.');
       }
       return;
+    }
+
+    isSubmittingLocation = true;
+    const submitBtn = document.getElementById('locSubmitBtn');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-60', 'pointer-events-none');
     }
 
     const isLive = (activeTab === 'live');
@@ -469,6 +479,9 @@ SDH.LocationShare = (function () {
 
     // Optimistically render card in active chat
     const tempId = `temp_loc_${Date.now()}`;
+    if (typeof SDH.Chat?.registerTempMessage === 'function') {
+      SDH.Chat.registerTempMessage(tempId);
+    }
     if (typeof SDH.Chat?.appendMessage === 'function') {
       SDH.Chat.appendMessage({
         sender: window.SDH_DATA?.currentUser || 'You',
@@ -506,7 +519,13 @@ SDH.LocationShare = (function () {
         const realId = respData.message_id;
         if (realId) {
           activeLiveMsgId = realId;
-          // Update temp DOM element with real message id
+          if (typeof SDH.Chat?.markMessageRendered === 'function') {
+            SDH.Chat.markMessageRendered(realId);
+          }
+          if (typeof SDH.Chat?.removeTempMessage === 'function') {
+            SDH.Chat.removeTempMessage(tempId);
+          }
+          // Update temp DOM element with real message id if still named tempId
           const tempBubble = document.getElementById(`msg-${tempId}`);
           if (tempBubble) {
             tempBubble.id = `msg-${realId}`;
@@ -540,6 +559,12 @@ SDH.LocationShare = (function () {
       }
     } catch (err) {
       console.error('[SDH.LocationShare] REST error:', err);
+    } finally {
+      isSubmittingLocation = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-60', 'pointer-events-none');
+      }
     }
   }
 
@@ -579,14 +604,15 @@ SDH.LocationShare = (function () {
     };
     messageLocations.set(String(messageId), locData);
 
-    // Calculate map tile numbers at zoom 15 for OpenStreetMap (Clean, zero watermarks, no API key required)
+    // Calculate map tile numbers at zoom 15 using CARTO Voyager (Clean, crisp, no referrer blocks, no API key required)
     const z = 15;
     const n = Math.pow(2, z);
     const x = Math.floor((lng + 180) / 360 * n);
     const latRad = lat * Math.PI / 180;
     const y = Math.floor((1 - Math.log(Math.tan(latRad) + (1 / Math.cos(latRad))) / Math.PI) / 2 * n);
-    const tileSub = ['a', 'b', 'c'][Math.abs((x + y) % 3)];
-    const tileUrl = `https://${tileSub}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    const tileSub = ['a', 'b', 'c', 'd'][Math.abs((x + y) % 4)];
+    const tileUrl = `https://${tileSub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}@2x.png`;
+    const fallbackTileUrl = `https://${tileSub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
 
     // Calculate live expiration & remaining time
     let liveRemainingText = '';
@@ -649,17 +675,17 @@ SDH.LocationShare = (function () {
       </button>` : '';
 
     return `
-      <div class="sdh-location-msg-card w-[280px] sm:w-[325px] max-w-full flex flex-col box-border select-none rounded-2xl bg-slate-900/95 dark:bg-[#0b1120]/95 text-white p-2 border border-white/20 shadow-xl backdrop-blur-md" id="loc-bubble-${messageId}" data-msg-id="${messageId}">
+      <div class="sdh-location-msg-card w-[280px] sm:w-[325px] max-w-full flex flex-col box-border select-none rounded-2xl bg-slate-900/95 dark:bg-[#0b1120]/95 text-white p-2 border border-white/20 shadow-xl backdrop-blur-md" id="loc-bubble-${messageId}" data-msg-id="${messageId}" data-loc-data="${escapeHtml(JSON.stringify(locData))}">
         <!-- Map Thumbnail Preview -->
         <div class="relative w-full h-36 sm:h-44 rounded-xl overflow-hidden cursor-pointer group/map border border-white/15 shadow-sm bg-slate-950"
              onclick="SDH.LocationShare.openViewer('${messageId}', ${isFromMe})">
           
-          <!-- Static OpenStreetMap tile (zero watermark, no API key required) -->
+          <!-- Static Map Preview (CARTO Voyager retina tile with automatic fallback) -->
           <img src="${tileUrl}"
                alt="Map Preview"
                class="w-full h-full object-cover group-hover/map:scale-105 transition-transform duration-500"
                loading="lazy"
-               onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" />
+               onerror="if(!this.dataset.triedFallback){this.dataset.triedFallback='1';this.src='${fallbackTileUrl}';}else{this.style.display='none';this.nextElementSibling.classList.remove('hidden');}" />
 
           <!-- Fallback pattern background if tile fails to load -->
           <div class="hidden absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 flex items-center justify-center">
@@ -931,6 +957,7 @@ SDH.LocationShare = (function () {
 
       L.tileLayer(getTileUrl(), {
         maxZoom: 19,
+        subdomains: 'abcd',
         attribution: tileAttrib
       }).addTo(viewerMap);
 

@@ -1003,7 +1003,18 @@ SDH.Chat = (() => {
     }
 
     if (isFromMe && data.message_id) {
-      // Server echo: upgrade the optimistic temp bubble to the real ID
+      // 1. If bubble with this real ID already exists in DOM, avoid duplicate render
+      if (document.getElementById(`msg-${data.message_id}`)) {
+        renderedIds.add(String(data.message_id));
+        if (data.receiver === window.SDH_DATA.currentUser) {
+          _setMsgStatus(data.message_id, 'read');
+        } else {
+          _setMsgStatus(data.message_id, 'sent');
+        }
+        return;
+      }
+
+      // 2. Server echo: upgrade the optimistic temp bubble to the real ID
       const upgraded = _upgradeTempBubble(data.message_id);
       if (upgraded) {
         if (data.receiver === window.SDH_DATA.currentUser) {
@@ -1020,8 +1031,11 @@ SDH.Chat = (() => {
         }
         return;
       }
-      // If not upgraded, it was sent via REST (e.g., from moments.js)
-      // Fall through to render it normally
+      // If not upgraded, check if bubble exists or was already recorded
+      if (renderedIds.has(String(data.message_id)) || document.getElementById(`msg-${data.message_id}`)) {
+        renderedIds.add(String(data.message_id));
+        return;
+      }
     }
 
     const displayContent = data.message_type === 'text' ? (data.message || '') : null;
@@ -1098,7 +1112,10 @@ SDH.Chat = (() => {
       return;
     }
 
-    if (renderedIds.has(String(data.message_id))) return;
+    if (renderedIds.has(String(data.message_id)) || document.getElementById(`msg-${data.message_id}`)) {
+      renderedIds.add(String(data.message_id));
+      return;
+    }
     renderedIds.add(String(data.message_id));
 
     const isViewOnce = Boolean(data.is_view_once);
@@ -2924,6 +2941,21 @@ SDH.Chat = (() => {
         if (bubble) {
           bubble.id = `msg-${realId}`;
           bubble.dataset.messageId = String(realId);
+          // Upgrade location card attributes if present
+          const locCard = bubble.querySelector('.sdh-location-msg-card');
+          if (locCard) {
+            locCard.id = `loc-bubble-${realId}`;
+            locCard.dataset.msgId = String(realId);
+            locCard.setAttribute('data-msg-id', String(realId));
+            const viewerEl = locCard.querySelector('[onclick*="openViewer"]');
+            if (viewerEl) {
+              viewerEl.setAttribute('onclick', `SDH.LocationShare.openViewer('${realId}', true)`);
+            }
+            const stopBtn = locCard.querySelector('.sdh-loc-btn-stop') || locCard.querySelector('.sdh-loc-stop-btn');
+            if (stopBtn) {
+              stopBtn.setAttribute('onclick', `event.stopPropagation(); SDH.LocationShare.stopLiveLocation('${realId}', ${Boolean(activeUser && activeUser.startsWith('group_'))});`);
+            }
+          }
           // Inject the 3-dot menu now that we have a real ID
           const existingMenu = bubble.querySelector('.msg-menu-wrap');
           if (!existingMenu) {
@@ -2992,6 +3024,30 @@ SDH.Chat = (() => {
         pendingAckMap.delete(tempId);
         return true;
       }
+    }
+
+    // Fallback: check if an un-upgraded temp location bubble exists in DOM
+    const tempLocBubble = document.querySelector('[id^="msg-temp_loc_"]');
+    if (tempLocBubble) {
+      const oldTempId = tempLocBubble.id.replace('msg-', '');
+      tempLocBubble.id = `msg-${realId}`;
+      tempLocBubble.dataset.messageId = String(realId);
+      const locCard = tempLocBubble.querySelector('.sdh-location-msg-card');
+      if (locCard) {
+        locCard.id = `loc-bubble-${realId}`;
+        locCard.dataset.msgId = String(realId);
+        locCard.setAttribute('data-msg-id', String(realId));
+        const viewerEl = locCard.querySelector('[onclick*="openViewer"]');
+        if (viewerEl) {
+          viewerEl.setAttribute('onclick', `SDH.LocationShare.openViewer('${realId}', true)`);
+        }
+        const stopBtn = locCard.querySelector('.sdh-loc-btn-stop') || locCard.querySelector('.sdh-loc-stop-btn');
+        if (stopBtn) {
+          stopBtn.setAttribute('onclick', `event.stopPropagation(); SDH.LocationShare.stopLiveLocation('${realId}', ${Boolean(activeUser && activeUser.startsWith('group_'))});`);
+        }
+      }
+      pendingAckMap.delete(oldTempId);
+      return true;
     }
     return false;
   }
@@ -7286,6 +7342,8 @@ SDH.Chat = (() => {
     getCurrentGroupMembers: () => currentGroupMembers,
     appendMessage: (opts, targetContainer) => appendMessage(opts, targetContainer),
     scrollToBottom: (instant) => scrollToBottom(instant),
+    markMessageRendered: (id) => { if (id) renderedIds.add(String(id)); },
+    removeTempMessage: (tempId) => { if (tempId) pendingAckMap.delete(tempId); },
   };
 
 })();
