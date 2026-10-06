@@ -81,7 +81,9 @@ SDH.LocationShare = (function () {
   function openModal() {
     const activeTarget = (typeof SDH.Chat?.getActiveUser === 'function' ? SDH.Chat.getActiveUser() : '') || '';
     if (!activeTarget) {
-      if (typeof SDH.showNotification === 'function') {
+      if (typeof window.SDH?.Chat?.showToast === 'function') {
+        window.SDH.Chat.showToast('Please select a conversation first.', 'warning');
+      } else if (typeof SDH.showNotification === 'function') {
         SDH.showNotification('Please select a conversation first.');
       }
       return;
@@ -433,7 +435,9 @@ SDH.LocationShare = (function () {
     if (!activeTarget) return;
 
     if (selectedLat === null || selectedLng === null) {
-      if (typeof SDH.showNotification === 'function') {
+      if (typeof window.SDH?.Chat?.showToast === 'function') {
+        window.SDH.Chat.showToast('GPS location not ready yet. Please wait...', 'warning');
+      } else if (typeof SDH.showNotification === 'function') {
         SDH.showNotification('GPS location not ready yet.');
       }
       return;
@@ -750,15 +754,6 @@ SDH.LocationShare = (function () {
 
             ${stopBtnHtml}
           </div>
-        </div>
-      </div>
-    `;] py-2 px-3 rounded-xl text-xs font-semibold text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer no-underline"
-             title="Get Directions">
-            <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-            <span class="whitespace-nowrap">Directions</span>
-          </a>
-
-          ${stopBtnHtml}
         </div>
       </div>
     `;

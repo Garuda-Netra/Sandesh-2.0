@@ -2376,7 +2376,7 @@ SDH.Chat = (() => {
   }
 
   function _buildMessageContent({ messageType, content, originalFilename, mimeType,
-    hasServerFile, fileId, isViewOnce, viewOnceOpened, messageId, location, isFromMe, sender, timestamp }) {
+    hasServerFile, fileId, fileData = null, isViewOnce, viewOnceOpened, messageId, location, isFromMe, sender, timestamp }) {
 
     if (messageType === 'location' || location) {
       if (window.SDH?.LocationShare?.buildCardHtml) {
