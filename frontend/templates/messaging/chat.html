@@ -146,48 +146,27 @@
     border: 1px solid rgba(168, 85, 247, 0.35) !important;
   }
 
-  /* Professional Image & Media Message Bubble */
+  /* ═══════════════════════════════════════════════════════════════
+     Frameless Media & Card Bubbles (Zero Padding & Transparent)
+     ═══════════════════════════════════════════════════════════════ */
+  .msg-bubble-frameless,
   .msg-bubble-media {
-    padding: 6px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
     width: fit-content !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
-  }
-
-  @media (min-width: 640px) {
-    .msg-bubble-media {
-      padding: 8px !important;
-    }
   }
 
   .media-msg,
   .file-msg {
     box-sizing: border-box !important;
     max-width: 100% !important;
-  }
-
-  /* Sender bubble adaptations for media card footer */
-  .msg-bubble-sender .media-msg .bg-black\/\[0\.04\],
-  .msg-bubble-sender .media-msg .dark\:bg-white\/\[0\.06\] {
-    background: rgba(0, 0, 0, 0.16) !important;
-    border-color: rgba(255, 255, 255, 0.2) !important;
-  }
-
-  .msg-bubble-sender .media-msg p {
-    color: #ffffff !important;
-  }
-
-  .msg-bubble-sender .media-msg button {
-    background: rgba(255, 255, 255, 0.22) !important;
-    color: #ffffff !important;
-  }
-
-  .msg-bubble-sender .media-msg button:hover {
-    background: rgba(255, 255, 255, 0.35) !important;
-  }
-
-  .msg-bubble-sender .media-msg svg {
-    color: #ffffff !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -203,13 +182,27 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Location Message Card High-Contrast & Link Isolation
+     Location & Frameless Card Reset (No Outer Bubble Border)
      ═══════════════════════════════════════════════════════════════ */
-  /* Remove outer bubble container styling completely for location cards */
+  .msg-bubble-frameless,
   .msg-bubble-location,
+  .msg-bubble-media,
+  .msg-bubble:has(.media-msg),
+  .msg-bubble:has(.file-msg),
+  .msg-bubble:has(.call-msg-card),
   .msg-bubble:has(.sdh-location-msg-card),
+  .msg-bubble-sender:has(.media-msg),
+  .msg-bubble-sender:has(.file-msg),
+  .msg-bubble-sender:has(.call-msg-card),
   .msg-bubble-sender:has(.sdh-location-msg-card),
+  .msg-bubble-receiver:has(.media-msg),
+  .msg-bubble-receiver:has(.file-msg),
+  .msg-bubble-receiver:has(.call-msg-card),
   .msg-bubble-receiver:has(.sdh-location-msg-card),
+  .msg-bubble-sender.msg-bubble-frameless,
+  .msg-bubble-receiver.msg-bubble-frameless,
+  .msg-bubble-sender.msg-bubble-media,
+  .msg-bubble-receiver.msg-bubble-media,
   .msg-bubble-sender.msg-bubble-location,
   .msg-bubble-receiver.msg-bubble-location {
     background: transparent !important;
@@ -218,6 +211,7 @@
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
+    border-radius: 0 !important;
   }
 
   .sdh-location-msg-card {
@@ -3731,7 +3725,7 @@
 </style>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'js/locationShare.js' %}?v=1.1"></script>
-<script src="{% static 'js/chat.js' %}?v=8.2"></script>
+<script src="{% static 'js/chat.js' %}?v=8.3"></script>
 <script src="{% static 'js/moments.js' %}?v=2.5"></script>
 <script src="{% static 'js/fileUpload.js' %}?v=2.1"></script>
 <script src="{% static 'js/mediaViewer.js' %}?v=1.2"></script>

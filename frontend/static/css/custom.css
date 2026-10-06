@@ -2102,11 +2102,26 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-/* ─── Location Message Card Clean Bubble Reset ───────────────── */
+/* ─── Frameless Clean Bubbles Reset (Media, Files, PDFs, Location, Calls) ─── */
+.msg-bubble-frameless,
 .msg-bubble-location,
+.msg-bubble-media,
+.msg-bubble:has(.media-msg),
+.msg-bubble:has(.file-msg),
+.msg-bubble:has(.call-msg-card),
 .msg-bubble:has(.sdh-location-msg-card),
+.msg-bubble-sender:has(.media-msg),
+.msg-bubble-sender:has(.file-msg),
+.msg-bubble-sender:has(.call-msg-card),
 .msg-bubble-sender:has(.sdh-location-msg-card),
+.msg-bubble-receiver:has(.media-msg),
+.msg-bubble-receiver:has(.file-msg),
+.msg-bubble-receiver:has(.call-msg-card),
 .msg-bubble-receiver:has(.sdh-location-msg-card),
+.msg-bubble-sender.msg-bubble-frameless,
+.msg-bubble-receiver.msg-bubble-frameless,
+.msg-bubble-sender.msg-bubble-media,
+.msg-bubble-receiver.msg-bubble-media,
 .msg-bubble-sender.msg-bubble-location,
 .msg-bubble-receiver.msg-bubble-location {
   background: transparent !important;
@@ -2115,6 +2130,7 @@ body {
   border: none !important;
   box-shadow: none !important;
   padding: 0 !important;
+  border-radius: 0 !important;
 }
 
 /* ─── Chat Message Link High-Contrast Visibility (Light & Dark Themes) ─── */
