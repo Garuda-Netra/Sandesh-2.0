@@ -2308,10 +2308,15 @@ SDH.Chat = (() => {
           </div>
         </div>`;
 
-    // Bubble style: normal → colored via custom.css
-    const bubbleStyle = isFromMe
-      ? 'msg-bubble-sender'
-      : 'msg-bubble-receiver';
+    const isLocation = Boolean(messageType === 'location' || location);
+    const isMedia = (messageType === 'image' || messageType === 'video');
+    const bubblePadding = isLocation ? 'p-0' : isMedia ? 'p-1.5 sm:p-2' : 'px-3.5 py-2.5';
+    const mediaBubbleClass = isLocation ? 'msg-bubble-location' : isMedia ? 'msg-bubble-media' : '';
+
+    // Bubble style: normal → colored via custom.css (location messages have their own dedicated card)
+    const bubbleStyle = isLocation
+      ? 'msg-bubble-location'
+      : (isFromMe ? 'msg-bubble-sender' : 'msg-bubble-receiver');
 
     let repliedMomentHtml = '';
     if (repliedMoment) {
@@ -2333,10 +2338,6 @@ SDH.Chat = (() => {
           </div>
         `;
     }
-
-    const isMedia = (messageType === 'image' || messageType === 'video');
-    const bubblePadding = isMedia ? 'p-1.5 sm:p-2' : 'px-3.5 py-2.5';
-    const mediaBubbleClass = isMedia ? 'msg-bubble-media' : '';
 
     const bubble = document.createElement('div');
     bubble.id = `msg-${messageId}`;
@@ -2619,7 +2620,6 @@ SDH.Chat = (() => {
               <div class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 font-bold text-xs">FILE</div>
               <div class="min-w-0 flex-1">
                 <p class="text-xs font-semibold text-divine-text truncate">${escapeHtml(originalFilename)}</p>
-                <span class="text-[10px] text-emerald-400 font-bold">Nearby Direct</span>
               </div>
               <a href="${fileData}" download="${escapeHtml(originalFilename)}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all">Save</a>
             </div>
@@ -2777,46 +2777,10 @@ SDH.Chat = (() => {
           const item = filesToSend[i];
           const file = item.file;
           try {
-            let msgData;
-            const isNearbyMode = window.SDH?.TransportManager?.getMode() === 'nearby';
-            if (isNearbyMode && window.SDH?.NearbyFileTransfer) {
-              const transferRes = await window.SDH.NearbyFileTransfer.sendFile(
-                file,
-                activeUser,
-                {
-                  isViewOnce: viewOnceForBatch,
-                  onProgress: (fId, sent, total, pct) => {
-                    console.debug('[Chat] Nearby transfer:', file.name, `${pct}%`);
-                  }
-                }
-              );
-              msgData = {
-                message_id: 'msg_' + transferRes.file_id,
-                file_id: transferRes.file_id,
-                message_type: transferRes.mime_type.startsWith('image/') ? 'image' : (transferRes.mime_type.startsWith('video/') ? 'video' : 'file'),
-                original_filename: transferRes.filename,
-                mime_type: transferRes.mime_type,
-                timestamp: new Date().toISOString(),
-                is_view_once: Boolean(transferRes.is_view_once),
-                view_once_opened: false,
-                file_data: URL.createObjectURL(file)
-              };
-
-              // Persist locally in IndexedDB
-              if (window.SDH?.LocalIdentity?.saveNearbyMessage) {
-                await window.SDH.LocalIdentity.saveNearbyMessage({
-                  ...msgData,
-                  sender: window.SDH_DATA.currentUser,
-                  receiver: activeUser,
-                  has_file: true
-                });
-              }
-            } else {
-              msgData = await SDH.FileUpload.handleFileUpload(
-                file, activeUser, stage => console.debug('[Chat] File upload:', file.name, stage),
-                viewOnceForBatch,
-              );
-            }
+            const msgData = await SDH.FileUpload.handleFileUpload(
+              file, activeUser, stage => console.debug('[Chat] File upload:', file.name, stage),
+              viewOnceForBatch,
+            );
 
             const realMsgId = msgData.message_id || msgData.file_id;
             if (realMsgId) {
@@ -3406,31 +3370,21 @@ SDH.Chat = (() => {
     try {
       let messages = [];
 
-      // If in Nearby Mode, read from local IndexedDB store
-      if (window.SDH?.TransportManager?.getMode() === 'nearby' && window.SDH?.LocalIdentity) {
-        messages = await window.SDH.LocalIdentity.getNearbyHistory(username);
-      } else {
-        const res = await fetch(`${window.SDH_DATA?.historyUrl || '/messaging/api/history/'}${username}/`);
-        if (!res.ok) {
-          if (res.status === 423) {
-            if (window.SDH?.ChatLock) {
-              window.SDH.ChatLock.showAuthModal({
-                reason: `Unlock to view this chat`,
-                onSuccess: () => loadHistory(username)
-              });
-            }
-            return;
+      const res = await fetch(`${window.SDH_DATA?.historyUrl || '/messaging/api/history/'}${username}/`);
+      if (!res.ok) {
+        if (res.status === 423) {
+          if (window.SDH?.ChatLock) {
+            window.SDH.ChatLock.showAuthModal({
+              reason: `Unlock to view this chat`,
+              onSuccess: () => loadHistory(username)
+            });
           }
-          // If offline fetch failed, fallback to local IndexedDB
-          if (window.SDH?.LocalIdentity) {
-            messages = await window.SDH.LocalIdentity.getNearbyHistory(username);
-          } else {
-            throw new Error(res.statusText);
-          }
-        } else {
-          const data = await res.json();
-          messages = data.messages || [];
+          return;
         }
+        throw new Error(res.statusText);
+      } else {
+        const data = await res.json();
+        messages = data.messages || [];
       }
 
       if (container) container.innerHTML = '';

@@ -2102,6 +2102,21 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
+/* ─── Location Message Card Clean Bubble Reset ───────────────── */
+.msg-bubble-location,
+.msg-bubble:has(.sdh-location-msg-card),
+.msg-bubble-sender:has(.sdh-location-msg-card),
+.msg-bubble-receiver:has(.sdh-location-msg-card),
+.msg-bubble-sender.msg-bubble-location,
+.msg-bubble-receiver.msg-bubble-location {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
 /* ─── Chat Message Link High-Contrast Visibility (Light & Dark Themes) ─── */
 .sdh-chat-link,
 .msg-bubble a {
@@ -3794,7 +3809,7 @@ input[type="password"]::-webkit-reveal {
 [data-theme="light"] .msg-dropdown button svg,
 [data-theme="light"] .user-ctx-dropdown button svg,
 [data-theme="light"] #kebabDropdown svg,
-[data-theme="light"] #userDropdown svg:not(#sdhModeToggleContainer svg),
+[data-theme="light"] #userDropdown svg,
 [data-theme="light"] [id^="sidebarKebab-"] svg {
   color: #64748b !important;
   stroke: currentColor !important;
@@ -3960,8 +3975,8 @@ input[type="password"]::-webkit-reveal {
 [data-theme="dark"] .user-ctx-dropdown button svg,
 .dark #kebabDropdown svg,
 [data-theme="dark"] #kebabDropdown svg,
-.dark #userDropdown svg:not(#sdhModeToggleContainer svg),
-[data-theme="dark"] #userDropdown svg:not(#sdhModeToggleContainer svg),
+.dark #userDropdown svg,
+[data-theme="dark"] #userDropdown svg,
 .dark [id^="sidebarKebab-"] svg,
 [data-theme="dark"] [id^="sidebarKebab-"] svg {
   color: #94a3b8 !important;

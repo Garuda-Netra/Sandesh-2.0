@@ -45,12 +45,12 @@ SDH.LocationShare = (function () {
   let viewerAccuracyCircle = null;
   let currentViewingLoc = null;
 
-  // Tile layer: CARTO Voyager (Fast global CDN, OpenStreetMap data, no referrer block, no API key required)
-  const cartoTileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
+  // Tile layer: OpenStreetMap standard tiles (Fast, reliable, OpenStreetMap data, no API key required)
+  const osmTileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
 
   function getTileUrl() {
-    return cartoTileUrl;
+    return osmTileUrl;
   }
 
   // Custom Leaflet DivIcon for Current & Live location
@@ -604,15 +604,15 @@ SDH.LocationShare = (function () {
     };
     messageLocations.set(String(messageId), locData);
 
-    // Calculate map tile numbers at zoom 15 using CARTO Voyager (Clean, crisp, no referrer blocks, no API key required)
+    // Calculate map tile numbers at zoom 15 using standard OpenStreetMap (Clean, crisp, no API key required, no watermark)
     const z = 15;
     const n = Math.pow(2, z);
     const x = Math.floor((lng + 180) / 360 * n);
     const latRad = lat * Math.PI / 180;
     const y = Math.floor((1 - Math.log(Math.tan(latRad) + (1 / Math.cos(latRad))) / Math.PI) / 2 * n);
-    const tileSub = ['a', 'b', 'c', 'd'][Math.abs((x + y) % 4)];
-    const tileUrl = `https://${tileSub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}@2x.png`;
-    const fallbackTileUrl = `https://${tileSub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
+    const osmSub = ['a', 'b', 'c'][Math.abs((x + y) % 3)];
+    const tileUrl = `https://${osmSub}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    const fallbackTileUrl = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
     // Calculate live expiration & remaining time
     let liveRemainingText = '';
@@ -668,19 +668,19 @@ SDH.LocationShare = (function () {
     const stopBtnHtml = (isLive && !isEnded && isFromMe) ? `
       <button type="button"
               onclick="event.stopPropagation(); SDH.LocationShare.stopLiveLocation('${messageId}', ${Boolean(location.is_group)});"
-              class="sdh-loc-btn-stop flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+              class="sdh-loc-btn-stop flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-bold text-white shadow-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
               title="Stop sharing live location">
         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
         <span class="whitespace-nowrap">Stop Sharing</span>
       </button>` : '';
 
     return `
-      <div class="sdh-location-msg-card w-[280px] sm:w-[325px] max-w-full flex flex-col box-border select-none rounded-2xl bg-slate-900/95 dark:bg-[#0b1120]/95 text-white p-2 border border-white/20 shadow-xl backdrop-blur-md" id="loc-bubble-${messageId}" data-msg-id="${messageId}" data-loc-data="${escapeHtml(JSON.stringify(locData))}">
-        <!-- Map Thumbnail Preview -->
-        <div class="relative w-full h-36 sm:h-44 rounded-xl overflow-hidden cursor-pointer group/map border border-white/15 shadow-sm bg-slate-950"
+      <div class="sdh-location-msg-card w-[280px] sm:w-[325px] max-w-full flex flex-col box-border select-none rounded-2xl bg-slate-900/95 dark:bg-[#0b1120]/95 text-white overflow-hidden border border-slate-700/60 dark:border-white/10 shadow-lg backdrop-blur-md" id="loc-bubble-${messageId}" data-msg-id="${messageId}" data-loc-data="${escapeHtml(JSON.stringify(locData))}">
+        <!-- Map Thumbnail Preview (Flush edge-to-edge top) -->
+        <div class="relative w-full h-36 sm:h-44 overflow-hidden cursor-pointer group/map border-b border-white/10 bg-slate-950"
              onclick="SDH.LocationShare.openViewer('${messageId}', ${isFromMe})">
           
-          <!-- Static Map Preview (CARTO Voyager retina tile with automatic fallback) -->
+          <!-- Static Map Preview (OSM retina tile with automatic fallback) -->
           <img src="${tileUrl}"
                alt="Map Preview"
                class="w-full h-full object-cover group-hover/map:scale-105 transition-transform duration-500"
@@ -697,51 +697,62 @@ SDH.LocationShare = (function () {
             ${isLive ? `
               <div class="relative flex items-center justify-center">
                 ${!isEnded ? `<span class="animate-ping absolute -inset-3 rounded-full bg-emerald-500/50"></span>` : ''}
-                <div class="w-10 h-10 rounded-full ${isEnded ? 'bg-slate-700 border-slate-400' : 'bg-emerald-500 border-white'} flex items-center justify-center text-white text-lg shadow-2xl border-2">
+                <div class="w-9 h-9 rounded-full ${isEnded ? 'bg-slate-700 border-slate-400' : 'bg-emerald-500 border-white'} flex items-center justify-center text-white text-base shadow-xl border-2">
                   ${isEnded ? '⚪' : '📍'}
                 </div>
               </div>
             ` : `
-              <div class="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-white text-lg shadow-2xl border-2 border-white hover:scale-110 transition-transform">
+              <div class="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white text-base shadow-xl border-2 border-white hover:scale-110 transition-transform">
                 📍
               </div>
             `}
           </div>
 
           <!-- Top Badge Overlay (Live or Static status) -->
-          <div class="absolute top-2 left-2 z-10 pointer-events-none">
+          <div class="absolute top-2.5 left-2.5 z-10 pointer-events-none">
             ${badgeHtml}
           </div>
 
-          <!-- Hover "View Live Map" Overlay Indicator -->
+          <!-- Hover "View Map" Overlay Indicator -->
           <div class="absolute inset-0 bg-black/40 opacity-0 group-hover/map:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
-            <span class="py-1.5 px-3.5 rounded-full bg-black/85 text-white backdrop-blur-md border border-white/25 text-xs font-bold shadow-2xl flex items-center gap-1.5">
+            <span class="py-1.5 px-3 rounded-full bg-black/85 text-white backdrop-blur-md border border-white/25 text-xs font-semibold shadow-2xl flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               <span>View Map</span>
             </span>
           </div>
         </div>
 
-        <!-- Place Details Card Info -->
-        <div class="mt-2.5 px-1.5">
-          <p class="sdh-loc-title text-sm sm:text-base font-bold text-white leading-tight truncate" title="${escapeHtml(locTitle)}">${escapeHtml(locTitle)}</p>
-          <p class="sdh-loc-subtitle text-xs text-slate-300 mt-1 line-clamp-2 leading-relaxed" title="${escapeHtml(locAddress)}">${escapeHtml(locAddress)}</p>
-          ${comment ? `<p class="sdh-loc-comment text-xs text-slate-100 mt-2 italic p-2 rounded-xl bg-white/10 border border-white/15">${escapeHtml(comment)}</p>` : ''}
+        <!-- Place Details Card Info & Actions -->
+        <div class="p-3 sm:p-3.5 flex flex-col gap-2">
+          <div>
+            <p class="sdh-loc-title text-sm sm:text-base font-bold text-white leading-tight truncate" title="${escapeHtml(locTitle)}">${escapeHtml(locTitle)}</p>
+            <p class="sdh-loc-subtitle text-xs text-slate-300 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed" title="${escapeHtml(locAddress)}">${escapeHtml(locAddress)}</p>
+            ${comment ? `<p class="sdh-loc-comment text-xs text-slate-100 mt-2 italic p-2 rounded-xl bg-white/10 border border-white/15">${escapeHtml(comment)}</p>` : ''}
+          </div>
+
+          <!-- Action Buttons (Responsive flex-wrap) -->
+          <div class="mt-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <button type="button"
+                    onclick="SDH.LocationShare.openViewer('${messageId}', ${isFromMe})"
+                    class="sdh-loc-btn-view flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-semibold text-white shadow-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+              <span class="whitespace-nowrap">View Map</span>
+            </button>
+
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="sdh-loc-btn-dir flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-semibold text-white shadow-sm flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer no-underline"
+               title="Get Directions">
+              <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+              <span class="whitespace-nowrap">Directions</span>
+            </a>
+
+            ${stopBtnHtml}
+          </div>
         </div>
-
-        <!-- Action Buttons (Responsive flex-wrap) -->
-        <div class="mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <button type="button"
-                  onclick="SDH.LocationShare.openViewer('${messageId}', ${isFromMe})"
-                  class="sdh-loc-btn-view flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-bold text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer">
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-            <span class="whitespace-nowrap">View Map</span>
-          </button>
-
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}"
-             target="_blank"
-             rel="noopener noreferrer"
-             class="sdh-loc-btn-dir flex-1 min-w-[95px] py-2 px-3 rounded-xl text-xs font-semibold text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer no-underline"
+      </div>
+    `;] py-2 px-3 rounded-xl text-xs font-semibold text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer no-underline"
              title="Get Directions">
             <svg class="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
             <span class="whitespace-nowrap">Directions</span>
