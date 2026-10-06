@@ -45,9 +45,10 @@ SDH.LocationShare = (function () {
   let viewerAccuracyCircle = null;
   let currentViewingLoc = null;
 
-  // Tile layer: OpenStreetMap standard tiles (Fast, reliable, OpenStreetMap data, no API key required)
-  const osmTileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+  // Tile layer: CartoDB Voyager (Free, beautiful, reliable — no API key required)
+  // Note: OSM direct tiles (tile.openstreetmap.org) block requests with 403 Access Blocked.
+  const osmTileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
 
   function getTileUrl() {
     return osmTileUrl;
@@ -608,15 +609,15 @@ SDH.LocationShare = (function () {
     };
     messageLocations.set(String(messageId), locData);
 
-    // Calculate map tile numbers at zoom 15 using standard OpenStreetMap (Clean, crisp, no API key required, no watermark)
+    // Calculate map tile numbers at zoom 15 using CartoDB Voyager (Clean, crisp, no API key required, no watermark)
     const z = 15;
     const n = Math.pow(2, z);
     const x = Math.floor((lng + 180) / 360 * n);
     const latRad = lat * Math.PI / 180;
     const y = Math.floor((1 - Math.log(Math.tan(latRad) + (1 / Math.cos(latRad))) / Math.PI) / 2 * n);
-    const osmSub = ['a', 'b', 'c'][Math.abs((x + y) % 3)];
-    const tileUrl = `https://${osmSub}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
-    const fallbackTileUrl = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    const cartoSub = ['a', 'b', 'c', 'd'][Math.abs((x + y) % 4)];
+    const tileUrl = `https://${cartoSub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
+    const fallbackTileUrl = `https://basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
 
     // Calculate live expiration & remaining time
     let liveRemainingText = '';
