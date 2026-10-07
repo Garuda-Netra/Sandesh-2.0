@@ -557,11 +557,6 @@ SDH.LocationShare = (function () {
       SDH.Chat.scrollToBottom?.();
     }
 
-    if (isLive) {
-      activeLiveMsgId = tempId;
-      startLiveGeolocationWatch(tempId, isGroup, expiresAtMs);
-    }
-
     // Close modal immediately for optimal responsive feel
     closeModal();
 
@@ -618,9 +613,23 @@ SDH.LocationShare = (function () {
             startLiveGeolocationWatch(realId, isGroup, expiresAtMs);
           }
         }
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        console.error('[SDH.LocationShare] Send failed:', errJson);
+        const tempBubble = document.getElementById(`msg-${tempId}`);
+        if (tempBubble) tempBubble.remove();
+        if (typeof window.SDH?.Chat?.showToast === 'function') {
+          window.SDH.Chat.showToast(errJson.error || 'Failed to share location.', 'error');
+        }
       }
     } catch (err) {
       console.error('[SDH.LocationShare] REST error:', err);
+      const tempBubble = document.getElementById(`msg-${tempId}`);
+      if (tempBubble) tempBubble.remove();
+      if (typeof window.SDH?.Chat?.showToast === 'function') {
+        window.SDH.Chat.showToast('Network error while sharing location.', 'error');
+      }
+    }
     } finally {
       isSubmittingLocation = false;
       if (submitBtn) {

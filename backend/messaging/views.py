@@ -9,6 +9,7 @@ import os
 import requests
 import base64
 import logging
+from datetime import timedelta, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -4475,6 +4476,11 @@ def update_live_location(request):
         if message_id is None or latitude is None or longitude is None:
             return JsonResponse({'error': 'message_id, latitude, and longitude are required.'}, status=400)
 
+        try:
+            mid = int(message_id)
+        except (ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid message_id format.'}, status=400)
+
         latitude = float(latitude)
         longitude = float(longitude)
 
@@ -4484,7 +4490,7 @@ def update_live_location(request):
 
         if is_group:
             from .models import GroupMessage, GroupMembership
-            msg = GroupMessage.objects.filter(id=message_id).first()
+            msg = GroupMessage.objects.filter(id=mid).first()
             if not msg:
                 return JsonResponse({'error': 'Message not found.'}, status=404)
             if msg.sender_id != request.user.id:
@@ -4516,7 +4522,7 @@ def update_live_location(request):
             return JsonResponse({'status': 'ok'})
 
         else:
-            msg = Message.objects.filter(id=message_id).first()
+            msg = Message.objects.filter(id=mid).first()
             if not msg:
                 return JsonResponse({'error': 'Message not found.'}, status=404)
             if msg.sender_id != request.user.id:
