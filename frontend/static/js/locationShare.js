@@ -208,11 +208,16 @@ SDH.LocationShare = (function () {
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
+    let bestAccuracy = 999999;
+    let initialCallbackCalled = false;
+
+    function applyPosition(pos) {
+      const accuracy = Math.round(pos.coords.accuracy || 15);
+      if (accuracy <= bestAccuracy || !initialCallbackCalled) {
+        bestAccuracy = accuracy;
         currentLat = pos.coords.latitude;
         currentLng = pos.coords.longitude;
-        currentAccuracy = Math.round(pos.coords.accuracy || 15);
+        currentAccuracy = accuracy;
 
         selectedLat = currentLat;
         selectedLng = currentLng;
@@ -221,9 +226,35 @@ SDH.LocationShare = (function () {
         if (accuracyBadge) {
           accuracyBadge.textContent = `Accurate to ${currentAccuracy} m`;
         }
-        if (typeof callback === 'function') {
+        if (shareMarker && shareMap) {
+          shareMarker.setLatLng([currentLat, currentLng]);
+          if (shareAccuracyCircle) {
+            shareAccuracyCircle.setLatLng([currentLat, currentLng]);
+            shareAccuracyCircle.setRadius(currentAccuracy);
+          }
+        }
+        if (!initialCallbackCalled && typeof callback === 'function') {
+          initialCallbackCalled = true;
           callback(currentLat, currentLng, currentAccuracy);
         }
+      }
+    }
+
+    // 1. Initial immediate fix with zero cached age
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        applyPosition(pos);
+        // 2. Briefly watch for up to 6 seconds to lock onto tighter GPS/Wi-Fi fix
+        try {
+          const watchId = navigator.geolocation.watchPosition(
+            (p) => applyPosition(p),
+            () => {},
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 6000 }
+          );
+          setTimeout(() => {
+            navigator.geolocation.clearWatch(watchId);
+          }, 6000);
+        } catch (e) {}
       },
       (err) => {
         console.warn('[SDH.LocationShare] Geolocation error:', err);
@@ -235,7 +266,7 @@ SDH.LocationShare = (function () {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 15000
+        maximumAge: 0
       }
     );
   }
