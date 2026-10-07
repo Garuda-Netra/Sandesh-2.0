@@ -45,13 +45,12 @@ SDH.LocationShare = (function () {
   let viewerAccuracyCircle = null;
   let currentViewingLoc = null;
 
-  // Tile layer: CartoDB Voyager (Free, beautiful, reliable — no API key required)
-  // Note: OSM direct tiles (tile.openstreetmap.org) block requests with 403 Access Blocked.
-  const osmTileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
-  const tileAttrib = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
+  // Tile layer: ESRI World Street Map (100% Free, zero API key required, zero watermarks)
+  const esriTileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+  const tileAttrib = 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, TomTom';
 
   function getTileUrl() {
-    return osmTileUrl;
+    return esriTileUrl;
   }
 
   // Custom Leaflet DivIcon for Current & Live location
@@ -254,7 +253,6 @@ SDH.LocationShare = (function () {
 
       L.tileLayer(getTileUrl(), {
         maxZoom: 19,
-        subdomains: 'abcd',
         attribution: tileAttrib
       }).addTo(shareMap);
 
@@ -609,15 +607,14 @@ SDH.LocationShare = (function () {
     };
     messageLocations.set(String(messageId), locData);
 
-    // Calculate map tile numbers at zoom 15 using CartoDB Voyager (Clean, crisp, no API key required, no watermark)
+    // Calculate map tile numbers at zoom 15 using ESRI World Street Map (Clean, free, no API key required, no watermark)
     const z = 15;
     const n = Math.pow(2, z);
     const x = Math.floor((lng + 180) / 360 * n);
     const latRad = lat * Math.PI / 180;
     const y = Math.floor((1 - Math.log(Math.tan(latRad) + (1 / Math.cos(latRad))) / Math.PI) / 2 * n);
-    const cartoSub = ['a', 'b', 'c', 'd'][Math.abs((x + y) % 4)];
-    const tileUrl = `https://${cartoSub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
-    const fallbackTileUrl = `https://basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
+    const tileUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`;
+    const fallbackTileUrl = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`;
 
     // Calculate live expiration & remaining time
     let liveRemainingText = '';
@@ -964,7 +961,6 @@ SDH.LocationShare = (function () {
 
       L.tileLayer(getTileUrl(), {
         maxZoom: 19,
-        subdomains: 'abcd',
         attribution: tileAttrib
       }).addTo(viewerMap);
 

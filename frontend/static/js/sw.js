@@ -7,7 +7,7 @@
  *  - Stale-While-Revalidate for static assets (CSS, images, icons, fonts)
  */
 
-const CACHE_VERSION = 'sandesh-pwa-v1.4.4';
+const CACHE_VERSION = 'sandesh-pwa-v1.4.5';
 const STATIC_CACHE = `sandesh-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `sandesh-runtime-${CACHE_VERSION}`;
 

@@ -32,7 +32,7 @@ Sandesh blends timeless Indian philosophical roots with clean, fluid modern desi
 ### 📍 Interactive Location Sharing & Real-Time Tracking *(New!)*
 * **Drop a Pin Anytime**: Search places, pinpoint landmarks, or drop a custom pin anywhere in the world.
 * **Live Location Streaming**: Share your live movement in real time with an automatic timer (15 minutes, 1 hour, or 8 hours). When time runs out, sharing automatically turns off.
-* **Clean & Professional Cards**: Built with crisp OpenStreetMap tiles, zero third-party watermarks, a clean single-border card, and one-tap **Directions** via Google Maps.
+* **Clean & Professional Cards**: Built with crisp ESRI World Street Map tiles, zero third-party watermarks, a clean single-border card, and one-tap **Directions** via Google Maps.
 * **Interactive Fullscreen Viewer**: Tap any map card to open a full Leaflet map view with zoom, pan, and real-time live beacon updates.
 
 ---
@@ -114,7 +114,7 @@ Sandesh blends timeless Indian philosophical roots with clean, fluid modern desi
 | **Client Cryptography** | Web Crypto API (SubtleCrypto) | Hardware-accelerated browser-native ECDH + AES-GCM-256 |
 | **Biometric Auth** | WebAuthn API | Passwordless biometric authentication using your device hardware |
 | **PWA & Offline** | Service Workers + Cache Storage | Installable app shell with offline fallbacks and instant load times |
-| **Maps & Location** | Leaflet.js + OpenStreetMap | Privacy-friendly, fast mapping with zero tracking or watermarks |
+| **Maps & Location** | Leaflet.js + ESRI World Street Map | Fast, reliable mapping with zero tracking, no API keys, and zero watermarks |
 | **Voice & Video** | WebRTC + STUN/TURN | Direct peer-to-peer audio and video streaming |
 | **Artificial Intelligence** | Google Gemini (`google-genai`) | Context-aware, natural conversational intelligence |
 | **Database & Cache** | PostgreSQL / SQLite + Redis | Reliable persistence with distributed pub/sub channels |
