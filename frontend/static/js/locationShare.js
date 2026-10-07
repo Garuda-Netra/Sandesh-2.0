@@ -53,10 +53,10 @@ SDH.LocationShare = (function () {
     return esriTileUrl;
   }
 
-  // Custom Leaflet DivIcon for Current & Live location (Professional vector teardrop pin)
+  // Custom Leaflet DivIcon for Current & Live location (Professional Solid Vector Pin)
   function createPinIcon(isLive = false, avatarUrl = '') {
-    const pinColor = isLive ? '#10b981' : '#f43f5e';
-    const pinDarkColor = isLive ? '#047857' : '#be123c';
+    const pinColor = isLive ? '#10b981' : '#e11d48';
+    const coreColor = isLive ? '#047857' : '#9f1239';
 
     const pulseHtml = isLive
       ? `<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-emerald-400/40 animate-ping pointer-events-none"></span>`
@@ -72,30 +72,24 @@ SDH.LocationShare = (function () {
         </foreignObject>`;
     } else {
       centerContent = `
-        <circle cx="16" cy="15" r="5" fill="#ffffff" />
-        <circle cx="16" cy="15" r="2.5" fill="${pinDarkColor}" />`;
+        <circle cx="16" cy="15" r="6" fill="#ffffff" />
+        <circle cx="16" cy="15" r="3" fill="${coreColor}" />`;
     }
 
     const html = `
-      <div class="sdh-leaflet-marker-pin relative flex flex-col items-center select-none" style="width:32px; height:46px;">
+      <div class="sdh-leaflet-marker-pin relative flex flex-col items-center select-none" style="width:32px; height:46px; cursor:pointer;">
         ${pulseHtml}
-        <div class="relative transition-transform duration-200 hover:scale-110 active:scale-95 filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.35)]">
+        <div class="relative transition-transform duration-150 hover:scale-110 active:scale-95" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35));">
           <svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="pinGrad_${isLive ? 'live' : 'static'}" x1="16" y1="2" x2="16" y2="40" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stop-color="${pinColor}" />
-                <stop offset="100%" stop-color="${pinDarkColor}" />
-              </linearGradient>
-            </defs>
-            <path d="M16 2C8.82 2 3 7.82 3 15C3 24.5 16 40 16 40C16 40 29 24.5 29 15C29 7.82 23.18 2 16 2Z"
-                  fill="url(#pinGrad_${isLive ? 'live' : 'static'})"
+            <path d="M16 1C7.716 1 1 7.716 1 16C1 26.5 16 41 16 41C16 41 31 26.5 31 16C31 7.716 24.284 1 16 1Z"
+                  fill="${pinColor}"
                   stroke="#ffffff"
-                  stroke-width="2.5"
+                  stroke-width="2"
                   stroke-linejoin="round" />
             ${centerContent}
           </svg>
         </div>
-        <div class="w-4 h-1.5 bg-black/40 rounded-full blur-[1px] -mt-1 pointer-events-none"></div>
+        <div style="width:14px; height:4px; background:rgba(0,0,0,0.35); border-radius:50%; filter:blur(1px); margin-top:-2px;"></div>
       </div>
     `;
 
@@ -765,40 +759,28 @@ SDH.LocationShare = (function () {
               <div class="relative flex flex-col items-center filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.45)]">
                 ${!isEnded ? `<span class="animate-ping absolute -bottom-1 w-8 h-8 rounded-full bg-emerald-400/40"></span>` : ''}
                 <svg width="30" height="40" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="cardPinLive_${messageId}" x1="16" y1="2" x2="16" y2="40" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stop-color="${isEnded ? '#64748b' : '#10b981'}" />
-                      <stop offset="100%" stop-color="${isEnded ? '#334155' : '#047857'}" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M16 2C8.82 2 3 7.82 3 15C3 24.5 16 40 16 40C16 40 29 24.5 29 15C29 7.82 23.18 2 16 2Z"
-                        fill="url(#cardPinLive_${messageId})"
+                  <path d="M16 1C7.716 1 1 7.716 1 16C1 26.5 16 41 16 41C16 41 31 26.5 31 16C31 7.716 24.284 1 16 1Z"
+                        fill="${isEnded ? '#64748b' : '#10b981'}"
                         stroke="#ffffff"
-                        stroke-width="2.5"
+                        stroke-width="2"
                         stroke-linejoin="round" />
-                  <circle cx="16" cy="15" r="5" fill="#ffffff" />
-                  <circle cx="16" cy="15" r="2.5" fill="${isEnded ? '#334155' : '#047857'}" />
+                  <circle cx="16" cy="15" r="6" fill="#ffffff" />
+                  <circle cx="16" cy="15" r="3" fill="${isEnded ? '#334155' : '#047857'}" />
                 </svg>
-                <div class="w-4 h-1.5 bg-black/40 rounded-full blur-[1px] -mt-1"></div>
+                <div style="width:14px; height:4px; background:rgba(0,0,0,0.35); border-radius:50%; filter:blur(1px); margin-top:-2px;"></div>
               </div>
             ` : `
               <div class="relative flex flex-col items-center filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.45)] group-hover/map:scale-110 transition-transform duration-300">
                 <svg width="30" height="40" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="cardPinStatic_${messageId}" x1="16" y1="2" x2="16" y2="40" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stop-color="#f43f5e" />
-                      <stop offset="100%" stop-color="#be123c" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M16 2C8.82 2 3 7.82 3 15C3 24.5 16 40 16 40C16 40 29 24.5 29 15C29 7.82 23.18 2 16 2Z"
-                        fill="url(#cardPinStatic_${messageId})"
+                  <path d="M16 1C7.716 1 1 7.716 1 16C1 26.5 16 41 16 41C16 41 31 26.5 31 16C31 7.716 24.284 1 16 1Z"
+                        fill="#e11d48"
                         stroke="#ffffff"
-                        stroke-width="2.5"
+                        stroke-width="2"
                         stroke-linejoin="round" />
-                  <circle cx="16" cy="15" r="5" fill="#ffffff" />
-                  <circle cx="16" cy="15" r="2.5" fill="#be123c" />
+                  <circle cx="16" cy="15" r="6" fill="#ffffff" />
+                  <circle cx="16" cy="15" r="3" fill="#be123c" />
                 </svg>
-                <div class="w-4 h-1.5 bg-black/40 rounded-full blur-[1px] -mt-1"></div>
+                <div style="width:14px; height:4px; background:rgba(0,0,0,0.35); border-radius:50%; filter:blur(1px); margin-top:-2px;"></div>
               </div>
             `}
           </div>
