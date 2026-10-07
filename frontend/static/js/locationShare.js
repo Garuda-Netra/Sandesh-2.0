@@ -53,26 +53,58 @@ SDH.LocationShare = (function () {
     return esriTileUrl;
   }
 
-  // Custom Leaflet DivIcon for Current & Live location
+  // Custom Leaflet DivIcon for Current & Live location (Professional vector teardrop pin)
   function createPinIcon(isLive = false, avatarUrl = '') {
+    const pinColor = isLive ? '#10b981' : '#f43f5e';
+    const pinDarkColor = isLive ? '#047857' : '#be123c';
+
     const pulseHtml = isLive
-      ? `<span class="absolute -inset-2 rounded-full bg-emerald-500/30 animate-ping pointer-events-none"></span>`
+      ? `<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-emerald-400/40 animate-ping pointer-events-none"></span>`
       : '';
-    const avatarHtml = avatarUrl
-      ? `<img src="${avatarUrl}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-md" />`
-      : `<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-sm font-bold shadow-lg border-2 border-white">📍</div>`;
+
+    let centerContent = '';
+    if (avatarUrl) {
+      centerContent = `
+        <foreignObject x="6" y="5" width="20" height="20">
+          <div xmlns="http://www.w3.org/1999/xhtml" class="w-5 h-5 rounded-full overflow-hidden border border-white">
+            <img src="${avatarUrl}" class="w-full h-full object-cover" />
+          </div>
+        </foreignObject>`;
+    } else {
+      centerContent = `
+        <circle cx="16" cy="15" r="5" fill="#ffffff" />
+        <circle cx="16" cy="15" r="2.5" fill="${pinDarkColor}" />`;
+    }
+
+    const html = `
+      <div class="sdh-leaflet-marker-pin relative flex flex-col items-center select-none" style="width:32px; height:46px;">
+        ${pulseHtml}
+        <div class="relative transition-transform duration-200 hover:scale-110 active:scale-95 filter drop-shadow-[0_4px_6px_rgba(0,0,0,0.35)]">
+          <svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="pinGrad_${isLive ? 'live' : 'static'}" x1="16" y1="2" x2="16" y2="40" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="${pinColor}" />
+                <stop offset="100%" stop-color="${pinDarkColor}" />
+              </linearGradient>
+            </defs>
+            <path d="M16 2C8.82 2 3 7.82 3 15C3 24.5 16 40 16 40C16 40 29 24.5 29 15C29 7.82 23.18 2 16 2Z"
+                  fill="url(#pinGrad_${isLive ? 'live' : 'static'})"
+                  stroke="#ffffff"
+                  stroke-width="2.5"
+                  stroke-linejoin="round" />
+            ${centerContent}
+          </svg>
+        </div>
+        <div class="w-4 h-1.5 bg-black/40 rounded-full blur-[1px] -mt-1 pointer-events-none"></div>
+      </div>
+    `;
 
     return L.divIcon({
-      className: 'sdh-leaflet-marker-pin',
-      html: `
-        <div class="relative flex items-center justify-center cursor-pointer">
-          ${pulseHtml}
-          ${avatarHtml}
-        </div>
-      `,
-      iconSize: [36, 36],
-      iconAnchor: [18, 36],
-      popupAnchor: [0, -36]
+      className: '!bg-transparent !border-0',
+      html: html,
+      iconSize: [32, 46],
+      iconAnchor: [16, 42],
+      popupAnchor: [0, -42]
     });
   }
 
@@ -246,13 +278,15 @@ SDH.LocationShare = (function () {
     if (!shareMap) {
       shareMap = L.map('locShareMap', {
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
+        maxZoom: 18
       }).setView([lat, lng], 16);
 
       L.control.zoom({ position: 'topright' }).addTo(shareMap);
 
       L.tileLayer(getTileUrl(), {
-        maxZoom: 19,
+        maxZoom: 18,
+        maxNativeZoom: 17,
         attribution: tileAttrib
       }).addTo(shareMap);
 
@@ -697,15 +731,43 @@ SDH.LocationShare = (function () {
           <!-- Center Map Pin / Live Beacon -->
           <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
             ${isLive ? `
-              <div class="relative flex items-center justify-center">
-                ${!isEnded ? `<span class="animate-ping absolute -inset-3 rounded-full bg-emerald-500/50"></span>` : ''}
-                <div class="w-9 h-9 rounded-full ${isEnded ? 'bg-slate-700 border-slate-400' : 'bg-emerald-500 border-white'} flex items-center justify-center text-white text-base shadow-xl border-2">
-                  ${isEnded ? '⚪' : '📍'}
-                </div>
+              <div class="relative flex flex-col items-center filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.45)]">
+                ${!isEnded ? `<span class="animate-ping absolute -bottom-1 w-8 h-8 rounded-full bg-emerald-400/40"></span>` : ''}
+                <svg width="30" height="40" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="cardPinLive_${messageId}" x1="16" y1="2" x2="16" y2="40" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="${isEnded ? '#64748b' : '#10b981'}" />
+                      <stop offset="100%" stop-color="${isEnded ? '#334155' : '#047857'}" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M16 2C8.82 2 3 7.82 3 15C3 24.5 16 40 16 40C16 40 29 24.5 29 15C29 7.82 23.18 2 16 2Z"
+                        fill="url(#cardPinLive_${messageId})"
+                        stroke="#ffffff"
+                        stroke-width="2.5"
+                        stroke-linejoin="round" />
+                  <circle cx="16" cy="15" r="5" fill="#ffffff" />
+                  <circle cx="16" cy="15" r="2.5" fill="${isEnded ? '#334155' : '#047857'}" />
+                </svg>
+                <div class="w-4 h-1.5 bg-black/40 rounded-full blur-[1px] -mt-1"></div>
               </div>
             ` : `
-              <div class="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center text-white text-base shadow-xl border-2 border-white hover:scale-110 transition-transform">
-                📍
+              <div class="relative flex flex-col items-center filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.45)] group-hover/map:scale-110 transition-transform duration-300">
+                <svg width="30" height="40" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="cardPinStatic_${messageId}" x1="16" y1="2" x2="16" y2="40" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#f43f5e" />
+                      <stop offset="100%" stop-color="#be123c" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M16 2C8.82 2 3 7.82 3 15C3 24.5 16 40 16 40C16 40 29 24.5 29 15C29 7.82 23.18 2 16 2Z"
+                        fill="url(#cardPinStatic_${messageId})"
+                        stroke="#ffffff"
+                        stroke-width="2.5"
+                        stroke-linejoin="round" />
+                  <circle cx="16" cy="15" r="5" fill="#ffffff" />
+                  <circle cx="16" cy="15" r="2.5" fill="#be123c" />
+                </svg>
+                <div class="w-4 h-1.5 bg-black/40 rounded-full blur-[1px] -mt-1"></div>
               </div>
             `}
           </div>
@@ -954,13 +1016,15 @@ SDH.LocationShare = (function () {
     if (!viewerMap) {
       viewerMap = L.map('locViewerMap', {
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
+        maxZoom: 18
       }).setView([lat, lng], 16);
 
       L.control.zoom({ position: 'topright' }).addTo(viewerMap);
 
       L.tileLayer(getTileUrl(), {
-        maxZoom: 19,
+        maxZoom: 18,
+        maxNativeZoom: 17,
         attribution: tileAttrib
       }).addTo(viewerMap);
 

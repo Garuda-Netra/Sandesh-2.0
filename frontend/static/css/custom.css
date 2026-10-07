@@ -6402,3 +6402,12 @@ input[type="password"]::-webkit-reveal {
   box-shadow: 0 8px 24px -4px rgba(234, 179, 8, 0.25);
 }
 
+/* ─── Leaflet Custom Pin Marker (Clean Vector Teardrop) ─── */
+.sdh-leaflet-marker-pin,
+.leaflet-div-icon.sdh-custom-pin-icon,
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+
