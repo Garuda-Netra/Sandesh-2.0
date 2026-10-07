@@ -8,6 +8,9 @@ import json
 import os
 import requests
 import base64
+import logging
+
+logger = logging.getLogger(__name__)
 
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
