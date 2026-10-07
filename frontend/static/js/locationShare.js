@@ -629,7 +629,6 @@ SDH.LocationShare = (function () {
       if (typeof window.SDH?.Chat?.showToast === 'function') {
         window.SDH.Chat.showToast('Network error while sharing location.', 'error');
       }
-    }
     } finally {
       isSubmittingLocation = false;
       if (submitBtn) {
