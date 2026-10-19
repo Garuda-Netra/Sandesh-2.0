@@ -785,23 +785,17 @@ def manage_auto_wish_events(request):
                 return JsonResponse({'error': 'You can only schedule wishes for your friends.'}, status=403)
 
             sender_name = request.user.first_name if request.user.first_name else request.user.username
-            evt_name = custom_event_name if custom_event_name else 'special day'
+            recipient_name = target.first_name if target.first_name else target.username
             
-            from messaging.chatbot import _gemini_reply
-            prompt = f"Write a warm, personal, and friendly 1-paragraph {evt_name} wish from {sender_name} to {target.first_name or target.username}. Write at least 3-4 sentences in a single paragraph."
-            if language_preference == AutoWishEvent.LANGUAGE_HINGLISH:
-                prompt += " Write it COMPLETELY in Hinglish (Hindi written in English alphabet). Do NOT use pure English. Write a proper paragraph."
-
-            try:
-                generated_text = _gemini_reply(prompt, [], request.user)
-                if not generated_text:
-                    return JsonResponse({'error': 'Chatbot failed to generate a wish. Please try again.'}, status=400)
-                if "⚠️" in generated_text:
-                    return JsonResponse({'error': generated_text}, status=400)
-            except Exception as e:
-                return JsonResponse({'error': f'AI Error: {str(e)}'}, status=400)
-
-            text = generated_text
+            from messaging.chatbot import generate_auto_wish
+            text = generate_auto_wish(
+                event_type=event_type,
+                custom_event_name=custom_event_name,
+                sender_name=sender_name,
+                recipient_name=recipient_name,
+                language_preference=language_preference,
+                user=request.user
+            )
 
             event = AutoWishEvent.objects.create(
                 user=request.user,
@@ -850,6 +844,41 @@ def manage_auto_wish_events(request):
             return JsonResponse({'error': 'Event not found.'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+@csrf_protect
+@require_POST
+def regenerate_auto_wish(request):
+    """Regenerate a fresh, different auto-wish draft for an event."""
+    from .models import AutoWishEvent
+    import json
+    try:
+        data = json.loads(request.body)
+        event_id = data.get('event_id')
+        if not event_id:
+            return JsonResponse({'error': 'Event ID required.'}, status=400)
+            
+        event = AutoWishEvent.objects.get(id=event_id, user=request.user)
+        target = event.target_user if event.target_user else event.user
+        sender_name = request.user.first_name if request.user.first_name else request.user.username
+        recipient_name = target.first_name if target.first_name else target.username
+        
+        from messaging.chatbot import generate_auto_wish
+        new_text = generate_auto_wish(
+            event_type=event.event_type,
+            custom_event_name=event.custom_event_name or '',
+            sender_name=sender_name,
+            recipient_name=recipient_name,
+            language_preference=event.language_preference,
+            user=request.user
+        )
+        event.scheduled_message = new_text
+        event.save(update_fields=['scheduled_message'])
+        return JsonResponse({'status': 'ok', 'scheduled_message': new_text})
+    except AutoWishEvent.DoesNotExist:
+        return JsonResponse({'error': 'Event not found.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
 @require_GET

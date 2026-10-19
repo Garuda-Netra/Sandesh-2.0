@@ -297,7 +297,7 @@ if GEMINI_API_KEY == 'your_api_key_here' or GEMINI_API_KEY == '':
                         GEMINI_API_KEY = val
                     break
 
-CHATBOT_MODEL = config('CHATBOT_MODEL', default='gemini-3.5-flash')
+CHATBOT_MODEL = config('CHATBOT_MODEL', default='gemini-2.5-flash')
 CHATBOT_TEMPERATURE = config('CHATBOT_TEMPERATURE', default=0.7, cast=float)
 CHATBOT_MAX_TOKENS = config('CHATBOT_MAX_TOKENS', default=500, cast=int)
 CHATBOT_SYSTEM_PROMPT = config('CHATBOT_SYSTEM_PROMPT', default='')
