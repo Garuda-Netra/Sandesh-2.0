@@ -1829,9 +1829,11 @@ def get_moments(request):
     for m in active_moments:
         uid = m.user_id
         if uid not in grouped:
+            user_avatar = m.user.profile.avatar.url if (hasattr(m.user, 'profile') and m.user.profile.avatar and m.user.profile.avatar.name) else None
             grouped[uid] = {
                 'user_id': uid,
                 'username': m.user.username,
+                'avatar_url': user_avatar,
                 'moments': []
             }
         
@@ -2047,6 +2049,7 @@ def upload_moment(request):
         'id': moment.id,
         'user_id': request.user.id,
         'username': request.user.username,
+        'avatar_url': request.user.profile.avatar.url if (hasattr(request.user, 'profile') and request.user.profile.avatar and request.user.profile.avatar.name) else None,
         'media_url': moment.media.url if moment.media else None,
         'text_content': moment.text_content,
         'caption': moment.caption,

@@ -12,8 +12,8 @@ SDH.Moments = (function() {
     let currentMomentIndex = 0;
     let progressTimer = null;
     let currentAudio = null;
-    let searchTimeout = null;
-    const MOMENT_DURATION = 5000; // 5 seconds per image/text
+    const MOMENT_DURATION = 30000; // 30 seconds standard duration per story/moment
+    let countdownTimer = null;
 
     // Keep track of viewed moments in localStorage
     let viewedMomentsKey = 'sdh_viewed_moments';
@@ -121,12 +121,12 @@ SDH.Moments = (function() {
 
         momentsData.forEach(userGroup => {
             const ringClass = isAllSeenForUser(userGroup) ? 'moment-ring-seen' : 'moment-ring';
-            const avatarUrl = userGroup.moments[0].media_url || `https://ui-avatars.com/api/?name=${userGroup.username}&background=random`;
+            const avatarUrl = userGroup.avatar_url || (userGroup.moments[0] && userGroup.moments[0].moment_type === 'image' ? userGroup.moments[0].media_url : null) || `https://ui-avatars.com/api/?name=${encodeURIComponent(userGroup.username)}&background=6366f1&color=fff`;
             
             const html = `
                 <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0" onclick="SDH.Moments.openViewer(${userGroup.user_id})">
                     <div class="${ringClass} p-[2px] transition-transform hover:scale-105">
-                        <img src="${avatarUrl}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface" />
+                        <img src="${avatarUrl}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(userGroup.username)}&background=6366f1&color=fff';" />
                     </div>
                     <span class="text-[10px] text-white/80 w-full truncate text-center">${userGroup.user_id == window.SDH_DATA.currentUserId ? 'You' : userGroup.username}</span>
                 </div>
@@ -138,8 +138,15 @@ SDH.Moments = (function() {
     function handleNewMomentEvent(moment) {
         let userGroup = momentsData.find(g => g.user_id === moment.user_id);
         if (!userGroup) {
-            userGroup = { user_id: moment.user_id, username: moment.username, moments: [] };
+            userGroup = {
+                user_id: moment.user_id,
+                username: moment.username,
+                avatar_url: moment.avatar_url || null,
+                moments: []
+            };
             momentsData.push(userGroup);
+        } else if (moment.avatar_url && !userGroup.avatar_url) {
+            userGroup.avatar_url = moment.avatar_url;
         }
         
         // Prevent duplicate moments from being added (e.g. from AJAX upload response + WS event)
@@ -253,6 +260,7 @@ SDH.Moments = (function() {
         document.getElementById('momentUploadModal').classList.remove('hidden');
         document.getElementById('muType').value = 'image';
         document.getElementById('muSongFile').value = '';
+        clearMediaSelection();
         clearSpotifySelection();
         setSoundtrackMode('upload');
         toggleUploadFields();
@@ -267,16 +275,92 @@ SDH.Moments = (function() {
         const mediaGroup = document.getElementById('muMediaGroup');
         const textGroup = document.getElementById('muTextGroup');
         const fileInput = document.getElementById('muFile');
+        const durationNotice = document.getElementById('muDurationNotice');
 
         if (type === 'text') {
             mediaGroup.classList.add('hidden');
             textGroup.classList.remove('hidden');
+            clearMediaSelection();
         } else {
             mediaGroup.classList.remove('hidden');
             textGroup.classList.add('hidden');
-            if (type === 'image') fileInput.accept = 'image/*';
-            if (type === 'video') fileInput.accept = 'video/*';
+            if (type === 'image') {
+                fileInput.accept = 'image/*';
+                if (durationNotice) durationNotice.innerText = '⏱️ 30 sec';
+            }
+            if (type === 'video') {
+                fileInput.accept = 'video/*';
+                if (durationNotice) durationNotice.innerText = '⏱️ 30 sec max';
+            }
         }
+    }
+
+    function handleMediaSelection(input) {
+        const file = input && input.files && input.files[0];
+        const previewBox = document.getElementById('muMediaPreviewBox');
+        const img = document.getElementById('muPreviewImg');
+        const vid = document.getElementById('muPreviewVid');
+        const nameEl = document.getElementById('muPreviewFileName');
+        const durationBadge = document.getElementById('muPreviewDurationBadge');
+        const typeBadge = document.getElementById('muPreviewTypeBadge');
+        const infoEl = document.getElementById('muPreviewInfo');
+
+        if (!file) {
+            clearMediaSelection();
+            return;
+        }
+
+        if (nameEl) nameEl.innerText = file.name;
+        if (img) { img.classList.add('hidden'); img.src = ''; }
+        if (vid) { vid.classList.add('hidden'); vid.src = ''; }
+
+        if (file.type.startsWith('video/')) {
+            document.getElementById('muType').value = 'video';
+            if (typeBadge) typeBadge.innerText = 'Video';
+            if (durationBadge) durationBadge.innerText = '⏱️ 30 sec';
+            if (infoEl) infoEl.innerText = 'Analyzing video duration...';
+
+            const videoUrl = URL.createObjectURL(file);
+            if (vid) {
+                vid.src = videoUrl;
+                vid.classList.remove('hidden');
+                vid.onloadedmetadata = function() {
+                    const dur = Math.round(vid.duration) || 0;
+                    if (dur > 30) {
+                        if (durationBadge) durationBadge.innerText = '⏱️ 30 sec (Capped)';
+                        if (infoEl) infoEl.innerText = `Video is ${dur}s — first 30 seconds will play`;
+                    } else {
+                        if (durationBadge) durationBadge.innerText = `⏱️ ${dur}s / 30s`;
+                        if (infoEl) infoEl.innerText = `Video duration: ${dur} sec (within 30s limit)`;
+                    }
+                };
+            }
+            if (previewBox) previewBox.classList.remove('hidden');
+        } else if (file.type.startsWith('image/')) {
+            document.getElementById('muType').value = 'image';
+            if (typeBadge) typeBadge.innerText = 'Photo';
+            if (durationBadge) durationBadge.innerText = '⏱️ 30 sec';
+            if (infoEl) infoEl.innerText = 'Photo will be displayed for 30 seconds';
+            const imgUrl = URL.createObjectURL(file);
+            if (img) {
+                img.src = imgUrl;
+                img.classList.remove('hidden');
+            }
+            if (previewBox) previewBox.classList.remove('hidden');
+        } else {
+            if (previewBox) previewBox.classList.add('hidden');
+        }
+    }
+
+    function clearMediaSelection() {
+        const fileInput = document.getElementById('muFile');
+        if (fileInput) fileInput.value = '';
+        const previewBox = document.getElementById('muMediaPreviewBox');
+        if (previewBox) previewBox.classList.add('hidden');
+        const img = document.getElementById('muPreviewImg');
+        if (img) { img.src = ''; img.classList.add('hidden'); }
+        const vid = document.getElementById('muPreviewVid');
+        if (vid) { vid.src = ''; vid.classList.add('hidden'); }
     }
 
     // ─── SOUNDTRACK UI ────────────────────────────────────────────────────────
@@ -477,6 +561,8 @@ SDH.Moments = (function() {
         document.getElementById('momentsViewerModal').classList.add('hidden');
         document.getElementById('momentsViewerModal').classList.remove('flex');
         clearTimeout(progressTimer);
+        clearInterval(countdownTimer);
+        countdownTimer = null;
         const video = document.getElementById('mvVideo');
         video.pause();
         video.src = '';
@@ -490,8 +576,25 @@ SDH.Moments = (function() {
         renderTray(); // Update seen rings
     }
 
+    function startCountdown(totalMs) {
+        clearInterval(countdownTimer);
+        const countdownEl = document.getElementById('mvCountdownText');
+        let remaining = Math.max(1, Math.round(totalMs / 1000));
+        if (countdownEl) countdownEl.innerText = `${remaining}s`;
+
+        countdownTimer = setInterval(() => {
+            remaining--;
+            if (remaining >= 0) {
+                if (countdownEl) countdownEl.innerText = `${remaining}s`;
+            } else {
+                clearInterval(countdownTimer);
+            }
+        }, 1000);
+    }
+
     function playMoment() {
         clearTimeout(progressTimer);
+        clearInterval(countdownTimer);
         const userGroup = momentsData.find(g => g.user_id === currentUserId);
         if (!userGroup || currentMomentIndex >= userGroup.moments.length) {
             // Reached end for this user, try next user
@@ -502,8 +605,15 @@ SDH.Moments = (function() {
         const moment = userGroup.moments[currentMomentIndex];
 
         // Update Header
-        const avatarUrl = userGroup.moments[0].media_url || `https://ui-avatars.com/api/?name=${userGroup.username}&background=random`;
-        document.getElementById('mvAvatar').src = avatarUrl;
+        const avatarUrl = userGroup.avatar_url || (moment.moment_type === 'image' ? moment.media_url : null) || `https://ui-avatars.com/api/?name=${encodeURIComponent(userGroup.username)}&background=6366f1&color=fff`;
+        const mvAvatarEl = document.getElementById('mvAvatar');
+        if (mvAvatarEl) {
+            mvAvatarEl.src = avatarUrl;
+            mvAvatarEl.onerror = function() {
+                this.onerror = null;
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userGroup.username)}&background=6366f1&color=fff`;
+            };
+        }
         document.getElementById('mvUsername').innerText = userGroup.username;
         document.getElementById('mvTime').innerText = new Date(moment.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
@@ -590,13 +700,12 @@ SDH.Moments = (function() {
             audioUrl = trackInfo.preview_url;
         }
 
-        let audioDuration = MOMENT_DURATION;
+        let audioDuration = MOMENT_DURATION; // Default 30s
 
         if (audioUrl) {
             currentAudio = new Audio(audioUrl);
             currentAudio.play().catch(e => {
                 console.warn('Autoplay prevented:', e);
-                // Could show a "Tap to unmute" button here
             });
             
             stOverlay.classList.remove('hidden');
@@ -610,15 +719,18 @@ SDH.Moments = (function() {
                 document.getElementById('mvSoundtrackArtist').innerText = 'Custom Soundtrack';
             }
             
-            // Limit audio to 15s to keep moments snappy
-            audioDuration = 15000;
+            // Limit audio to 30s to match story standard
+            audioDuration = 30000;
         }
+
+        const displayDuration = audioUrl ? audioDuration : MOMENT_DURATION; // 30,000ms = 30s
 
         if (moment.moment_type === 'image') {
             img.src = moment.media_url;
             img.classList.remove('hidden');
-            if (activeBarFill) activeBarFill.style.animationDuration = `${audioDuration}ms`;
-            progressTimer = setTimeout(nextMoment, audioDuration);
+            if (activeBarFill) activeBarFill.style.animationDuration = `${displayDuration}ms`;
+            startCountdown(displayDuration);
+            progressTimer = setTimeout(nextMoment, displayDuration);
         } else if (moment.moment_type === 'text') {
             if (window.SDH?.Mentions?.format) {
                 txt.innerHTML = window.SDH.Mentions.format(moment.text_content || '');
@@ -627,25 +739,37 @@ SDH.Moments = (function() {
             }
             txt.classList.remove('hidden');
             document.getElementById('mvMediaContainer').style.background = `linear-gradient(135deg, hsl(${Math.random()*360}, 70%, 50%), hsl(${Math.random()*360}, 70%, 30%))`;
-            if (activeBarFill) activeBarFill.style.animationDuration = `${audioDuration}ms`;
-            progressTimer = setTimeout(nextMoment, audioDuration);
+            if (activeBarFill) activeBarFill.style.animationDuration = `${displayDuration}ms`;
+            startCountdown(displayDuration);
+            progressTimer = setTimeout(nextMoment, displayDuration);
         } else if (moment.moment_type === 'video') {
             // Mute video if we have a soundtrack overriding it
             vid.muted = !!audioUrl; 
             
             // Set up handlers before setting src to avoid race conditions
             vid.onloadedmetadata = () => {
-                let duration = (vid.duration * 1000) || MOMENT_DURATION;
+                let duration = Math.min((vid.duration * 1000) || MOMENT_DURATION, 30000); // 30s limit
                 if (audioUrl) duration = audioDuration; // Audio duration takes precedence
                 if (activeBarFill) activeBarFill.style.animationDuration = `${duration}ms`;
                 clearTimeout(progressTimer);
+                startCountdown(duration);
                 progressTimer = setTimeout(nextMoment, duration);
+            };
+
+            vid.ontimeupdate = () => {
+                // Enforce strict 30 second limit on video playback
+                if (!audioUrl && vid.currentTime >= 30.0) {
+                    clearTimeout(progressTimer);
+                    clearInterval(countdownTimer);
+                    nextMoment();
+                }
             };
 
             vid.onended = () => {
                 // If there's no custom soundtrack overriding, go to next moment immediately
                 if (!audioUrl) {
                     clearTimeout(progressTimer);
+                    clearInterval(countdownTimer);
                     nextMoment();
                 }
             };
@@ -653,7 +777,8 @@ SDH.Moments = (function() {
             vid.onerror = () => {
                 console.error("Video failed to load, skipping to next moment.");
                 clearTimeout(progressTimer);
-                progressTimer = setTimeout(nextMoment, MOMENT_DURATION);
+                clearInterval(countdownTimer);
+                progressTimer = setTimeout(nextMoment, 3000);
             };
 
             vid.src = moment.media_url;
@@ -910,6 +1035,8 @@ SDH.Moments = (function() {
         selectAllPrivacyContacts,
         filterPrivacyContacts,
         savePrivacySettings,
+        handleMediaSelection,
+        clearMediaSelection,
         updateUploadPrivacyBadge,
         getPrivacySettings: () => privacySettings
     };

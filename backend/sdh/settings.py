@@ -235,6 +235,12 @@ STATICFILES_DIRS = [BASE_DIR.parent / 'frontend' / 'static']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / 'avatars').mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / 'moments').mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / 'moments' / 'songs').mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / 'files').mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / 'group_files').mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # Cloudinary Configuration (Media/File Storage)

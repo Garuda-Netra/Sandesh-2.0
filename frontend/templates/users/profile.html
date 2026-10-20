@@ -20,14 +20,16 @@
 
     <!-- Avatar row -->
     <div class="flex items-center gap-5">
-      {% if profile.avatar and profile.avatar.name %}
-        <img src="{{ profile.avatar.url }}" alt="Avatar"
-             class="w-16 h-16 rounded-full object-cover border-2 border-divine-gold" />
-      {% else %}
-        <div class="w-16 h-16 rounded-full bg-divine-gold/20 border-2 border-divine-gold/40 flex items-center justify-center text-divine-gold text-2xl font-bold">
-          {{ user.username|slice:":1"|upper }}
-        </div>
-      {% endif %}
+      <div class="relative w-16 h-16 shrink-0">
+        {% if profile.avatar and profile.avatar.name %}
+          <img id="profileAvatarImg" src="{{ profile.avatar.url }}" alt="{{ user.username }} Avatar"
+               class="w-16 h-16 rounded-full object-cover border-2 border-divine-gold shadow-md"
+               onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff';" />
+        {% else %}
+          <img id="profileAvatarImg" src="https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff" alt="{{ user.username }} Avatar"
+               class="w-16 h-16 rounded-full object-cover border-2 border-divine-gold/40 shadow-md" />
+        {% endif %}
+      </div>
       <div>
         <p class="text-divine-text font-semibold text-lg">{{ user.username }}</p>
         <p class="text-divine-muted text-sm">{{ user.email }}</p>
@@ -252,6 +254,20 @@
       confirmBtn.textContent = 'Confirm Account Deletion';
     }
   });
+
+  // Dynamic avatar upload preview
+  const avatarInput = document.querySelector('input[type="file"][name="avatar"]') || document.getElementById('id_avatar');
+  if (avatarInput) {
+    avatarInput.addEventListener('change', function (e) {
+      const file = e.target.files && e.target.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const preview = document.getElementById('profileAvatarImg');
+        if (preview) {
+          preview.src = URL.createObjectURL(file);
+        }
+      }
+    });
+  }
 })();
 
 async function removeAvatar() {
