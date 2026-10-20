@@ -135,13 +135,13 @@ SDH.Moments = (function() {
                 <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0 group" onclick="SDH.Moments.openViewer(${myGroup.user_id})">
                     <div class="relative">
                         <div class="${ringClass} p-[2px] transition-transform group-hover:scale-105">
-                            <img src="${myAvatar}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface" onerror="this.onerror=null; this.src='${getSvgAvatar(window.SDH_DATA?.currentUser || 'You')}';" />
+                            <img src="${myAvatar}" class="w-12 h-12 rounded-full border-2 border-divine-card object-cover bg-slate-100 dark:bg-divine-surface" onerror="this.onerror=null; this.src='${getSvgAvatar(window.SDH_DATA?.currentUser || 'You')}';" />
                         </div>
-                        <button type="button" onclick="event.stopPropagation(); SDH.Moments.showUploadModal();" title="Add another story" class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-divine-gold text-black flex items-center justify-center font-bold text-xs shadow-md border-2 border-divine-surface hover:scale-110 transition-transform">
+                        <button type="button" onclick="event.stopPropagation(); SDH.Moments.showUploadModal();" title="Add another story" class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-divine-gold text-black flex items-center justify-center font-bold text-xs shadow-md border-2 border-divine-card hover:scale-110 transition-transform">
                             +
                         </button>
                     </div>
-                    <span class="text-[10px] text-white/90 font-medium w-full truncate text-center">Your Story</span>
+                    <span class="text-[10px] text-slate-800 dark:text-white/90 font-medium w-full truncate text-center group-hover:text-divine-gold transition-colors">Your Story</span>
                 </div>
             `;
         } else {
@@ -149,13 +149,13 @@ SDH.Moments = (function() {
                 <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0 group" onclick="SDH.Moments.showUploadModal()">
                     <div class="relative">
                         <div class="p-[2px] rounded-full border-2 border-dashed border-divine-gold/60 group-hover:border-divine-gold transition-colors">
-                            <img src="${myAvatar}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface opacity-85 group-hover:opacity-100 transition-opacity" onerror="this.onerror=null; this.src='${getSvgAvatar(window.SDH_DATA?.currentUser || 'You')}';" />
+                            <img src="${myAvatar}" class="w-12 h-12 rounded-full border-2 border-divine-card object-cover bg-slate-100 dark:bg-divine-surface opacity-85 group-hover:opacity-100 transition-opacity" onerror="this.onerror=null; this.src='${getSvgAvatar(window.SDH_DATA?.currentUser || 'You')}';" />
                         </div>
-                        <div class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-divine-gold text-black flex items-center justify-center font-bold text-xs shadow-md border-2 border-divine-surface group-hover:scale-110 transition-transform">
+                        <div class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-divine-gold text-black flex items-center justify-center font-bold text-xs shadow-md border-2 border-divine-card group-hover:scale-110 transition-transform">
                             +
                         </div>
                     </div>
-                    <span class="text-[10px] text-divine-muted group-hover:text-divine-gold font-medium w-full truncate text-center">Add Story</span>
+                    <span class="text-[10px] text-slate-600 dark:text-divine-muted group-hover:text-divine-gold font-medium w-full truncate text-center transition-colors">Add Story</span>
                 </div>
             `;
         }
@@ -178,9 +178,9 @@ SDH.Moments = (function() {
             friendsHtml += `
                 <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0 group" onclick="SDH.Moments.openViewer(${userGroup.user_id})">
                     <div class="${ringClass} p-[2px] transition-transform group-hover:scale-105">
-                        <img src="${avatarUrl}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface" onerror="this.onerror=null; this.src='${defaultAvatar}';" />
+                        <img src="${avatarUrl}" class="w-12 h-12 rounded-full border-2 border-divine-card object-cover bg-slate-100 dark:bg-divine-surface" onerror="this.onerror=null; this.src='${defaultAvatar}';" />
                     </div>
-                    <span class="text-[10px] text-white/80 w-full truncate text-center group-hover:text-white transition-colors">${userGroup.username}</span>
+                    <span class="text-[10px] text-slate-800 dark:text-white/80 w-full truncate text-center group-hover:text-divine-gold transition-colors">${userGroup.username}</span>
                 </div>
             `;
         });
@@ -783,14 +783,36 @@ SDH.Moments = (function() {
 
         if (moment.moment_type === 'image') {
             if (mediaContainer) mediaContainer.style.background = '';
-            img.onerror = function() {
-                console.error("Failed to load moment image:", moment.media_url);
-                this.classList.add('hidden');
+            if (!moment.media_url) {
+                img.classList.add('hidden');
                 const errCard = document.getElementById('mvImageErrorCard');
-                if (errCard) errCard.classList.remove('hidden');
-            };
-            img.src = moment.media_url;
-            img.classList.remove('hidden');
+                if (errCard) {
+                    errCard.classList.remove('hidden');
+                    const errDesc = errCard.querySelector('p.text-xs');
+                    if (errDesc) {
+                        errDesc.textContent = isMine
+                            ? 'Your story media expired or server container restarted. Tap + to upload a fresh story.'
+                            : 'This story image is temporarily unavailable.';
+                    }
+                }
+            } else {
+                img.onerror = function() {
+                    console.error("Failed to load moment image:", moment.media_url);
+                    this.classList.add('hidden');
+                    const errCard = document.getElementById('mvImageErrorCard');
+                    if (errCard) {
+                        errCard.classList.remove('hidden');
+                        const errDesc = errCard.querySelector('p.text-xs');
+                        if (errDesc) {
+                            errDesc.textContent = isMine
+                                ? 'Your story media expired or server container restarted. Tap + to upload a fresh story.'
+                                : 'Could not load this story image.';
+                        }
+                    }
+                };
+                img.src = moment.media_url;
+                img.classList.remove('hidden');
+            }
             if (activeBarFill) activeBarFill.style.animationDuration = `${displayDuration}ms`;
             startCountdown(displayDuration);
             progressTimer = setTimeout(nextMoment, displayDuration);

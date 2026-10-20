@@ -1843,9 +1843,24 @@ def get_moments(request):
                 'moments': []
             }
         
+        media_url = None
+        if m.media and hasattr(m.media, 'name') and m.media.name:
+            try:
+                if hasattr(m.media, 'path'):
+                    import os
+                    if os.path.exists(m.media.path):
+                        media_url = m.media.url
+                else:
+                    media_url = m.media.url
+            except Exception:
+                try:
+                    media_url = m.media.url
+                except Exception:
+                    media_url = None
+
         moment_data = {
             'id': m.id,
-            'media_url': m.media.url if m.media else None,
+            'media_url': media_url,
             'text_content': m.text_content,
             'caption': m.caption,
             'moment_type': m.moment_type,

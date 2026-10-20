@@ -254,6 +254,20 @@ _CLOUDINARY_CLOUD_NAME = config('CLOUDINARY_CLOUD_NAME', default='')
 _CLOUDINARY_API_KEY = config('CLOUDINARY_API_KEY', default='')
 _CLOUDINARY_API_SECRET = config('CLOUDINARY_API_SECRET', default='')
 
+_CLOUDINARY_URL = config('CLOUDINARY_URL', default='')
+if _CLOUDINARY_URL and not (_CLOUDINARY_CLOUD_NAME and _CLOUDINARY_API_KEY and _CLOUDINARY_API_SECRET):
+    import urllib.parse
+    try:
+        parsed_c = urllib.parse.urlparse(_CLOUDINARY_URL)
+        if parsed_c.hostname:
+            _CLOUDINARY_CLOUD_NAME = parsed_c.hostname
+        if parsed_c.username:
+            _CLOUDINARY_API_KEY = parsed_c.username
+        if parsed_c.password:
+            _CLOUDINARY_API_SECRET = parsed_c.password
+    except Exception:
+        pass
+
 if _CLOUDINARY_CLOUD_NAME and _CLOUDINARY_API_KEY and _CLOUDINARY_API_SECRET:
     # Production: use Cloudinary for user-uploaded files
     CLOUDINARY_STORAGE = {
@@ -272,7 +286,7 @@ if _CLOUDINARY_CLOUD_NAME and _CLOUDINARY_API_KEY and _CLOUDINARY_API_SECRET:
         },
     }
 else:
-    # Local development: use filesystem storage
+    # Local development or fallback when Cloudinary is not configured: use filesystem storage
     STORAGES = {
         'default': {
             'BACKEND': 'django.core.files.storage.FileSystemStorage',

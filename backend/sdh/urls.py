@@ -24,7 +24,12 @@ def sdh_serve_media(request, path, document_root=None, show_indexes=False):
         return res
 
     root_str = str(document_root) if document_root else None
-    response = serve(request, path, document_root=root_str, show_indexes=show_indexes)
+    try:
+        response = serve(request, path, document_root=root_str, show_indexes=show_indexes)
+    except Exception:
+        from django.http import HttpResponseNotFound
+        response = HttpResponseNotFound("Media file not found or expired.")
+
     response['Access-Control-Allow-Origin'] = '*'
     response['Access-Control-Allow-Methods'] = 'GET, HEAD, OPTIONS'
     response['Access-Control-Allow-Headers'] = '*'

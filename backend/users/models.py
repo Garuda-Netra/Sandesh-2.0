@@ -39,6 +39,13 @@ class UserProfile(models.Model):
         """
         if self.avatar and hasattr(self.avatar, 'name') and self.avatar.name:
             try:
+                # If using local filesystem storage, verify that file actually exists on disk.
+                # If the disk was wiped (e.g. Render restart/deploy), return None so UI
+                # falls back cleanly instead of breaking and 404ing.
+                if hasattr(self.avatar, 'path'):
+                    import os
+                    if not os.path.exists(self.avatar.path):
+                        return None
                 url = self.avatar.url
                 if url:
                     if url.startswith('http://res.cloudinary.com'):
