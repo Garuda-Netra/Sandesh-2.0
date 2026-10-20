@@ -2,7 +2,7 @@
 
 > *"True communication isn't just about sending packets across a wire - it's about trust, privacy, and genuine human connection."*
 
-**Crafted with care & passion by Raj** • [GitHub Repository](https://github.com/Garuda-Netra/Sandesh-2.0)
+**Crafted with care & passion by Prince Kumar** • [GitHub Repository](https://github.com/Garuda-Netra/Sandesh-2.0)
 
 ---
 
