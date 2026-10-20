@@ -30,6 +30,8 @@ urlpatterns = [
 
     # API endpoints
     path('api/profile/<str:username>/', views.user_profile_api, name='user_profile_api'),
+    path('api/update-profile/', views.update_profile_api, name='update_profile_api'),
+    path('api/update-avatar/', views.update_avatar_api, name='update_avatar_api'),
     path('api/remove-avatar/', views.remove_avatar_view, name='remove_avatar'),
     path('api/report-bug/', views.report_bug_view, name='report_bug'),
     path('api/users/', views.user_list, name='user_list'),

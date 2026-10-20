@@ -31,12 +31,30 @@ class UserProfile(models.Model):
         blank=True
     )
 
+    # Durable Cloudinary / external storage fields
+    profile_image_url = models.URLField(
+        max_length=500,
+        blank=True,
+        default='',
+        help_text="Durable permanent HTTPS URL for user's profile avatar"
+    )
+    avatar_public_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text="Cloudinary public ID for managing and deleting previous avatars"
+    )
+
     @property
     def avatar_url(self):
         """
-        Safely returns a secure (HTTPS) URL for the user's avatar.
+        Safely returns a permanent, secure (HTTPS) URL for the user's avatar.
+        Prioritizes durable profile_image_url (Cloudinary). Falls back to avatar ImageField.
         Returns None if avatar is not set or inaccessible.
         """
+        if self.profile_image_url:
+            return self.profile_image_url
+
         if self.avatar and hasattr(self.avatar, 'name') and self.avatar.name:
             try:
                 # If using local filesystem storage, verify that file actually exists on disk.
@@ -260,9 +278,18 @@ class UserSession(models.Model):
 
 @receiver(post_delete, sender=UserProfile)
 def auto_delete_userprofile_avatar_on_delete(sender, instance, **kwargs):
-    """Deletes the avatar file from storage when the UserProfile is deleted."""
+    """Deletes the avatar file from Cloudinary and local storage when the UserProfile is deleted."""
+    if instance.avatar_public_id:
+        try:
+            import cloudinary.uploader
+            cloudinary.uploader.destroy(instance.avatar_public_id)
+        except Exception:
+            pass
     if instance.avatar:
-        instance.avatar.delete(save=False)
+        try:
+            instance.avatar.delete(save=False)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------

@@ -107,18 +107,28 @@
         </div>
 
         <!-- Selected image chip (shown when file is picked, before saving) -->
-        <div id="selectedImageChip" class="hidden mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 animate-fade-in">
+        <div id="selectedImageChip" class="hidden mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 animate-fade-in flex-wrap">
           <div class="flex items-center gap-3 min-w-0">
             <span class="text-lg">🖼️</span>
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <p id="selectedFileName" class="text-xs font-bold text-divine-text truncate"></p>
-                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 shrink-0">Ready to save</span>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 shrink-0">Ready</span>
               </div>
               <p id="selectedFileSize" class="text-[10px] text-divine-muted mt-0.5"></p>
             </div>
           </div>
-          <button type="button" onclick="clearSelectedAvatarFile()" class="text-xs text-red-400 hover:text-red-300 font-semibold px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors" title="Cancel selection">✕ Cancel</button>
+          <div class="flex items-center gap-2">
+            <button type="button" id="chipUploadBtn" onclick="uploadAvatarDirectly()"
+                    class="sdh-liquid-btn btn-ancient !py-1.5 !px-3.5 text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow-md transition-all">
+              <span>🚀 Upload Now</span>
+            </button>
+            <button type="button" onclick="clearSelectedAvatarFile()"
+                    class="text-xs text-red-400 hover:text-red-300 font-semibold px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors"
+                    title="Cancel selection">
+              ✕ Cancel
+            </button>
+          </div>
         </div>
 
         <!-- Live Upload Progress Card -->
@@ -144,6 +154,33 @@
           </p>
         </div>
 
+      </div>
+
+      <!-- Name & Phone Fields -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-semibold text-divine-text mb-2">First Name</label>
+          {{ form.first_name }}
+          {% if form.first_name.errors %}
+          <p class="text-xs text-red-400 mt-1">{{ form.first_name.errors.0 }}</p>
+          {% endif %}
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-divine-text mb-2">Last Name</label>
+          {{ form.last_name }}
+          {% if form.last_name.errors %}
+          <p class="text-xs text-red-400 mt-1">{{ form.last_name.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-divine-text mb-2">Phone Number</label>
+        {{ form.phone_number }}
+        {% if form.phone_number.errors %}
+        <p class="text-xs text-red-400 mt-1">{{ form.phone_number.errors.0 }}</p>
+        {% endif %}
+        <p class="text-[11px] text-divine-muted mt-1.5">Phone number with country code (e.g. +91 9876543210).</p>
       </div>
 
       <!-- Bio / About Section -->
@@ -469,6 +506,154 @@
         chip.classList.remove('hidden');
       }
     });
+  }
+
+  // Dedicated direct avatar uploader with Cloudinary persistence & live progress
+  window.uploadAvatarDirectly = function () {
+    const file = avatarInput && avatarInput.files && avatarInput.files[0];
+    if (!file) {
+      showFormAlert('Please select an image file first.', 'error');
+      return;
+    }
+
+    hideFormAlert();
+    const chipBtn = document.getElementById('chipUploadBtn');
+    if (chipBtn) {
+      chipBtn.disabled = true;
+      chipBtn.innerHTML = `<span>⏳ Uploading...</span>`;
+    }
+
+    if (progressCard) {
+      progressCard.classList.remove('hidden');
+      if (progressBar) progressBar.style.width = '0%';
+      if (progressPercent) progressPercent.textContent = '0%';
+      if (progressStep) progressStep.textContent = 'Uploading to Cloudinary...';
+    }
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '{% url "users:update_avatar_api" %}', true);
+    xhr.setRequestHeader('X-CSRFToken', csrfToken);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    if (xhr.upload) {
+      xhr.upload.onprogress = function (event) {
+        if (event.lengthComputable) {
+          const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+          if (progressBar) progressBar.style.width = percent + '%';
+          if (progressPercent) progressPercent.textContent = percent + '%';
+          if (percent >= 85 && progressStep) {
+            progressStep.textContent = 'Optimizing and securing photo on Cloudinary...';
+          }
+        }
+      };
+    }
+
+    xhr.onload = function () {
+      if (progressBar) progressBar.style.width = '100%';
+      if (progressPercent) progressPercent.textContent = '100%';
+
+      let resData = null;
+      try {
+        resData = JSON.parse(xhr.responseText);
+      } catch (_) {}
+
+      if (xhr.status >= 200 && xhr.status < 300 && resData && resData.status === 'ok') {
+        const freshUrl = (resData.avatar_url || '') + ((resData.avatar_url && resData.avatar_url.includes('?')) ? '&' : '?') + 't=' + Date.now();
+
+        // Update preview image immediately
+        if (previewImg && resData.avatar_url) {
+          previewImg.dataset.hasFailed = '';
+          previewImg.onerror = function () { window.onAvatarImgError(this); };
+          previewImg.src = freshUrl;
+        }
+
+        // Update top navbar and dropdown avatars across layout
+        const navImg = document.getElementById('userNavbarAvatarImg');
+        const navInit = document.getElementById('userNavbarAvatarInitial');
+        if (navImg) {
+          navImg.src = freshUrl;
+          navImg.style.display = 'block';
+          if (navInit) navInit.style.display = 'none';
+        }
+        const dropImg = document.getElementById('userDropdownAvatarImg');
+        const dropInit = document.getElementById('userDropdownAvatarInitial');
+        if (dropImg) {
+          dropImg.src = freshUrl;
+          dropImg.style.display = 'block';
+          if (dropInit) dropInit.style.display = 'none';
+        }
+
+        // Reveal Remove Avatar button
+        const removeBtn = document.getElementById('removeAvatarBtn');
+        if (removeBtn) removeBtn.classList.remove('hidden');
+
+        // Update status badge to Custom Photo Active
+        const statusBadge = document.getElementById('avatarStatusBadge');
+        if (statusBadge) {
+          statusBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+          statusBadge.textContent = 'Custom Photo Active';
+        }
+
+        showFormAlert(resData.message || 'Profile picture uploaded and saved permanently! ✨', 'success');
+
+        // Clear file input & chip
+        if (avatarInput) avatarInput.value = '';
+        if (chip) chip.classList.add('hidden');
+
+        setTimeout(() => {
+          if (progressCard) progressCard.classList.add('hidden');
+        }, 1200);
+
+      } else {
+        const msg = (resData && (resData.message || resData.error)) || 'Failed to upload profile picture. Please try again.';
+        showFormAlert(msg, 'error');
+        if (progressCard) progressCard.classList.add('hidden');
+      }
+
+      if (chipBtn) {
+        chipBtn.disabled = false;
+        chipBtn.innerHTML = `<span>🚀 Upload Now</span>`;
+      }
+    };
+
+    xhr.onerror = function () {
+      showFormAlert('Network error occurred during upload. Please check your internet connection.', 'error');
+      if (progressCard) progressCard.classList.add('hidden');
+      if (chipBtn) {
+        chipBtn.disabled = false;
+        chipBtn.innerHTML = `<span>🚀 Upload Now</span>`;
+      }
+    };
+
+    xhr.send(formData);
+  };
+
+  // Fetch and display latest avatar from server
+  window.fetchLatestAvatar = async function () {
+    try {
+      const resp = await fetch('{% url "users:update_avatar_api" %}', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.avatar_url && previewImg) {
+          previewImg.dataset.hasFailed = '';
+          const fresh = data.avatar_url + (data.avatar_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+          previewImg.src = fresh;
+        }
+      }
+    } catch (_) {}
+  };
+
+  // Sync avatar on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', window.fetchLatestAvatar);
+  } else {
+    window.fetchLatestAvatar();
   }
 
   // Handle Form Submit with live upload progress

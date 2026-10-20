@@ -137,23 +137,96 @@ class SDHLoginForm(AuthenticationForm):
 
 class ProfileUpdateForm(forms.ModelForm):
     """
-    Form for updating the UserProfile bio and avatar.
+    Comprehensive, durable profile update form.
+    Handles:
+    - UserProfile bio
+    - UserProfile phone_number (optional, validated & formatted with country code)
+    - User first_name and last_name (optional)
+    - Avatar file upload (validated for image types, size <= 5MB, malicious payloads)
+    - Durable persistence to Cloudinary with automatic deletion of previous avatars.
     """
+    first_name = forms.CharField(
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'sdh-input',
+            'placeholder': 'First name',
+            'autocomplete': 'given-name',
+        })
+    )
+
+    last_name = forms.CharField(
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'sdh-input',
+            'placeholder': 'Last name',
+            'autocomplete': 'family-name',
+        })
+    )
+
+    phone_number = forms.CharField(
+        max_length=25,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'sdh-input',
+            'placeholder': 'Phone number (e.g. +91 9876543210)',
+            'autocomplete': 'tel',
+        })
+    )
+
+    avatar = forms.FileField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'hidden',
+            'accept': 'image/jpeg,image/png,image/webp,image/gif',
+            'id': 'id_avatar',
+        })
+    )
+
     class Meta:
         model = UserProfile
-        fields = ('bio', 'avatar')
+        fields = ('bio',)
         widgets = {
             'bio': forms.TextInput(attrs={
                 'class': 'sdh-input',
                 'placeholder': 'Short bio',
                 'maxlength': 200,
             }),
-            'avatar': forms.FileInput(attrs={
-                'class': 'hidden',
-                'accept': 'image/jpeg,image/png,image/webp,image/gif',
-                'id': 'id_avatar',
-            }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            if hasattr(self.instance, 'user') and self.instance.user:
+                self.fields['first_name'].initial = self.instance.user.first_name
+                self.fields['last_name'].initial = self.instance.user.last_name
+            self.fields['phone_number'].initial = self.instance.phone_number
+
+    def clean_phone_number(self):
+        import phonenumbers
+        phone = self.cleaned_data.get('phone_number', '').strip()
+        if not phone:
+            return None
+
+        try:
+            if phone.isdigit() and len(phone) == 10:
+                parsed = phonenumbers.parse(f"+91{phone}")
+            else:
+                parsed = phonenumbers.parse(phone, 'IN')
+
+            if not phonenumbers.is_valid_number(parsed):
+                raise forms.ValidationError("Invalid phone number format.")
+
+            formatted = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+            qs = UserProfile.objects.filter(phone_number=formatted)
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError("This phone number is already registered to another account.")
+            return formatted
+        except phonenumbers.NumberParseException:
+            raise forms.ValidationError("Invalid phone number. Include country code if outside India.")
 
     def clean_avatar(self):
         avatar = self.cleaned_data.get('avatar')
@@ -166,3 +239,38 @@ class ProfileUpdateForm(forms.ModelForm):
             except Exception as exc:
                 raise forms.ValidationError(str(exc))
         return avatar
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        user = profile.user
+
+        # Update User first/last name
+        first_name = self.cleaned_data.get('first_name')
+        last_name = self.cleaned_data.get('last_name')
+        user_changed = False
+        if first_name is not None and user.first_name != first_name:
+            user.first_name = first_name
+            user_changed = True
+        if last_name is not None and user.last_name != last_name:
+            user.last_name = last_name
+            user_changed = True
+        if user_changed and commit:
+            user.save(update_fields=['first_name', 'last_name'])
+
+        # Update phone number if provided or modified
+        if 'phone_number' in self.cleaned_data:
+            profile.phone_number = self.cleaned_data.get('phone_number')
+
+        if commit:
+            profile.save()
+
+        # Handle avatar upload durably via avatar_service
+        avatar_file = self.cleaned_data.get('avatar')
+        if avatar_file and hasattr(avatar_file, 'read') and hasattr(avatar_file, 'size') and avatar_file.size > 0:
+            from .avatar_service import upload_avatar
+            avatar_url, err = upload_avatar(user, avatar_file)
+            if err:
+                raise forms.ValidationError(err)
+            profile.refresh_from_db()
+
+        return profile

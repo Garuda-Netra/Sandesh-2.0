@@ -310,8 +310,8 @@ def chat_view(request):
         if not is_blocked:
             try:
                 profile = u.profile
-                if profile.avatar and profile.avatar.name:
-                    avatar_url = profile.avatar.url
+                if profile.avatar_url:
+                    avatar_url = profile.avatar_url
             except Exception:
                 pass
 
@@ -1917,7 +1917,7 @@ def moment_privacy_settings(request):
             blocked, _ = _is_chat_blocked(request.user, friend)
             if blocked:
                 continue
-            avatar_url = friend.profile.avatar.url if hasattr(friend, 'profile') and friend.profile.avatar else f"https://ui-avatars.com/api/?name={friend.username}&background=random"
+            avatar_url = friend.profile.avatar_url if hasattr(friend, 'profile') and friend.profile.avatar_url else f"https://ui-avatars.com/api/?name={friend.username}&background=random"
             full_name = f"{friend.first_name} {friend.last_name}".strip() or friend.username
             friends_list.append({
                 'id': friend.id,
@@ -2202,7 +2202,7 @@ def view_moment(request, moment_id):
                         'viewer': {
                             'id': request.user.id,
                             'username': request.user.username,
-                            'avatar': request.user.profile.avatar.url if hasattr(request.user, 'profile') and request.user.profile.avatar else f"https://ui-avatars.com/api/?name={request.user.username}&background=random"
+                            'avatar': request.user.profile.avatar_url if hasattr(request.user, 'profile') and request.user.profile.avatar_url else f"https://ui-avatars.com/api/?name={request.user.username}&background=random"
                         }
                     }
                 )
@@ -2235,7 +2235,7 @@ def react_moment(request, moment_id):
     # Update or add reaction for this user
     user_id = request.user.id
     username = request.user.username
-    avatar = request.user.profile.avatar.url if hasattr(request.user, 'profile') and request.user.profile.avatar else f"https://ui-avatars.com/api/?name={username}&background=random"
+    avatar = request.user.profile.avatar_url if hasattr(request.user, 'profile') and request.user.profile.avatar_url else f"https://ui-avatars.com/api/?name={username}&background=random"
     
     # Remove existing reaction by this user if any (user can only have one active reaction per moment)
     reactions = [r for r in reactions if r.get('user_id') != user_id]
@@ -2476,7 +2476,7 @@ def group_message_reads(request, message_id):
         readers.append({
             'username': r.user.username,
             'read_at': r.read_at.isoformat(),
-            'avatar_url': r.user.profile.avatar.url if hasattr(r.user, 'profile') and r.user.profile.avatar else '',
+            'avatar_url': r.user.profile.avatar_url if hasattr(r.user, 'profile') and r.user.profile.avatar_url else '',
         })
 
     from .models import GroupMessageDelivery
@@ -2486,7 +2486,7 @@ def group_message_reads(request, message_id):
         delivered_to.append({
             'username': d.user.username,
             'delivered_at': d.delivered_at.isoformat(),
-            'avatar_url': d.user.profile.avatar.url if hasattr(d.user, 'profile') and d.user.profile.avatar else '',
+            'avatar_url': d.user.profile.avatar_url if hasattr(d.user, 'profile') and d.user.profile.avatar_url else '',
         })
         
     return JsonResponse({'readers': readers, 'delivered_to': delivered_to})
@@ -3060,7 +3060,7 @@ def _serialize_group(group, user):
             'role': m.role,
             'state': 'joined',
             'joined_at': m.joined_at.isoformat(),
-            'avatar_url': m.user.profile.avatar.url if hasattr(m.user, 'profile') and m.user.profile.avatar else '',
+            'avatar_url': m.user.profile.avatar_url if hasattr(m.user, 'profile') and m.user.profile.avatar_url else '',
             'is_online': m.user.profile.is_online if hasattr(m.user, 'profile') else False,
             'last_seen': m.user.profile.last_seen.isoformat() if hasattr(m.user, 'profile') and m.user.profile.last_seen else None,
         }
@@ -3078,7 +3078,7 @@ def _serialize_group(group, user):
             'role': 'invited',
             'state': 'invited',
             'joined_at': inv.created_at.isoformat(),
-            'avatar_url': invitee.profile.avatar.url if hasattr(invitee, 'profile') and invitee.profile.avatar else '',
+            'avatar_url': invitee.profile.avatar_url if hasattr(invitee, 'profile') and invitee.profile.avatar_url else '',
             'is_online': invitee.profile.is_online if hasattr(invitee, 'profile') else False,
             'last_seen': invitee.profile.last_seen.isoformat() if hasattr(invitee, 'profile') and invitee.profile.last_seen else None,
         })
@@ -4137,8 +4137,8 @@ def starred_messages_api(request):
         sender = m.sender
         sender_name = sender.username if sender else 'System'
         avatar_url = ''
-        if sender and hasattr(sender, 'profile') and sender.profile.avatar:
-            avatar_url = sender.profile.avatar.url
+        if sender and hasattr(sender, 'profile') and sender.profile.avatar_url:
+            avatar_url = sender.profile.avatar_url
 
         # Check if deleted
         if getattr(m, 'is_deleted_for_all', False) or getattr(m, 'message', '') == 'This message has been deleted.':

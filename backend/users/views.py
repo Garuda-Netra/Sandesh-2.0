@@ -933,7 +933,7 @@ def search_users(request):
         try:
             profile    = u.profile
             is_online  = profile.is_online if not is_blocked else False
-            avatar_url = profile.avatar.url if profile.avatar and not is_blocked else None
+            avatar_url = profile.avatar_url if not is_blocked else None
             last_seen  = (
                 profile.last_seen.strftime('%b ') + str(profile.last_seen.day)
                 if (not is_online and profile.last_seen and not is_blocked)
@@ -1178,7 +1178,7 @@ def friend_requests_view(request):
     for fr in incoming_qs:
         u = fr.from_user.user
         p = fr.from_user
-        avatar_url = p.avatar.url if (p.avatar and p.avatar.name) else None
+        avatar_url = p.avatar_url
         incoming.append({
             'id': fr.id,
             'user_id': u.id,
@@ -1288,15 +1288,27 @@ def profile_view(request):
             'application/json' in request.headers.get('Accept', '')
         )
         if form.is_valid():
-            form.save()
+            try:
+                form.save()
+            except Exception as save_err:
+                err_msg = str(save_err)
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': err_msg}, status=400)
+                messages.error(request, err_msg)
+                return render(request, 'users/profile.html', {'form': form, 'profile': profile})
+
             profile.refresh_from_db()
-            avatar_url = profile.avatar_url or (profile.avatar.url if profile.avatar else '')
+            avatar_url = profile.avatar_url or ''
             if is_ajax:
                 return JsonResponse({
                     'status': 'ok',
                     'message': 'Profile updated successfully!',
                     'avatar_url': avatar_url,
-                    'bio': profile.bio
+                    'profile_image_url': profile.profile_image_url,
+                    'bio': profile.bio,
+                    'phone_number': profile.phone_number or '',
+                    'first_name': request.user.first_name,
+                    'last_name': request.user.last_name,
                 })
             messages.success(request, 'Profile updated successfully.')
             return redirect('users:profile')
@@ -1319,19 +1331,128 @@ def profile_view(request):
 
 
 # ---------------------------------------------------------------------------
-# API: Fetch Target User Profile and Bio
+# APIs: Update Profile, Update Avatar, Remove Avatar
 # ---------------------------------------------------------------------------
+@login_required
+def update_profile_api(request):
+    """
+    GET/POST /users/api/update-profile/
+    GET: Returns current user profile details, including durable avatar_url.
+    POST: Updates user profile info (names, phone, bio, avatar) with durable storage.
+    """
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'status': 'ok',
+            'user': {
+                'id': request.user.id,
+                'username': request.user.username,
+                'email': request.user.email,
+                'first_name': request.user.first_name,
+                'last_name': request.user.last_name,
+                'display_name': profile.display_name,
+                'bio': profile.bio,
+                'phone_number': profile.phone_number or '',
+                'avatar_url': profile.avatar_url or '',
+                'profile_image_url': profile.profile_image_url or '',
+            }
+        })
+
+    if request.content_type == 'application/json':
+        try:
+            import json
+            data = json.loads(request.body)
+            form = ProfileUpdateForm(data, instance=profile)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Invalid JSON: {e}'}, status=400)
+    else:
+        form = ProfileUpdateForm(request.POST, request.FILES, instance=profile)
+
+    if form.is_valid():
+        try:
+            form.save()
+        except Exception as save_err:
+            return JsonResponse({'status': 'error', 'message': str(save_err)}, status=400)
+
+        profile.refresh_from_db()
+        return JsonResponse({
+            'status': 'ok',
+            'message': 'Profile updated successfully!',
+            'avatar_url': profile.avatar_url or '',
+            'profile_image_url': profile.profile_image_url,
+            'bio': profile.bio,
+            'phone_number': profile.phone_number or '',
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'user': {
+                'username': request.user.username,
+                'email': request.user.email,
+                'display_name': profile.display_name,
+                'bio': profile.bio,
+                'phone_number': profile.phone_number or '',
+                'avatar_url': profile.avatar_url or '',
+                'profile_image_url': profile.profile_image_url,
+            }
+        })
+    else:
+        errors_dict = {field: [str(e) for e in errs] for field, errs in form.errors.items()}
+        err_msg = ' '.join(f"{k}: {', '.join(v)}" for k, v in errors_dict.items()) or 'Validation error.'
+        return JsonResponse({'status': 'error', 'errors': errors_dict, 'message': err_msg}, status=400)
+
+
+@login_required
+def update_avatar_api(request):
+    """
+    GET/POST /users/api/update-avatar/
+    GET: Fetches current user avatar details.
+    POST: Dedicated API endpoint for uploading and updating profile avatar.
+    Durably stores image on Cloudinary, purges previous avatar, and sets profile_image_url.
+    """
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'status': 'ok',
+            'avatar_url': profile.avatar_url or '',
+            'profile_image_url': profile.profile_image_url or ''
+        })
+
+    avatar_file = request.FILES.get('avatar')
+    if not avatar_file:
+        return JsonResponse({'status': 'error', 'message': 'No image file uploaded.'}, status=400)
+
+    from .avatar_service import upload_avatar
+    avatar_url, err = upload_avatar(request.user, avatar_file)
+    if err:
+        return JsonResponse({'status': 'error', 'message': err}, status=400)
+
+    profile.refresh_from_db()
+    return JsonResponse({
+        'status': 'ok',
+        'message': 'Profile photo updated successfully!',
+        'avatar_url': profile.avatar_url or avatar_url,
+        'profile_image_url': profile.profile_image_url
+    })
+
+
 @login_required
 @require_POST
 @csrf_protect
 def remove_avatar_view(request):
-    try:
-        profile = request.user.profile
-        if profile.avatar:
-            profile.avatar.delete(save=True)
-        return JsonResponse({'status': 'ok'})
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+    """
+    POST /users/api/remove-avatar/
+    Removes user avatar, destroying Cloudinary asset and cleaning DB fields.
+    """
+    from .avatar_service import remove_avatar
+    success, err = remove_avatar(request.user)
+    if not success:
+        return JsonResponse({'status': 'error', 'message': err or 'Failed to remove avatar.'}, status=400)
+    return JsonResponse({
+        'status': 'ok',
+        'message': 'Profile picture removed successfully.',
+        'avatar_url': None
+    })
 
 from django.core.mail import EmailMessage
 from django.core.cache import cache
@@ -1431,7 +1552,7 @@ def user_profile_api(request, username):
             'date_joined': None,
         })
 
-    avatar_url = target_profile.avatar.url if target_profile.avatar else None
+    avatar_url = target_profile.avatar_url
 
     fr = None
     has_pending_request = False
@@ -1709,7 +1830,7 @@ def blocked_contacts_api(request):
     blocked = my_profile.blocked_users.select_related('user').all()
     contacts = []
     for p in blocked:
-        avatar_url = p.avatar.url if p.avatar and p.avatar.name else ''
+        avatar_url = p.avatar_url or ''
         contacts.append({
             'user_id': p.user.id,
             'username': p.user.username,
@@ -1833,7 +1954,20 @@ def health_check_view(request):
     """
     Lightweight health-check endpoint for uptime monitors and keep-alive pingers.
     Prevents Render free tier from sleeping without loading templates or DB queries.
+    Also executes a throttled periodic background maintenance sweep to purge orphaned avatars.
     """
+    # Throttled scheduled avatar cleanup (runs at most once every 24 hours in background)
+    try:
+        from django.core.cache import cache
+        import threading
+        cleanup_lock_key = 'daily_avatar_cleanup_last_run'
+        if not cache.get(cleanup_lock_key):
+            cache.set(cleanup_lock_key, timezone.now().isoformat(), timeout=86400)
+            from .avatar_service import cleanup_all_orphaned_avatars
+            threading.Thread(target=cleanup_all_orphaned_avatars, daemon=True).start()
+    except Exception:
+        pass
+
     return JsonResponse({
         'status': 'healthy',
         'service': 'Sandesh 2.0',

@@ -1360,9 +1360,9 @@
     <!-- Sidebar footer: current user -->
     <a href="{% url 'users:profile' %}" class="sdh-user-footer flex items-center gap-3 px-4 py-3.5 flex-shrink-0 hover:bg-divine-surface/50 transition-colors cursor-pointer group" title="View & Edit Profile">
       <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-divine-gold/40 shadow-sm" id="sidebarUserAvatarWrap">
-        {% if current_user.profile.avatar_url or current_user.profile.avatar and current_user.profile.avatar.name %}
+        {% if current_user.profile.avatar_url %}
         <img id="sidebarUserAvatarImg"
-             src="{% if current_user.profile.avatar_url %}{{ current_user.profile.avatar_url }}{% else %}{{ current_user.profile.avatar.url }}{% endif %}"
+             src="{{ current_user.profile.avatar_url }}"
              alt="{{ current_user.username }}"
              class="w-full h-full object-cover rounded-full"
              onerror="this.style.display='none'; document.getElementById('sidebarUserAvatarInitial').style.display='flex';" />
