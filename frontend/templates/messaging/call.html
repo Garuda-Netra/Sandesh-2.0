@@ -84,9 +84,14 @@
                 data-username="{{ item.user.username }}">
 
           <div class="relative flex-shrink-0">
-            {% if item.user.profile.avatar %}
+            {% if item.user.profile.avatar_url %}
+            <img src="{{ item.user.profile.avatar_url }}" alt="{{ item.user.username }}"
+                 class="w-10 h-10 rounded-full object-cover border border-divine-border"
+                 onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'w-10 h-10 rounded-full bg-divine-gold/15 border border-divine-border flex items-center justify-center text-divine-gold text-sm font-semibold', textContent: '{{ item.user.username|escapejs }}'[0].toUpperCase()}))" />
+            {% elif item.user.profile.avatar %}
             <img src="{{ item.user.profile.avatar.url }}" alt="{{ item.user.username }}"
-                 class="w-10 h-10 rounded-full object-cover border border-divine-border" />
+                 class="w-10 h-10 rounded-full object-cover border border-divine-border"
+                 onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'w-10 h-10 rounded-full bg-divine-gold/15 border border-divine-border flex items-center justify-center text-divine-gold text-sm font-semibold', textContent: '{{ item.user.username|escapejs }}'[0].toUpperCase()}))" />
             {% else %}
             <div class="w-10 h-10 rounded-full bg-divine-gold/15 border border-divine-border
                         flex items-center justify-center text-divine-gold text-sm font-semibold">

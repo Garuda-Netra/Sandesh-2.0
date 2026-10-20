@@ -12,14 +12,14 @@ urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
 
-    # Landing page (root) — served by users app (index view)
-    path('', include('users.urls')),
+    # Serve uploaded media files (avatars, moments, attachments)
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 
     # Messaging
     path('messaging/', include('messaging.urls')),
 
-    # Serve uploaded media files (avatars, moments, attachments)
-    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    # Landing page (root) — served by users app (index view)
+    path('', include('users.urls')),
 ]
 
 if settings.DEBUG:

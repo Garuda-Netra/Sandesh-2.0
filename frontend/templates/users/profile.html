@@ -18,21 +18,66 @@
 
   <div class="bg-divine-card border border-divine-border rounded-2xl p-8 space-y-6">
 
-    <!-- Avatar row -->
-    <div class="flex items-center gap-5">
-      <div class="relative w-16 h-16 shrink-0">
-        {% if profile.avatar and profile.avatar.name %}
-          <img id="profileAvatarImg" src="{{ profile.avatar.url }}" alt="{{ user.username }} Avatar"
-               class="w-16 h-16 rounded-full object-cover border-2 border-divine-gold shadow-md"
-               onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff';" />
-        {% else %}
-          <img id="profileAvatarImg" src="https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff" alt="{{ user.username }} Avatar"
-               class="w-16 h-16 rounded-full object-cover border-2 border-divine-gold/40 shadow-md" />
-        {% endif %}
+    <!-- Messages & Alerts Container -->
+    {% if messages %}
+    <div class="space-y-2 mb-4" id="djangoMessagesContainer">
+      {% for message in messages %}
+      <div class="p-4 rounded-xl text-xs flex items-center justify-between gap-3 {% if message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400{% else %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400{% endif %}">
+        <div class="flex items-center gap-2.5">
+          <span class="text-base">{% if message.tags == 'error' %}⚠️{% else %}✅{% endif %}</span>
+          <span class="font-medium">{{ message }}</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100 text-sm">✕</button>
       </div>
-      <div>
-        <p class="text-divine-text font-semibold text-lg">{{ user.username }}</p>
-        <p class="text-divine-muted text-sm">{{ user.email }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div id="profileFormAlert" class="hidden p-4 rounded-xl text-xs flex items-center justify-between gap-3 mb-4 transition-all">
+      <div class="flex items-center gap-2.5">
+        <span id="alertIcon" class="text-base">ℹ️</span>
+        <span id="alertText" class="font-medium"></span>
+      </div>
+      <button type="button" onclick="document.getElementById('profileFormAlert').classList.add('hidden')" class="opacity-60 hover:opacity-100 text-sm">✕</button>
+    </div>
+
+    <!-- Avatar row with interactive photo trigger -->
+    <div class="flex flex-col sm:flex-row sm:items-center gap-5 p-5 rounded-2xl bg-divine-darker/60 border border-divine-border/60">
+      <div class="relative group cursor-pointer w-20 h-20 shrink-0 mx-auto sm:mx-0"
+           onclick="triggerAvatarFileInput()"
+           title="Click to select new profile picture">
+        <img id="profileAvatarImg"
+             src="{% if profile.avatar_url %}{{ profile.avatar_url }}{% elif profile.avatar and profile.avatar.name %}{{ profile.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff{% endif %}"
+             alt="{{ user.username }} Avatar"
+             class="w-20 h-20 rounded-full object-cover border-2 border-divine-gold shadow-lg transition-transform duration-300 group-hover:scale-105"
+             crossorigin="anonymous"
+             loading="eager"
+             onerror="onAvatarImgError(this)" />
+        
+        <!-- Hover change overlay -->
+        <div class="absolute inset-0 rounded-full bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all text-white text-[10px] font-bold">
+          <span class="text-base">📷</span>
+          <span>Change</span>
+        </div>
+
+        <!-- Edit pencil badge -->
+        <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-divine-gold text-black flex items-center justify-center text-[10px] font-bold shadow-md border-2 border-divine-card">
+          ✏️
+        </div>
+      </div>
+
+      <div class="text-center sm:text-left flex-1 min-w-0">
+        <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+          <p class="text-divine-text font-bold text-lg truncate">{{ user.username }}</p>
+          <span id="avatarStatusBadge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full {% if profile.avatar and profile.avatar.name %}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{% else %}bg-white/5 text-divine-muted border border-white/10{% endif %}">
+            {% if profile.avatar and profile.avatar.name %}Custom Avatar Active{% else %}Default Avatar{% endif %}
+          </span>
+        </div>
+        <p class="text-divine-muted text-xs truncate mt-0.5">{{ user.email }}</p>
+        <p class="text-[11px] text-divine-gold/90 mt-1 cursor-pointer hover:underline inline-flex items-center gap-1"
+           onclick="triggerAvatarFileInput()">
+          <span>📷</span> <span>Click profile image or choose file below</span>
+        </p>
       </div>
     </div>
 
@@ -53,31 +98,81 @@
         @apply bg-gray-50 border-gray-300 text-gray-700;
       }
     </style>
-    <form method="post" enctype="multipart/form-data" id="profileForm">
+    <form method="post" enctype="multipart/form-data" id="profileForm" novalidate>
       {% csrf_token %}
 
       <div class="mb-5">
-        <label class="block text-sm font-medium text-divine-muted mb-2">Bio</label>
+        <label class="block text-sm font-semibold text-divine-text mb-2">Bio</label>
         {{ form.bio }}
-      </div>
-
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-divine-muted mb-2">Avatar</label>
-        <div class="mb-3">
-          {{ form.avatar }}
-        </div>
-        {% if profile.avatar and profile.avatar.name %}
-        <div class="mt-2">
-          <button type="button" onclick="removeAvatar()" class="sdh-liquid-btn btn-danger !py-1.5 !px-4 text-xs shadow-none transition-all hover:-translate-y-0.5">
-            <span>🗑️ Remove Profile Picture</span>
-          </button>
-        </div>
+        {% if form.bio.errors %}
+        <p class="text-xs text-red-400 mt-1">{{ form.bio.errors.0 }}</p>
         {% endif %}
       </div>
 
-      <button type="submit"
-              class="sdh-liquid-btn btn-ancient">
-        <span>💾 Save Changes</span>
+      <div class="mb-6 space-y-3">
+        <div class="flex items-center justify-between">
+          <label class="block text-sm font-semibold text-divine-text">Profile Picture (Avatar)</label>
+          <span class="text-[11px] text-divine-muted">JPG, PNG, WEBP &bull; Max 5MB</span>
+        </div>
+
+        <div class="relative">
+          {{ form.avatar }}
+        </div>
+        {% if form.avatar.errors %}
+        <p class="text-xs text-red-400 mt-1">{{ form.avatar.errors.0 }}</p>
+        {% endif %}
+
+        <!-- Selected image chip (shown when file is picked) -->
+        <div id="selectedImageChip" class="hidden p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="text-base">🖼️</span>
+            <div class="min-w-0">
+              <p id="selectedFileName" class="text-xs font-bold text-divine-text truncate"></p>
+              <p id="selectedFileSize" class="text-[10px] text-divine-muted"></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">Ready to save</span>
+            <button type="button" onclick="clearSelectedAvatarFile()" class="text-xs text-red-400 hover:text-red-300 font-bold px-1.5 py-0.5" title="Remove selection">✕</button>
+          </div>
+        </div>
+
+        <!-- Live Upload Progress Card -->
+        <div id="uploadProgressCard" class="hidden p-4 rounded-xl bg-divine-darker/90 border border-divine-gold/40 shadow-xl space-y-3">
+          <div class="flex items-center justify-between text-xs font-bold text-divine-gold">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 animate-spin text-divine-gold" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span id="uploadProgressStep">Uploading profile picture...</span>
+            </div>
+            <span id="uploadProgressPercent" class="font-mono">0%</span>
+          </div>
+
+          <div class="w-full h-2.5 bg-white/10 rounded-full overflow-hidden">
+            <div id="uploadProgressBar" class="h-full bg-gradient-to-r from-amber-400 via-divine-gold to-yellow-500 rounded-full transition-all duration-150" style="width: 0%;"></div>
+          </div>
+
+          <p class="text-[11px] text-divine-muted flex items-center gap-1.5">
+            <span>🔒</span>
+            <span>Verifying format and safely encrypting upload...</span>
+          </p>
+        </div>
+
+        <!-- Remove Avatar Button -->
+        <div id="removeAvatarContainer" class="{% if not profile.avatar or not profile.avatar.name %}hidden{% endif %} pt-1">
+          <button type="button" id="removeAvatarBtn" onclick="removeAvatar()"
+            class="sdh-liquid-btn btn-danger !py-1.5 !px-4 text-xs shadow-none transition-all hover:-translate-y-0.5 flex items-center gap-2">
+            <span>🗑️ Remove Profile Picture</span>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" id="saveChangesBtn"
+              class="sdh-liquid-btn btn-ancient transition-all flex items-center gap-2">
+        <span id="saveBtnIcon">💾</span>
+        <span id="saveBtnText">Save Changes</span>
       </button>
     </form>
 
@@ -255,17 +350,222 @@
     }
   });
 
-  // Dynamic avatar upload preview
+  // ── Dynamic Avatar Upload & Live Progress System ─────────────────────
   const avatarInput = document.querySelector('input[type="file"][name="avatar"]') || document.getElementById('id_avatar');
+  const profileForm = document.getElementById('profileForm');
+  const previewImg = document.getElementById('profileAvatarImg');
+  const chip = document.getElementById('selectedImageChip');
+  const chipName = document.getElementById('selectedFileName');
+  const chipSize = document.getElementById('selectedFileSize');
+  const progressCard = document.getElementById('uploadProgressCard');
+  const progressBar = document.getElementById('uploadProgressBar');
+  const progressPercent = document.getElementById('uploadProgressPercent');
+  const progressStep = document.getElementById('uploadProgressStep');
+  const saveBtn = document.getElementById('saveChangesBtn');
+  const saveIcon = document.getElementById('saveBtnIcon');
+  const saveText = document.getElementById('saveBtnText');
+  const formAlert = document.getElementById('profileFormAlert');
+  const alertText = document.getElementById('alertText');
+  const alertIcon = document.getElementById('alertIcon');
+
+  function showFormAlert(message, type = 'error') {
+    if (!formAlert) return;
+    formAlert.classList.remove('hidden', 'bg-red-500/10', 'border-red-500/30', 'text-red-400', 'bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-400', 'bg-amber-500/10', 'border-amber-500/30', 'text-amber-300');
+    if (type === 'error') {
+      formAlert.classList.add('bg-red-500/10', 'border', 'border-red-500/30', 'text-red-400');
+      if (alertIcon) alertIcon.textContent = '⚠️';
+    } else if (type === 'success') {
+      formAlert.classList.add('bg-emerald-500/10', 'border', 'border-emerald-500/30', 'text-emerald-400');
+      if (alertIcon) alertIcon.textContent = '✅';
+    } else {
+      formAlert.classList.add('bg-amber-500/10', 'border', 'border-amber-500/30', 'text-amber-300');
+      if (alertIcon) alertIcon.textContent = 'ℹ️';
+    }
+    if (alertText) alertText.textContent = message;
+    formAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function hideFormAlert() {
+    if (formAlert) formAlert.classList.add('hidden');
+  }
+
+  window.triggerAvatarFileInput = function() {
+    if (avatarInput) avatarInput.click();
+  };
+
+  window.clearSelectedAvatarFile = function() {
+    if (avatarInput) avatarInput.value = '';
+    if (chip) chip.classList.add('hidden');
+    // Revert preview to current active avatar
+    if (previewImg) {
+      previewImg.dataset.hasFailed = '';
+      const originalUrl = "{% if profile.avatar_url %}{{ profile.avatar_url }}{% elif profile.avatar and profile.avatar.name %}{{ profile.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff{% endif %}";
+      previewImg.src = originalUrl;
+    }
+    hideFormAlert();
+  };
+
+  window.onAvatarImgError = function(img) {
+    if (img.dataset.hasFailed === 'true') return;
+    img.dataset.hasFailed = 'true';
+    if (img.src.startsWith('http://') && !img.src.includes('localhost') && !img.src.includes('127.0.0.1')) {
+      img.src = img.src.replace('http://', 'https://');
+      return;
+    }
+    img.src = 'https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff';
+  };
+
   if (avatarInput) {
     avatarInput.addEventListener('change', function (e) {
+      hideFormAlert();
       const file = e.target.files && e.target.files[0];
-      if (file && file.type.startsWith('image/')) {
-        const preview = document.getElementById('profileAvatarImg');
-        if (preview) {
-          preview.src = URL.createObjectURL(file);
-        }
+      if (!file) {
+        clearSelectedAvatarFile();
+        return;
       }
+
+      // Check format
+      const validExtensions = /\.(jpe?g|png|gif|webp|bmp)$/i;
+      const isImage = (file.type && file.type.startsWith('image/')) || validExtensions.test(file.name);
+      if (!isImage) {
+        showFormAlert('Please select a valid image file (JPG, PNG, WEBP, GIF).', 'error');
+        avatarInput.value = '';
+        return;
+      }
+
+      // Check size (5 MB limit)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        showFormAlert(`The selected image is ${sizeMb} MB. The maximum allowed size is 5.0 MB. Please choose a smaller photo.`, 'error');
+        avatarInput.value = '';
+        return;
+      }
+
+      // Render instant preview
+      if (previewImg) {
+        previewImg.dataset.hasFailed = '';
+        previewImg.src = URL.createObjectURL(file);
+      }
+
+      // Show chip with file info
+      if (chip && chipName && chipSize) {
+        chipName.textContent = file.name;
+        const formattedSize = file.size >= 1024 * 1024
+          ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+          : (file.size / 1024).toFixed(0) + ' KB';
+        chipSize.textContent = `Size: ${formattedSize}`;
+        chip.classList.remove('hidden');
+      }
+    });
+  }
+
+  // Handle Form Submit with live upload progress
+  if (profileForm) {
+    profileForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      hideFormAlert();
+
+      const file = avatarInput && avatarInput.files && avatarInput.files[0];
+      const formData = new FormData(profileForm);
+
+      // Disable button & show spinner
+      if (saveBtn) saveBtn.disabled = true;
+      if (saveIcon) saveIcon.innerHTML = `<svg class="w-4 h-4 animate-spin inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>`;
+      if (saveText) saveText.textContent = file ? 'Uploading Profile Pic...' : 'Saving Changes...';
+
+      // Show upload progress card if uploading a file
+      if (file && progressCard) {
+        progressCard.classList.remove('hidden');
+        if (progressBar) progressBar.style.width = '0%';
+        if (progressPercent) progressPercent.textContent = '0%';
+        if (progressStep) progressStep.textContent = 'Uploading image...';
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', profileForm.action || window.location.href, true);
+      xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+      // Live upload progress event
+      if (xhr.upload && file) {
+        xhr.upload.onprogress = function (event) {
+          if (event.lengthComputable) {
+            const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (progressPercent) progressPercent.textContent = percent + '%';
+            if (saveText) saveText.textContent = `Uploading... (${percent}%)`;
+            if (percent >= 98 && progressStep) {
+              progressStep.textContent = 'Processing & securing photo...';
+            }
+          }
+        };
+      }
+
+      xhr.onload = function () {
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressPercent) progressPercent.textContent = '100%';
+
+        let resData = null;
+        try {
+          resData = JSON.parse(xhr.responseText);
+        } catch (_) {}
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          // Success
+          showFormAlert(resData && resData.message ? resData.message : 'Profile updated successfully! ✨', 'success');
+          
+          if (resData && resData.avatar_url && previewImg) {
+            previewImg.dataset.hasFailed = '';
+            // Append cache buster to force browser to load fresh photo
+            const buster = (resData.avatar_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+            previewImg.src = resData.avatar_url + buster;
+          }
+
+          // Show Remove Avatar button
+          const removeContainer = document.getElementById('removeAvatarContainer');
+          if (removeContainer) removeContainer.classList.remove('hidden');
+
+          const statusBadge = document.getElementById('avatarStatusBadge');
+          if (statusBadge) {
+            statusBadge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+            statusBadge.textContent = 'Custom Avatar Active';
+          }
+
+          // Clear file input & chip
+          if (avatarInput) avatarInput.value = '';
+          if (chip) chip.classList.add('hidden');
+
+          setTimeout(() => {
+            if (progressCard) progressCard.classList.add('hidden');
+          }, 1200);
+
+        } else {
+          // Server error
+          let msg = 'Failed to update profile. Please try again.';
+          if (resData && resData.message) {
+            msg = resData.message;
+          } else if (resData && resData.errors) {
+            msg = Object.values(resData.errors).flat().join(' ');
+          }
+          showFormAlert(msg, 'error');
+          if (progressCard) progressCard.classList.add('hidden');
+        }
+
+        // Restore save button
+        if (saveBtn) saveBtn.disabled = false;
+        if (saveIcon) saveIcon.textContent = '💾';
+        if (saveText) saveText.textContent = 'Save Changes';
+      };
+
+      xhr.onerror = function () {
+        showFormAlert('Network error occurred during upload. Please check your internet connection and try again.', 'error');
+        if (progressCard) progressCard.classList.add('hidden');
+        if (saveBtn) saveBtn.disabled = false;
+        if (saveIcon) saveIcon.textContent = '💾';
+        if (saveText) saveText.textContent = 'Save Changes';
+      };
+
+      xhr.send(formData);
     });
   }
 })();
@@ -273,20 +573,52 @@
 async function removeAvatar() {
   if (!confirm('Are you sure you want to remove your profile picture?')) return;
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  const removeBtn = document.getElementById('removeAvatarBtn');
+  if (removeBtn) {
+    removeBtn.disabled = true;
+    removeBtn.innerHTML = '<span>⏳ Removing...</span>';
+  }
+
   try {
     const resp = await fetch('{% url "users:remove_avatar" %}', {
       method: 'POST',
       headers: {
         'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest'
       }
     });
     if (resp.ok) {
-      window.location.reload();
+      const previewImg = document.getElementById('profileAvatarImg');
+      if (previewImg) {
+        previewImg.dataset.hasFailed = '';
+        previewImg.src = 'https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff';
+      }
+      const removeContainer = document.getElementById('removeAvatarContainer');
+      if (removeContainer) removeContainer.classList.add('hidden');
+
+      const statusBadge = document.getElementById('avatarStatusBadge');
+      if (statusBadge) {
+        statusBadge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/5 text-divine-muted border border-white/10';
+        statusBadge.textContent = 'Default Avatar';
+      }
+
+      const alert = document.getElementById('profileFormAlert');
+      const alertText = document.getElementById('alertText');
+      if (alert && alertText) {
+        alert.className = 'p-4 rounded-xl text-xs flex items-center justify-between gap-3 mb-4 transition-all bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
+        alertText.textContent = 'Profile picture removed successfully.';
+        alert.classList.remove('hidden');
+      }
     } else {
       alert('Failed to remove avatar. Please try again.');
     }
   } catch (err) {
     alert('Error removing avatar.');
+  } finally {
+    if (removeBtn) {
+      removeBtn.disabled = false;
+      removeBtn.innerHTML = '<span>🗑️ Remove Profile Picture</span>';
+    }
   }
 }
 

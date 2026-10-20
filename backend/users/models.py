@@ -31,6 +31,23 @@ class UserProfile(models.Model):
         blank=True
     )
 
+    @property
+    def avatar_url(self):
+        """
+        Safely returns a secure (HTTPS) URL for the user's avatar.
+        Returns None if avatar is not set or inaccessible.
+        """
+        if self.avatar and hasattr(self.avatar, 'name') and self.avatar.name:
+            try:
+                url = self.avatar.url
+                if url:
+                    if url.startswith('http://') and not (url.startswith('http://localhost') or url.startswith('http://127.0.0.1')):
+                        url = 'https://' + url[7:]
+                    return url
+            except Exception:
+                pass
+        return None
+
     # Simple online indicator — updated via WebSocket connect/disconnect
     is_online = models.BooleanField(default=False)
 

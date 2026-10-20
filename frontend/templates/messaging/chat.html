@@ -1212,7 +1212,11 @@
           </div>
           {% else %}
           <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showUserProfile('{{ item.user.username|escapejs }}', '{{ item.user.id }}')">
-            {% if item.user.profile.avatar and item.user.profile.avatar.name %}
+            {% if item.user.profile.avatar_url %}
+            <img src="{{ item.user.profile.avatar_url }}" alt="{{ item.user.username }}"
+              class="sdh-avatar w-11 h-11 rounded-full object-cover"
+              onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none', textContent: '{{ item.user.username|escapejs }}'[0].toUpperCase()}))" />
+            {% elif item.user.profile.avatar and item.user.profile.avatar.name %}
             <img src="{{ item.user.profile.avatar.url }}" alt="{{ item.user.username }}"
               class="sdh-avatar w-11 h-11 rounded-full object-cover"
               onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none', textContent: '{{ item.user.username|escapejs }}'[0].toUpperCase()}))" />

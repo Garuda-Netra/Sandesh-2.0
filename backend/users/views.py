@@ -1283,10 +1283,37 @@ def profile_view(request):
 
     if request.method == 'POST':
         form = ProfileUpdateForm(request.POST, request.FILES, instance=profile)
+        is_ajax = (
+            request.headers.get('x-requested-with') == 'XMLHttpRequest' or
+            'application/json' in request.headers.get('Accept', '')
+        )
         if form.is_valid():
             form.save()
+            profile.refresh_from_db()
+            avatar_url = profile.avatar_url or (profile.avatar.url if profile.avatar else '')
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'ok',
+                    'message': 'Profile updated successfully!',
+                    'avatar_url': avatar_url,
+                    'bio': profile.bio
+                })
             messages.success(request, 'Profile updated successfully.')
             return redirect('users:profile')
+        else:
+            errors_dict = {}
+            for field, errs in form.errors.items():
+                errors_dict[field] = [str(e) for e in errs]
+            err_msg = ' '.join(
+                f"{k}: {', '.join(v)}" for k, v in errors_dict.items()
+            ) or 'Please correct the errors in the form.'
+            if is_ajax:
+                return JsonResponse({
+                    'status': 'error',
+                    'errors': errors_dict,
+                    'message': err_msg
+                }, status=400)
+            messages.error(request, err_msg)
 
     return render(request, 'users/profile.html', {'form': form, 'profile': profile})
 
