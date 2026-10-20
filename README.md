@@ -1,6 +1,6 @@
 # 🕊️ Sandesh 2.0
 
-> *"True communication isn't just about sending packets across a wire — it's about trust, privacy, and genuine human connection."*
+> *"True communication isn't just about sending packets across a wire - it's about trust, privacy, and genuine human connection."*
 
 **Crafted with care & passion by Raj** • [GitHub Repository](https://github.com/Garuda-Netra/Sandesh-2.0)
 
