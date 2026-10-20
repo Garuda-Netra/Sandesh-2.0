@@ -2974,10 +2974,6 @@
         <div class="flex items-center gap-2">
           <p id="mvUsername" class="text-white font-bold text-sm drop-shadow-md"></p>
           <span id="mvPrivacyBadge" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white/90 border border-white/20"></span>
-          <span id="mvDurationBadge" class="inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-black/60 text-amber-300 border border-amber-500/40 backdrop-blur-md shadow-sm">
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-            <span id="mvCountdownText">30s</span>
-          </span>
         </div>
         <p id="mvTime" class="text-white/60 text-[11px] font-semibold drop-shadow-md"></p>
       </div>
@@ -3100,7 +3096,7 @@
       <h3 class="text-lg font-bold text-divine-gold">Share a Moment</h3>
       <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-xs">
         <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-        ⏱️ 30s Status
+        Status Update
       </span>
     </div>
 
@@ -3109,18 +3105,15 @@
         <label class="block text-xs text-divine-muted mb-1 uppercase tracking-wider">Type</label>
         <select id="muType" onchange="SDH.Moments.toggleUploadFields()"
           class="w-full bg-divine-surface border border-divine-border rounded-xl px-3 py-2 text-divine-text text-sm focus:outline-none focus:border-divine-gold">
-          <option value="image">Image (30s)</option>
-          <option value="video">Video (Max 30s)</option>
-          <option value="text">Text Only (30s)</option>
+          <option value="image">Image</option>
+          <option value="video">Video</option>
+          <option value="text">Text Only</option>
         </select>
       </div>
 
       <div id="muMediaGroup">
         <div class="flex items-center justify-between mb-1">
           <label class="block text-xs text-divine-muted uppercase tracking-wider">Media File</label>
-          <span id="muDurationNotice" class="text-[11px] font-semibold text-amber-400 flex items-center gap-1">
-            ⏱️ 30 sec max
-          </span>
         </div>
         <input type="file" id="muFile" accept="image/*,video/*"
           onchange="SDH.Moments.handleMediaSelection(this)"
@@ -3135,13 +3128,9 @@
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1.5 mb-0.5">
-                <span id="muPreviewDurationBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  ⏱️ 30 sec
-                </span>
                 <span id="muPreviewTypeBadge" class="text-[10px] text-zinc-400 font-semibold uppercase">Photo</span>
               </div>
               <p id="muPreviewFileName" class="text-xs text-white/90 font-medium truncate"></p>
-              <p id="muPreviewInfo" class="text-[10px] text-amber-300/80 mt-0.5">Story duration: 30 sec</p>
             </div>
             <button type="button" onclick="SDH.Moments.clearMediaSelection()" class="text-zinc-400 hover:text-red-400 p-1.5 transition-colors" title="Remove file">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

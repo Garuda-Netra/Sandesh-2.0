@@ -286,11 +286,9 @@ SDH.Moments = (function() {
             textGroup.classList.add('hidden');
             if (type === 'image') {
                 fileInput.accept = 'image/*';
-                if (durationNotice) durationNotice.innerText = '⏱️ 30 sec';
             }
             if (type === 'video') {
                 fileInput.accept = 'video/*';
-                if (durationNotice) durationNotice.innerText = '⏱️ 30 sec max';
             }
         }
     }
@@ -317,30 +315,15 @@ SDH.Moments = (function() {
         if (file.type.startsWith('video/')) {
             document.getElementById('muType').value = 'video';
             if (typeBadge) typeBadge.innerText = 'Video';
-            if (durationBadge) durationBadge.innerText = '⏱️ 30 sec';
-            if (infoEl) infoEl.innerText = 'Analyzing video duration...';
-
             const videoUrl = URL.createObjectURL(file);
             if (vid) {
                 vid.src = videoUrl;
                 vid.classList.remove('hidden');
-                vid.onloadedmetadata = function() {
-                    const dur = Math.round(vid.duration) || 0;
-                    if (dur > 30) {
-                        if (durationBadge) durationBadge.innerText = '⏱️ 30 sec (Capped)';
-                        if (infoEl) infoEl.innerText = `Video is ${dur}s — first 30 seconds will play`;
-                    } else {
-                        if (durationBadge) durationBadge.innerText = `⏱️ ${dur}s / 30s`;
-                        if (infoEl) infoEl.innerText = `Video duration: ${dur} sec (within 30s limit)`;
-                    }
-                };
             }
             if (previewBox) previewBox.classList.remove('hidden');
         } else if (file.type.startsWith('image/')) {
             document.getElementById('muType').value = 'image';
             if (typeBadge) typeBadge.innerText = 'Photo';
-            if (durationBadge) durationBadge.innerText = '⏱️ 30 sec';
-            if (infoEl) infoEl.innerText = 'Photo will be displayed for 30 seconds';
             const imgUrl = URL.createObjectURL(file);
             if (img) {
                 img.src = imgUrl;
@@ -579,8 +562,9 @@ SDH.Moments = (function() {
     function startCountdown(totalMs) {
         clearInterval(countdownTimer);
         const countdownEl = document.getElementById('mvCountdownText');
+        if (!countdownEl) return;
         let remaining = Math.max(1, Math.round(totalMs / 1000));
-        if (countdownEl) countdownEl.innerText = `${remaining}s`;
+        countdownEl.innerText = `${remaining}s`;
 
         countdownTimer = setInterval(() => {
             remaining--;
