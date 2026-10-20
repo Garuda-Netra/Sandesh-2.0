@@ -149,7 +149,9 @@ class ProfileUpdateForm(forms.ModelForm):
                 'maxlength': 200,
             }),
             'avatar': forms.FileInput(attrs={
-                'class': 'block w-full text-sm text-divine-muted file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-divine-surface file:text-divine-gold hover:file:bg-divine-border transition-colors border border-divine-border rounded-xl p-2 bg-divine-card',
+                'class': 'hidden',
+                'accept': 'image/jpeg,image/png,image/webp,image/gif',
+                'id': 'id_avatar',
             }),
         }
 

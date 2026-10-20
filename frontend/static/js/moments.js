@@ -28,6 +28,25 @@ SDH.Moments = (function() {
     let uploadPrivacyType = null;
     let uploadCustomUserIds = null;
     let isFromUploadModal = false;
+
+    // Self-contained SVG avatar generator to prevent broken image icons
+    function getSvgAvatar(name) {
+        const cleanName = (name || 'U').trim();
+        const initial = (cleanName.charAt(0) || 'U').toUpperCase();
+        const colors = [
+            ['#6366f1', '#4338ca'],
+            ['#8b5cf6', '#6d28d9'],
+            ['#ec4899', '#be185d'],
+            ['#f59e0b', '#b45309'],
+            ['#10b981', '#047857'],
+            ['#06b6d4', '#0e7490'],
+            ['#3b82f6', '#1d4ed8']
+        ];
+        const charCode = initial.charCodeAt(0) || 0;
+        const [col1, col2] = colors[charCode % colors.length];
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><defs><linearGradient id="mg_${charCode}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${col1}"/><stop offset="100%" stop-color="${col2}"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#mg_${charCode})"/><text x="50" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="700">${initial}</text></svg>`;
+        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+    }
     let tempSelectedUserIds = new Set();
     let tempPrivacyType = 'all';
 
@@ -121,12 +140,13 @@ SDH.Moments = (function() {
 
         momentsData.forEach(userGroup => {
             const ringClass = isAllSeenForUser(userGroup) ? 'moment-ring-seen' : 'moment-ring';
-            const avatarUrl = userGroup.avatar_url || (userGroup.moments[0] && userGroup.moments[0].moment_type === 'image' ? userGroup.moments[0].media_url : null) || `https://ui-avatars.com/api/?name=${encodeURIComponent(userGroup.username)}&background=6366f1&color=fff`;
+            const defaultAvatar = getSvgAvatar(userGroup.username);
+            const avatarUrl = userGroup.avatar_url || (userGroup.moments[0] && userGroup.moments[0].moment_type === 'image' ? userGroup.moments[0].media_url : null) || defaultAvatar;
             
             const html = `
                 <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0" onclick="SDH.Moments.openViewer(${userGroup.user_id})">
                     <div class="${ringClass} p-[2px] transition-transform hover:scale-105">
-                        <img src="${avatarUrl}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(userGroup.username)}&background=6366f1&color=fff';" />
+                        <img src="${avatarUrl}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface" onerror="this.onerror=null; this.src='${defaultAvatar}';" />
                     </div>
                     <span class="text-[10px] text-white/80 w-full truncate text-center">${userGroup.user_id == window.SDH_DATA.currentUserId ? 'You' : userGroup.username}</span>
                 </div>
@@ -589,13 +609,14 @@ SDH.Moments = (function() {
         const moment = userGroup.moments[currentMomentIndex];
 
         // Update Header
-        const avatarUrl = userGroup.avatar_url || (moment.moment_type === 'image' ? moment.media_url : null) || `https://ui-avatars.com/api/?name=${encodeURIComponent(userGroup.username)}&background=6366f1&color=fff`;
+        const defaultAvatar = getSvgAvatar(userGroup.username);
+        const avatarUrl = userGroup.avatar_url || (moment.moment_type === 'image' ? moment.media_url : null) || defaultAvatar;
         const mvAvatarEl = document.getElementById('mvAvatar');
         if (mvAvatarEl) {
             mvAvatarEl.src = avatarUrl;
             mvAvatarEl.onerror = function() {
                 this.onerror = null;
-                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userGroup.username)}&background=6366f1&color=fff`;
+                this.src = defaultAvatar;
             };
         }
         document.getElementById('mvUsername').innerText = userGroup.username;
@@ -709,7 +730,18 @@ SDH.Moments = (function() {
 
         const displayDuration = audioUrl ? audioDuration : MOMENT_DURATION; // 30,000ms = 30s
 
+        // Reset Media Container background
+        const mediaContainer = document.getElementById('mvMediaContainer');
+        if (mediaContainer) {
+            mediaContainer.style.background = '';
+        }
+
         if (moment.moment_type === 'image') {
+            if (mediaContainer) mediaContainer.style.background = '';
+            img.onerror = function() {
+                console.error("Failed to load moment image:", moment.media_url);
+                this.classList.add('hidden');
+            };
             img.src = moment.media_url;
             img.classList.remove('hidden');
             if (activeBarFill) activeBarFill.style.animationDuration = `${displayDuration}ms`;
@@ -1022,7 +1054,8 @@ SDH.Moments = (function() {
         handleMediaSelection,
         clearMediaSelection,
         updateUploadPrivacyBadge,
-        getPrivacySettings: () => privacySettings
+        getPrivacySettings: () => privacySettings,
+        getSvgAvatar
     };
 
     // ─── STATUS PRIVACY LOGIC ───────────────────────────────────────────────

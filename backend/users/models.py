@@ -41,8 +41,8 @@ class UserProfile(models.Model):
             try:
                 url = self.avatar.url
                 if url:
-                    if url.startswith('http://') and not (url.startswith('http://localhost') or url.startswith('http://127.0.0.1')):
-                        url = 'https://' + url[7:]
+                    if url.startswith('http://res.cloudinary.com'):
+                        url = 'https://res.cloudinary.com' + url[23:]
                     return url
             except Exception:
                 pass
