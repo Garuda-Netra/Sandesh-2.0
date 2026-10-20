@@ -626,18 +626,6 @@ SDH.Moments = (function() {
         const isMine = userGroup.username === window.SDH_DATA.currentUser;
         document.getElementById('mvDeleteBtn').classList.toggle('hidden', !isMine);
         
-        const privBadge = document.getElementById('mvPrivacyBadge');
-        if (privBadge) {
-            if (isMine && moment.privacy_type) {
-                privBadge.classList.remove('hidden');
-                if (moment.privacy_type === 'all') privBadge.innerText = '👥 Contacts';
-                else if (moment.privacy_type === 'exclude') privBadge.innerText = '🚫 Except';
-                else if (moment.privacy_type === 'only') privBadge.innerText = '⭐ Only';
-            } else {
-                privBadge.classList.add('hidden');
-            }
-        }
-        
         const viewsBtn = document.getElementById('mvViewsBtn');
         viewsBtn.classList.toggle('hidden', !isMine);
         if (isMine) {
