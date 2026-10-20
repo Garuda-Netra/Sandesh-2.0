@@ -20,10 +20,9 @@ const PRECACHE_ASSETS = [
   '/static/icons/apple-touch-icon.png',
   '/static/icons/favicon-32x32.png',
   '/static/icons/favicon.ico',
-  '/static/sounds/ringtone_modern.wav',
-  '/static/sounds/ringtone_executive.wav',
-  '/static/sounds/ringtone_chime.wav',
-  '/static/sounds/ringtone_classic.wav'
+  '/static/sounds/ringtone_professional.wav',
+  '/static/sounds/ringtone_soft.wav',
+  '/static/sounds/notification_default.wav'
 ];
 
 // ── Install: Precache Core App Shell ─────────────────────────────

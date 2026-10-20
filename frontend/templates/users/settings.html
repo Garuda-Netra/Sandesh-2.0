@@ -575,17 +575,41 @@
       <!-- ══════════════════════════════════════════════════════════ -->
       <div id="panel-notifications" class="settings-panel hidden space-y-6">
 
-        <div
-          class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
+        <!-- Default Notification Tone & Conversation Chimes -->
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="space-y-1">
               <h2 class="text-base font-bold text-slate-900 dark:text-divine-text flex items-center gap-2">
-                <span>Conversation Tones</span>
+                <span>Default Notification Tone</span>
                 <span class="text-amber-500">🔔</span>
               </h2>
               <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed max-w-lg">
-                Play harmonic sound effects for incoming and sent messages while inside active conversations.
+                Single built-in crisp notification chime for incoming messages and alerts.
               </p>
+            </div>
+            <button type="button" onclick="playTonePreview()"
+              class="sdh-liquid-btn btn-secondary btn-sm !py-2 !px-4 shrink-0 transition-all flex items-center gap-2">
+              <span>▶</span> <span>Play Tone</span>
+            </button>
+          </div>
+
+          <!-- Device Notification Tune Note -->
+          <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 text-xs text-slate-600 dark:text-divine-muted flex items-start gap-2.5">
+            <span class="text-base leading-none">📱</span>
+            <div>
+              <span class="font-semibold text-slate-800 dark:text-divine-text">Custom Notification Tune:</span>
+              <p class="mt-0.5 leading-relaxed">If you want to customize your notification sound, you can configure it directly in your device's native system settings:
+                <span class="font-medium text-slate-700 dark:text-white/80">Android: App Info &gt; Notifications &gt; Sound</span> • 
+                <span class="font-medium text-slate-700 dark:text-white/80">iOS: Settings &gt; Sandesh &gt; Sounds</span> • 
+                <span class="font-medium text-slate-700 dark:text-white/80">Desktop: System Notifications</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-4">
+            <div class="space-y-0.5">
+              <span class="text-sm font-semibold text-slate-900 dark:text-divine-text">In-Chat Conversation Chimes</span>
+              <p class="text-xs text-slate-500 dark:text-divine-muted">Play subtle audio feedback when sending or receiving messages inside active conversations.</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
               <input type="checkbox" id="messageSoundToggle" class="sr-only peer" {% if settings.message_sound_enabled %}checked{% endif %} onchange="onMessageSoundToggle(this.checked)">
@@ -593,6 +617,67 @@
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
             </label>
+          </div>
+        </div>
+
+        <!-- Call Ringtones (Professional & Soft) -->
+        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="space-y-1">
+              <h2 class="text-base font-bold text-slate-900 dark:text-divine-text flex items-center gap-2">
+                <span>Caller Ringtones</span>
+                <span class="text-amber-500">📞</span>
+              </h2>
+              <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed">
+                Choose between studio-crafted Professional and Soft sound ringtones for incoming audio and video calls.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="settingsRingtoneGrid">
+            <!-- Professional Ringtone Card -->
+            <div id="card-ringtone-professional" onclick="selectSettingsRingtone('professional')"
+              class="p-4 rounded-xl border border-slate-200 dark:border-white/10 hover:border-amber-500/50 dark:hover:border-divine-gold/50 cursor-pointer transition-all bg-slate-50/50 dark:bg-white/[0.02]">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-sm text-slate-900 dark:text-divine-text">Professional Suite</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-divine-gold border border-amber-500/20">Professional</span>
+                  </div>
+                  <p class="text-xs text-slate-500 dark:text-divine-muted mt-1">Sleek Rhodes electric piano arpeggio chord progression</p>
+                </div>
+                <div id="check-ringtone-professional" class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-amber-500 text-black">✓</div>
+              </div>
+              <div class="mt-3 flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/5">
+                <span class="text-[11px] text-slate-400 dark:text-divine-muted font-medium">4.2s Studio Loop</span>
+                <button type="button" onclick="event.stopPropagation(); toggleSettingsRingtonePreview('professional', this)"
+                  class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-divine-gold transition-all">
+                  ▶ Preview
+                </button>
+              </div>
+            </div>
+
+            <!-- Soft Sound Ringtone Card -->
+            <div id="card-ringtone-soft" onclick="selectSettingsRingtone('soft')"
+              class="p-4 rounded-xl border border-slate-200 dark:border-white/10 hover:border-amber-500/50 dark:hover:border-divine-gold/50 cursor-pointer transition-all bg-slate-50/50 dark:bg-white/[0.02]">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-sm text-slate-900 dark:text-divine-text">Soft Horizon</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">Soft &amp; Calm</span>
+                  </div>
+                  <p class="text-xs text-slate-500 dark:text-divine-muted mt-1">Gentle, soothing ambient kalimba &amp; celeste chime melody</p>
+                </div>
+                <div id="check-ringtone-soft" class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold hidden bg-amber-500 text-black">✓</div>
+              </div>
+              <div class="mt-3 flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/5">
+                <span class="text-[11px] text-slate-400 dark:text-divine-muted font-medium">4.0s Studio Loop</span>
+                <button type="button" onclick="event.stopPropagation(); toggleSettingsRingtonePreview('soft', this)"
+                  class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 transition-all">
+                  ▶ Preview
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -846,6 +931,7 @@
       loadBlockedContacts();
     } else if (tabName === 'notifications') {
       updateBrowserAlertsButton();
+      initSettingsRingtoneUI();
     }
   }
 
@@ -1012,7 +1098,8 @@
   }
 
   // ── Tone Preview & Notification Sounds ─────────────────────────
-  function playTonePreview() {
+  let _settingsToneAudio = null;
+  function _playTonePreviewOscillator() {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
@@ -1032,11 +1119,97 @@
     } catch (e) { }
   }
 
+  function playTonePreview() {
+    try {
+      if (!_settingsToneAudio) {
+        _settingsToneAudio = new Audio('/static/sounds/notification_default.wav');
+        _settingsToneAudio.volume = 0.8;
+      }
+      _settingsToneAudio.currentTime = 0;
+      const p = _settingsToneAudio.play();
+      if (p !== undefined) {
+        p.catch(() => _playTonePreviewOscillator());
+      }
+    } catch (e) {
+      _playTonePreviewOscillator();
+    }
+  }
+
   function onMessageSoundToggle(checked) {
     updateSetting('message_sound_enabled', checked);
     if (checked) {
       playTonePreview();
     }
+  }
+
+  // ── Ringtone Settings in User Preferences ────────────────────────
+  let _activeSettingsPreviewAudio = null;
+  let _activeSettingsPreviewTone = null;
+
+  function initSettingsRingtoneUI() {
+    const currentTone = localStorage.getItem('sdh_call_ringtone') || 'professional';
+    _updateSettingsRingtoneSelection(currentTone);
+  }
+
+  function _updateSettingsRingtoneSelection(toneId) {
+    const tones = ['professional', 'soft'];
+    tones.forEach(t => {
+      const card = document.getElementById(`card-ringtone-${t}`);
+      const check = document.getElementById(`check-ringtone-${t}`);
+      if (card && check) {
+        if (t === toneId) {
+          card.classList.add('border-amber-500', 'dark:border-divine-gold', 'bg-amber-500/5', 'dark:bg-divine-gold/10');
+          check.classList.remove('hidden');
+        } else {
+          card.classList.remove('border-amber-500', 'dark:border-divine-gold', 'bg-amber-500/5', 'dark:bg-divine-gold/10');
+          check.classList.add('hidden');
+        }
+      }
+    });
+  }
+
+  function selectSettingsRingtone(toneId) {
+    localStorage.setItem('sdh_call_ringtone', toneId);
+    _updateSettingsRingtoneSelection(toneId);
+    if (window.SDH && window.SDH.WebRTC && window.SDH.WebRTC.selectRingtone) {
+      window.SDH.WebRTC.selectRingtone(toneId);
+    }
+    showSettingsToast(`Call ringtone set to ${toneId === 'soft' ? 'Soft Horizon' : 'Professional Suite'}`, 'success');
+  }
+
+  function toggleSettingsRingtonePreview(toneId, btn) {
+    if (_activeSettingsPreviewTone === toneId && _activeSettingsPreviewAudio) {
+      _activeSettingsPreviewAudio.pause();
+      _activeSettingsPreviewAudio.currentTime = 0;
+      _activeSettingsPreviewAudio = null;
+      _activeSettingsPreviewTone = null;
+      btn.innerHTML = '▶ Preview';
+      return;
+    }
+
+    if (_activeSettingsPreviewAudio) {
+      _activeSettingsPreviewAudio.pause();
+      _activeSettingsPreviewAudio.currentTime = 0;
+      _activeSettingsPreviewAudio = null;
+      _activeSettingsPreviewTone = null;
+      document.querySelectorAll('#settingsRingtoneGrid button').forEach(b => b.innerHTML = '▶ Preview');
+    }
+
+    const soundPath = toneId === 'soft' ? '/static/sounds/ringtone_soft.wav' : '/static/sounds/ringtone_professional.wav';
+    _activeSettingsPreviewAudio = new Audio(soundPath);
+    _activeSettingsPreviewTone = toneId;
+    btn.innerHTML = '⏹ Stop';
+
+    _activeSettingsPreviewAudio.play().catch(e => {
+      console.warn('Preview error:', e);
+      btn.innerHTML = '▶ Preview';
+    });
+
+    _activeSettingsPreviewAudio.onended = () => {
+      btn.innerHTML = '▶ Preview';
+      _activeSettingsPreviewTone = null;
+      _activeSettingsPreviewAudio = null;
+    };
   }
 
   // ── Dynamic System Push Notifications Controller ──────────────────
@@ -1379,6 +1552,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     loadBlockedContacts();
     updateBrowserAlertsButton();
+    initSettingsRingtoneUI();
   });
 </script>
 {% endblock %}

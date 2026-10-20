@@ -1358,44 +1358,28 @@ SDH.WebRTC = (() => {
     }
 
     const TONES = {
-      'modern': {
-        name: 'Sandesh Modern',
-        desc: 'Acoustic marimba & warm kalimba melody',
-        badge: 'Recommended',
-        url: '/static/sounds/ringtone_modern.wav',
-        interval: 4300,
-        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_modern.wav')
+      'professional': {
+        name: 'Professional Suite',
+        desc: 'Sleek Rhodes electric piano arpeggio chord progression',
+        badge: 'Professional',
+        url: '/static/sounds/ringtone_professional.wav',
+        interval: 4200,
+        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_professional.wav')
       },
-      'executive': {
-        name: 'Executive Suite',
-        desc: 'Smooth Rhodes electric piano chord progression',
-        badge: 'Luxury',
-        url: '/static/sounds/ringtone_executive.wav',
-        interval: 4600,
-        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_executive.wav')
-      },
-      'chime': {
-        name: 'Acoustic Chime',
-        desc: 'Crystalline luxury bell chime arpeggio',
-        badge: 'Serene',
-        url: '/static/sounds/ringtone_chime.wav',
-        interval: 4100,
-        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_chime.wav')
-      },
-      'classic': {
-        name: 'Classic Bell',
-        desc: 'Refined modern acoustic desk bell',
-        badge: 'Classic',
-        url: '/static/sounds/ringtone_classic.wav',
-        interval: 4300,
-        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_classic.wav')
+      'soft': {
+        name: 'Soft Horizon',
+        desc: 'Gentle, soothing ambient kalimba & celeste chime melody',
+        badge: 'Soft & Calm',
+        url: '/static/sounds/ringtone_soft.wav',
+        interval: 4000,
+        play: (ctx, mg) => playAudioTrack(ctx, mg, '/static/sounds/ringtone_soft.wav')
       }
     };
 
     function getSelectedTone() {
       const saved = localStorage.getItem('sdh_call_ringtone');
       if (saved && TONES[saved]) return saved;
-      return 'modern';
+      return 'professional';
     }
 
     function getVolume() {
@@ -1423,7 +1407,7 @@ SDH.WebRTC = (() => {
       try {
         const ctx = getAudioContext();
         const toneId = getSelectedTone();
-        const tone = TONES[toneId] || TONES['celestial'];
+        const tone = TONES[toneId] || TONES['professional'];
         const vol = getVolume();
 
         const masterGain = ctx.createGain();
@@ -1516,7 +1500,7 @@ SDH.WebRTC = (() => {
 
     function previewTone(toneId) {
       stopAll();
-      const tone = TONES[toneId] || TONES['modern'];
+      const tone = TONES[toneId] || TONES['professional'];
       const ctx = getAudioContext();
       const masterGain = ctx.createGain();
       masterGain.gain.value = getVolume();
@@ -1550,7 +1534,7 @@ SDH.WebRTC = (() => {
         const masterGain = ctx.createGain();
         masterGain.gain.value = Math.min(0.6, getVolume());
         masterGain.connect(ctx.destination);
-        playAudioTrack(ctx, masterGain, '/static/sounds/ringtone_chime.wav', 0.9);
+        playAudioTrack(ctx, masterGain, '/static/sounds/notification_default.wav', 0.9);
       } catch (e) {
         console.warn('[RingtoneEngine] playChime error:', e);
       }

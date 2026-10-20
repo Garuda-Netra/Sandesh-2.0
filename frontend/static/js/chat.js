@@ -431,10 +431,8 @@ SDH.Chat = (() => {
     }
   }
 
-  function playNotificationSound() {
-    if (window.SDH_SETTINGS && window.SDH_SETTINGS.message_sound_enabled === false) {
-      return;
-    }
+  let _notificationAudio = null;
+  function _playWebAudioChimeFallback() {
     try {
       const ctx = _getAudioContext();
       if (!ctx) return;
@@ -451,6 +449,27 @@ SDH.Chat = (() => {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.35);
     } catch { /* AudioContext suppressed by browser policy — fail silently */ }
+  }
+
+  function playNotificationSound() {
+    if (window.SDH_SETTINGS && window.SDH_SETTINGS.message_sound_enabled === false) {
+      return;
+    }
+    try {
+      if (!_notificationAudio) {
+        _notificationAudio = new Audio('/static/sounds/notification_default.wav');
+        _notificationAudio.volume = 0.8;
+      }
+      _notificationAudio.currentTime = 0;
+      const promise = _notificationAudio.play();
+      if (promise !== undefined) {
+        promise.catch(() => {
+          _playWebAudioChimeFallback();
+        });
+      }
+    } catch {
+      _playWebAudioChimeFallback();
+    }
   }
 
   function playSentSound() {
