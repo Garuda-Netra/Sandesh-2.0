@@ -1829,7 +1829,13 @@ def get_moments(request):
     for m in active_moments:
         uid = m.user_id
         if uid not in grouped:
-            user_avatar = m.user.profile.avatar.url if (hasattr(m.user, 'profile') and m.user.profile.avatar and m.user.profile.avatar.name) else None
+            user_prof = getattr(m.user, 'profile', None)
+            user_avatar = user_prof.avatar_url if user_prof else None
+            if not user_avatar and user_prof and user_prof.avatar and user_prof.avatar.name:
+                try:
+                    user_avatar = user_prof.avatar.url
+                except Exception:
+                    user_avatar = None
             grouped[uid] = {
                 'user_id': uid,
                 'username': m.user.username,
@@ -1858,7 +1864,7 @@ def get_moments(request):
                 {
                     'id': v.id,
                     'username': v.username,
-                    'avatar': v.profile.avatar.url if hasattr(v, 'profile') and v.profile.avatar else f"https://ui-avatars.com/api/?name={v.username}&background=random"
+                    'avatar': (v.profile.avatar_url if hasattr(v, 'profile') and v.profile.avatar_url else (v.profile.avatar.url if hasattr(v, 'profile') and v.profile.avatar and v.profile.avatar.name else f"https://ui-avatars.com/api/?name={v.username}&background=random"))
                 }
                 for v in m.viewers.all()
             ]
@@ -2045,11 +2051,19 @@ def upload_moment(request):
 
     privacy_user_id_set = {u.id for u in privacy_users}
 
+    my_prof = getattr(request.user, 'profile', None)
+    my_avatar = my_prof.avatar_url if my_prof else None
+    if not my_avatar and my_prof and my_prof.avatar and my_prof.avatar.name:
+        try:
+            my_avatar = my_prof.avatar.url
+        except Exception:
+            my_avatar = None
+
     moment_data = {
         'id': moment.id,
         'user_id': request.user.id,
         'username': request.user.username,
-        'avatar_url': request.user.profile.avatar.url if (hasattr(request.user, 'profile') and request.user.profile.avatar and request.user.profile.avatar.name) else None,
+        'avatar_url': my_avatar,
         'media_url': moment.media.url if moment.media else None,
         'text_content': moment.text_content,
         'caption': moment.caption,

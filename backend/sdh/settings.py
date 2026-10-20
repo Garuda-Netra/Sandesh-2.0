@@ -42,6 +42,11 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# In local development / debugging, automatically allow all hosts (supports LAN/mobile IP access)
+if DEBUG:
+    if '*' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('*')
+
 # Automatically trust Render external hostname if set
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:

@@ -529,7 +529,24 @@
             previewImg.dataset.hasFailed = '';
             // Append cache buster to force browser to load fresh photo
             const buster = (resData.avatar_url.includes('?') ? '&' : '?') + 't=' + Date.now();
-            previewImg.src = resData.avatar_url + buster;
+            const freshUrl = resData.avatar_url + buster;
+            previewImg.src = freshUrl;
+
+            // Immediately update top navbar and dropdown avatars
+            const navImg = document.getElementById('userNavbarAvatarImg');
+            const navInit = document.getElementById('userNavbarAvatarInitial');
+            if (navImg) {
+              navImg.src = freshUrl;
+              navImg.style.display = 'block';
+              if (navInit) navInit.style.display = 'none';
+            }
+            const dropImg = document.getElementById('userDropdownAvatarImg');
+            const dropInit = document.getElementById('userDropdownAvatarInitial');
+            if (dropImg) {
+              dropImg.src = freshUrl;
+              dropImg.style.display = 'block';
+              if (dropInit) dropInit.style.display = 'none';
+            }
           }
 
           // Show Remove Avatar button
@@ -605,6 +622,17 @@ async function removeAvatar() {
         previewImg.onerror = null;
         previewImg.src = window.getSvgAvatar('{{ user.username|escapejs }}');
       }
+
+      // Revert navbar and dropdown avatars to initial
+      const navImg = document.getElementById('userNavbarAvatarImg');
+      const navInit = document.getElementById('userNavbarAvatarInitial');
+      if (navImg) navImg.style.display = 'none';
+      if (navInit) navInit.style.display = 'flex';
+      const dropImg = document.getElementById('userDropdownAvatarImg');
+      const dropInit = document.getElementById('userDropdownAvatarInitial');
+      if (dropImg) dropImg.style.display = 'none';
+      if (dropInit) dropInit.style.display = 'flex';
+
       const removeBtn = document.getElementById('removeAvatarBtn');
       if (removeBtn) removeBtn.classList.add('hidden');
 

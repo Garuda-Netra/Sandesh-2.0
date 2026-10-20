@@ -14,7 +14,17 @@ def sdh_serve_media(request, path, document_root=None, show_indexes=False):
     permissive CORS and CORP headers so images, audio, and videos
     render without browser origin or security policy blocks.
     """
-    response = serve(request, path, document_root=document_root, show_indexes=show_indexes)
+    if request.method == 'OPTIONS':
+        from django.http import HttpResponse
+        res = HttpResponse(status=200)
+        res['Access-Control-Allow-Origin'] = '*'
+        res['Access-Control-Allow-Methods'] = 'GET, HEAD, OPTIONS'
+        res['Access-Control-Allow-Headers'] = '*'
+        res['Cross-Origin-Resource-Policy'] = 'cross-origin'
+        return res
+
+    root_str = str(document_root) if document_root else None
+    response = serve(request, path, document_root=root_str, show_indexes=show_indexes)
     response['Access-Control-Allow-Origin'] = '*'
     response['Access-Control-Allow-Methods'] = 'GET, HEAD, OPTIONS'
     response['Access-Control-Allow-Headers'] = '*'

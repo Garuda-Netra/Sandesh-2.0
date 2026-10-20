@@ -902,6 +902,7 @@
   window.SDH_DATA = {
     currentUser: "{{ current_user.username }}",
     currentUserId: "{{ current_user.id }}",
+    currentUserAvatar: "{% if current_user.profile.avatar_url %}{{ current_user.profile.avatar_url }}{% elif current_user.profile.avatar and current_user.profile.avatar.name %}{{ current_user.profile.avatar.url }}{% else %}{% endif %}",
     csrfToken: "{{ csrf_token }}",
     historyUrl: "{% url 'messaging:message_history' username='SDH_PH' %}".replace('SDH_PH/', ''),
     uploadFileUrl: "{% url 'messaging:upload_file' %}",
@@ -1038,6 +1039,23 @@
           data-lpignore="true" data-form-type="other" data-1p-ignore="true"
           oninput="SDH.Chat.filterUsers(this.value)"
           class="sdh-search-input w-full pl-9 pr-3 py-2.5 text-xs" style="color:var(--c-text)" />
+      </div>
+    </div>
+
+    <!-- ── Sidebar Moments Section (Stories) ───────────────────── -->
+    <div id="sidebarMomentsSection" class="flex-shrink-0 px-3 py-2.5 border-b border-divine-border/40 bg-divine-surface/40">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-divine-gold/80 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-divine-gold animate-pulse"></span>
+          Moments & Stories
+        </span>
+        <button type="button" onclick="SDH.Moments.showUploadModal()" title="Add Moment"
+          class="flex items-center gap-1 text-[10px] text-divine-gold hover:text-white px-2 py-0.5 rounded-full border border-divine-gold/30 hover:bg-divine-gold/20 transition-all font-semibold">
+          <span>+ Add</span>
+        </button>
+      </div>
+      <div id="sidebarMomentsTray" class="flex items-center gap-3 overflow-x-auto pb-1.5 pt-0.5 no-scrollbar">
+        <!-- Rendered dynamically by SDH.Moments.renderTray() -->
       </div>
     </div>
 
@@ -1344,16 +1362,38 @@
     </div>
 
     <!-- Sidebar footer: current user -->
-    <div class="sdh-user-footer flex items-center gap-3 px-4 py-3.5 flex-shrink-0">
-      <div class="sdh-avatar-self w-9 h-9 rounded-full flex items-center justify-center
-                  text-sm font-bold select-none flex-shrink-0">
-        {{ current_user.username|slice:":1"|upper }}
+    <a href="{% url 'users:profile' %}" class="sdh-user-footer flex items-center gap-3 px-4 py-3.5 flex-shrink-0 hover:bg-divine-surface/50 transition-colors cursor-pointer group" title="View & Edit Profile">
+      <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-divine-gold/40 shadow-sm" id="sidebarUserAvatarWrap">
+        {% if current_user.profile.avatar_url or current_user.profile.avatar and current_user.profile.avatar.name %}
+        <img id="sidebarUserAvatarImg"
+             src="{% if current_user.profile.avatar_url %}{{ current_user.profile.avatar_url }}{% else %}{{ current_user.profile.avatar.url }}{% endif %}"
+             alt="{{ current_user.username }}"
+             class="w-full h-full object-cover rounded-full"
+             onerror="this.style.display='none'; document.getElementById('sidebarUserAvatarInitial').style.display='flex';" />
+        <div id="sidebarUserAvatarInitial" style="display:none;" class="sdh-avatar-self w-full h-full flex items-center justify-center text-sm font-bold select-none">
+          {{ current_user.username|slice:":1"|upper }}
+        </div>
+        {% else %}
+        <img id="sidebarUserAvatarImg"
+             src=""
+             alt="{{ current_user.username }}"
+             style="display:none;"
+             class="w-full h-full object-cover rounded-full"
+             onerror="this.style.display='none'; document.getElementById('sidebarUserAvatarInitial').style.display='flex';" />
+        <div id="sidebarUserAvatarInitial" class="sdh-avatar-self w-full h-full flex items-center justify-center text-sm font-bold select-none">
+          {{ current_user.username|slice:":1"|upper }}
+        </div>
+        {% endif %}
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-xs font-semibold truncate" style="color:var(--c-text)">{{ current_user.username }}</p>
-        <p class="text-[11px]" style="color:var(--c-muted)">Chat</p>
+        <p class="text-xs font-semibold truncate group-hover:text-divine-gold transition-colors" style="color:var(--c-text)">{{ current_user.username }}</p>
+        <p class="text-[11px] flex items-center gap-1.5" style="color:var(--c-muted)">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>Your Profile</span>
+        </p>
       </div>
-    </div>
+      <span class="text-divine-muted group-hover:text-divine-gold text-xs transition-colors">⚙️</span>
+    </a>
 
   </aside>
 
@@ -3019,6 +3059,15 @@
         playsinline></video>
       <div id="mvText"
         class="hidden text-center text-3xl font-black text-white p-8 leading-tight drop-shadow-2xl font-serif"></div>
+      <!-- Fallback Error / Loading Card -->
+      <div id="mvImageErrorCard" class="hidden flex flex-col items-center justify-center p-6 text-center bg-divine-card/90 backdrop-blur-md rounded-2xl border border-white/10 max-w-xs shadow-2xl z-20">
+        <span class="text-3xl mb-2">🖼️</span>
+        <p class="text-sm font-semibold text-white">Media Loading</p>
+        <p class="text-xs text-white/60 mt-1 mb-4 leading-relaxed">Could not load this story image.</p>
+        <button type="button" onclick="SDH.Moments.retryCurrentMedia()" class="sdh-liquid-btn btn-ancient !text-xs !py-1.5 !px-4">
+          🔄 Retry
+        </button>
+      </div>
     </div>
 
     <!-- Caption Overlay -->

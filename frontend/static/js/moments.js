@@ -119,40 +119,88 @@ SDH.Moments = (function() {
     function renderTray() {
         const trayContainer = document.getElementById('momentsTrayContainer');
         const tray = document.getElementById('momentsTray');
-        if (!tray || !trayContainer) return;
+        const sidebarTray = document.getElementById('sidebarMomentsTray');
+        if (!tray && !sidebarTray) return;
 
-        tray.innerHTML = '';
+        const myId = String(window.SDH_DATA?.currentUserId || '');
+        const myGroup = momentsData.find(g => String(g.user_id) === myId || g.username === window.SDH_DATA?.currentUser);
+        const myAvatar = window.SDH_DATA?.currentUserAvatar || (myGroup && myGroup.avatar_url) || getSvgAvatar(window.SDH_DATA?.currentUser || 'You');
 
-        if (momentsData.length === 0) {
-            trayContainer.classList.add('hidden');
-            return;
+        // Build "Your Story" element
+        let myStoryHtml = '';
+        if (myGroup && myGroup.moments && myGroup.moments.length > 0) {
+            const isSeen = isAllSeenForUser(myGroup);
+            const ringClass = isSeen ? 'moment-ring-seen' : 'moment-ring';
+            myStoryHtml = `
+                <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0 group" onclick="SDH.Moments.openViewer(${myGroup.user_id})">
+                    <div class="relative">
+                        <div class="${ringClass} p-[2px] transition-transform group-hover:scale-105">
+                            <img src="${myAvatar}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface" onerror="this.onerror=null; this.src='${getSvgAvatar(window.SDH_DATA?.currentUser || 'You')}';" />
+                        </div>
+                        <button type="button" onclick="event.stopPropagation(); SDH.Moments.showUploadModal();" title="Add another story" class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-divine-gold text-black flex items-center justify-center font-bold text-xs shadow-md border-2 border-divine-surface hover:scale-110 transition-transform">
+                            +
+                        </button>
+                    </div>
+                    <span class="text-[10px] text-white/90 font-medium w-full truncate text-center">Your Story</span>
+                </div>
+            `;
+        } else {
+            myStoryHtml = `
+                <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0 group" onclick="SDH.Moments.showUploadModal()">
+                    <div class="relative">
+                        <div class="p-[2px] rounded-full border-2 border-dashed border-divine-gold/60 group-hover:border-divine-gold transition-colors">
+                            <img src="${myAvatar}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface opacity-85 group-hover:opacity-100 transition-opacity" onerror="this.onerror=null; this.src='${getSvgAvatar(window.SDH_DATA?.currentUser || 'You')}';" />
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-divine-gold text-black flex items-center justify-center font-bold text-xs shadow-md border-2 border-divine-surface group-hover:scale-110 transition-transform">
+                            +
+                        </div>
+                    </div>
+                    <span class="text-[10px] text-divine-muted group-hover:text-divine-gold font-medium w-full truncate text-center">Add Story</span>
+                </div>
+            `;
         }
 
-        trayContainer.classList.remove('hidden');
-
-        // Sort: Users with unseen moments first, then seen, then alphabetical
-        momentsData.sort((a, b) => {
+        // Friends' stories (excluding myGroup)
+        const friendsGroups = momentsData.filter(g => String(g.user_id) !== myId && g.username !== window.SDH_DATA?.currentUser);
+        friendsGroups.sort((a, b) => {
             const aSeen = isAllSeenForUser(a);
             const bSeen = isAllSeenForUser(b);
             if (aSeen === bSeen) return a.username.localeCompare(b.username);
             return aSeen ? 1 : -1;
         });
 
-        momentsData.forEach(userGroup => {
+        let friendsHtml = '';
+        friendsGroups.forEach(userGroup => {
             const ringClass = isAllSeenForUser(userGroup) ? 'moment-ring-seen' : 'moment-ring';
             const defaultAvatar = getSvgAvatar(userGroup.username);
             const avatarUrl = userGroup.avatar_url || (userGroup.moments[0] && userGroup.moments[0].moment_type === 'image' ? userGroup.moments[0].media_url : null) || defaultAvatar;
-            
-            const html = `
-                <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0" onclick="SDH.Moments.openViewer(${userGroup.user_id})">
-                    <div class="${ringClass} p-[2px] transition-transform hover:scale-105">
+
+            friendsHtml += `
+                <div class="flex flex-col items-center gap-1 cursor-pointer w-16 flex-shrink-0 group" onclick="SDH.Moments.openViewer(${userGroup.user_id})">
+                    <div class="${ringClass} p-[2px] transition-transform group-hover:scale-105">
                         <img src="${avatarUrl}" class="w-12 h-12 rounded-full border-2 border-divine-surface object-cover bg-divine-surface" onerror="this.onerror=null; this.src='${defaultAvatar}';" />
                     </div>
-                    <span class="text-[10px] text-white/80 w-full truncate text-center">${userGroup.user_id == window.SDH_DATA.currentUserId ? 'You' : userGroup.username}</span>
+                    <span class="text-[10px] text-white/80 w-full truncate text-center group-hover:text-white transition-colors">${userGroup.username}</span>
                 </div>
             `;
-            tray.insertAdjacentHTML('beforeend', html);
         });
+
+        const fullTrayHtml = myStoryHtml + friendsHtml;
+
+        // Populate sidebar tray
+        if (sidebarTray) {
+            sidebarTray.innerHTML = fullTrayHtml;
+        }
+
+        // Populate header chat panel tray
+        if (tray && trayContainer) {
+            tray.innerHTML = fullTrayHtml;
+            if (momentsData.length === 0) {
+                trayContainer.classList.add('hidden');
+            } else {
+                trayContainer.classList.remove('hidden');
+            }
+        }
     }
 
     function handleNewMomentEvent(moment) {
@@ -531,6 +579,8 @@ SDH.Moments = (function() {
                 document.getElementById('momentUploadModal').classList.add('hidden');
                 // The new moment will arrive via WS, but we can also handle it directly
                 handleNewMomentEvent(json.moment);
+                fetchMoments();
+                window.SDH?.Chat?.showToast?.('Story posted successfully! ✨', 'success');
             } else {
                 alert(json.error || 'Upload failed');
             }
@@ -546,16 +596,18 @@ SDH.Moments = (function() {
     // ─── VIEWER ───────────────────────────────────────────────────────────────
 
     function openViewer(userId) {
-        currentUserId = userId;
-        const userGroup = momentsData.find(g => g.user_id === userId);
+        currentUserId = parseInt(userId, 10);
+        const userGroup = momentsData.find(g => g.user_id === currentUserId || String(g.user_id) === String(userId));
         if (!userGroup) return;
 
         // Find first unseen
         let startIndex = userGroup.moments.findIndex(m => !isSeen(m));
         currentMomentIndex = startIndex === -1 ? 0 : startIndex;
 
-        document.getElementById('momentsViewerModal').classList.remove('hidden');
-        document.getElementById('momentsViewerModal').classList.add('flex');
+        const modal = document.getElementById('momentsViewerModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
         _initMentionInputs();
         playMoment();
     }
@@ -599,7 +651,7 @@ SDH.Moments = (function() {
     function playMoment() {
         clearTimeout(progressTimer);
         clearInterval(countdownTimer);
-        const userGroup = momentsData.find(g => g.user_id === currentUserId);
+        const userGroup = momentsData.find(g => g.user_id === currentUserId || String(g.user_id) === String(currentUserId));
         if (!userGroup || currentMomentIndex >= userGroup.moments.length) {
             // Reached end for this user, try next user
             moveToNextUser();
@@ -608,9 +660,14 @@ SDH.Moments = (function() {
 
         const moment = userGroup.moments[currentMomentIndex];
 
+        // Hide error card if previously shown
+        const errCard = document.getElementById('mvImageErrorCard');
+        if (errCard) errCard.classList.add('hidden');
+
         // Update Header
         const defaultAvatar = getSvgAvatar(userGroup.username);
-        const avatarUrl = userGroup.avatar_url || (moment.moment_type === 'image' ? moment.media_url : null) || defaultAvatar;
+        const isSelf = String(userGroup.user_id) === String(window.SDH_DATA?.currentUserId) || userGroup.username === window.SDH_DATA?.currentUser;
+        const avatarUrl = userGroup.avatar_url || (isSelf ? window.SDH_DATA?.currentUserAvatar : null) || (moment.moment_type === 'image' ? moment.media_url : null) || defaultAvatar;
         const mvAvatarEl = document.getElementById('mvAvatar');
         if (mvAvatarEl) {
             mvAvatarEl.src = avatarUrl;
@@ -619,11 +676,11 @@ SDH.Moments = (function() {
                 this.src = defaultAvatar;
             };
         }
-        document.getElementById('mvUsername').innerText = userGroup.username;
+        document.getElementById('mvUsername').innerText = isSelf ? `${userGroup.username} (You)` : userGroup.username;
         document.getElementById('mvTime').innerText = new Date(moment.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
         // Show/Hide Delete and Views buttons
-        const isMine = userGroup.username === window.SDH_DATA.currentUser;
+        const isMine = isSelf;
         document.getElementById('mvDeleteBtn').classList.toggle('hidden', !isMine);
         
         const viewsBtn = document.getElementById('mvViewsBtn');
@@ -729,6 +786,8 @@ SDH.Moments = (function() {
             img.onerror = function() {
                 console.error("Failed to load moment image:", moment.media_url);
                 this.classList.add('hidden');
+                const errCard = document.getElementById('mvImageErrorCard');
+                if (errCard) errCard.classList.remove('hidden');
             };
             img.src = moment.media_url;
             img.classList.remove('hidden');
@@ -1008,8 +1067,26 @@ SDH.Moments = (function() {
         }
     }
 
+    function retryCurrentMedia() {
+        const userGroup = momentsData.find(g => g.user_id === currentUserId || String(g.user_id) === String(currentUserId));
+        if (!userGroup) return;
+        const moment = userGroup.moments[currentMomentIndex];
+        if (!moment) return;
+        const errCard = document.getElementById('mvImageErrorCard');
+        if (errCard) errCard.classList.add('hidden');
+        if (moment.moment_type === 'image') {
+            const img = document.getElementById('mvImage');
+            if (img) {
+                const buster = (moment.media_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                img.src = moment.media_url + buster;
+                img.classList.remove('hidden');
+            }
+        }
+    }
+
     return {
         init,
+        retryCurrentMedia,
         showUploadModal,
         toggleUploadFields,
         uploadMoment,
@@ -1292,9 +1369,13 @@ SDH.Moments = (function() {
     }
 })();
 
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        SDH.Moments.init();
+    });
+} else {
     SDH.Moments.init();
-});
+}
 
 // Extra animation CSS for float-up
 const style = document.createElement('style');
