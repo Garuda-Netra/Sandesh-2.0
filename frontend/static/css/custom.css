@@ -2212,23 +2212,135 @@ body {
   -webkit-backdrop-filter: blur(6px);
 }
 
-/* Call message card inside bubble */
-.call-msg-card {
-  width: 195px;
+/* ─── Call Message Card (Modern Box for Light & Dark Mode) ────────── */
+.call-msg-card,
+.sdh-call-card {
+  width: 225px;
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
+  border-radius: 1.25rem;
+  padding: 1.25rem 1rem 1.05rem 1rem;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  /* Dark Theme Card Container (Default) */
+  background: linear-gradient(155deg, rgba(28, 22, 45, 0.95) 0%, rgba(16, 12, 28, 0.98) 100%);
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.55), 0 0 20px rgba(244, 63, 94, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-.call-msg-card button {
+.call-msg-card:hover,
+.sdh-call-card:hover {
+  border-color: rgba(244, 63, 94, 0.45);
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.65), 0 0 26px rgba(244, 63, 94, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* Light Theme Card Container */
+[data-theme="light"] .call-msg-card,
+[data-theme="light"] .sdh-call-card {
+  background: linear-gradient(155deg, #ffffff 0%, #fff7f7 100%);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  box-shadow: 0 10px 25px -4px rgba(239, 68, 68, 0.12), 0 2px 8px -1px rgba(0, 0, 0, 0.05), inset 0 1px 0 #ffffff;
+}
+
+[data-theme="light"] .call-msg-card:hover,
+[data-theme="light"] .sdh-call-card:hover {
+  border-color: rgba(239, 68, 68, 0.42);
+  box-shadow: 0 14px 32px -4px rgba(239, 68, 68, 0.18), 0 4px 10px -1px rgba(0, 0, 0, 0.08);
+}
+
+/* Call Icon Badge */
+.sdh-call-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.22) 0%, rgba(220, 38, 38, 0.1) 100%);
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.call-msg-card:hover .sdh-call-icon-wrap,
+.sdh-call-card:hover .sdh-call-icon-wrap {
+  transform: scale(1.06);
+  box-shadow: 0 0 22px rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="light"] .sdh-call-icon-wrap {
+  background: radial-gradient(circle, #fee2e2 0%, #fecaca 100%);
+  border: 1.5px solid #f87171;
+  color: #dc2626;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2);
+}
+
+/* Call Card Title */
+.sdh-call-title {
+  color: #f8fafc;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="light"] .sdh-call-title {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+/* Missed Pill Badge */
+.sdh-call-badge-wrap {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+[data-theme="light"] .sdh-call-badge-wrap {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+/* Call Back Action Button */
+.sdh-call-back-btn {
   width: 100%;
-  max-width: 100%;
   box-sizing: border-box;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff !important;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.sdh-call-back-btn:hover {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.42);
+  transform: translateY(-1px);
+}
+
+.sdh-call-back-btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+[data-theme="light"] .sdh-call-back-btn {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  box-shadow: 0 3px 12px rgba(22, 163, 74, 0.28);
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .sdh-call-back-btn:hover {
+  background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+  box-shadow: 0 5px 16px rgba(22, 163, 74, 0.38);
 }
 
 @media (min-width: 640px) {
-  .call-msg-card {
-    width: 215px;
+  .call-msg-card,
+  .sdh-call-card {
+    width: 245px;
   }
 }
 
@@ -3008,16 +3120,50 @@ input[type="password"]::-webkit-reveal {
   box-shadow: 0 0 14px rgba(168, 85, 247, 0.32);
 }
 
-.sdh-avatar-initial {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(129, 140, 248, 0.12));
-  border-color: rgba(168, 85, 247, 0.3);
-  color: #a855f7;
+/* ── Avatar Initials & Header Avatar (Attractive, Centered, No Wrap) ────── */
+.sdh-avatar-initial,
+.sdh-chat-avatar,
+.sdh-avatar-self {
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow: hidden !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  text-align: center !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+  user-select: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
+
+  /* Dark theme luminous styling */
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.22) 0%, rgba(79, 70, 229, 0.16) 100%) !important;
+  border: 1.5px solid rgba(168, 85, 247, 0.45) !important;
+  color: #e9d5ff !important;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.22), inset 0 1px 2px rgba(255, 255, 255, 0.12) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-.sdh-user-item:hover .sdh-avatar-initial {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(129, 140, 248, 0.18));
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.38);
-  border-color: rgba(168, 85, 247, 0.56);
+/* 2-Character Initials (e.g. 0B or OB) - Proportional scaling so it never breaks */
+.sdh-avatar-initial.sdh-avatar-initial--dual,
+.sdh-chat-avatar.sdh-avatar-initial--dual,
+.sdh-avatar-self.sdh-avatar-initial--dual {
+  font-size: 0.72rem !important;
+  letter-spacing: -0.04em !important;
+  font-weight: 900 !important;
+}
+
+.sdh-user-item:hover .sdh-avatar-initial,
+.sdh-user-item.active .sdh-avatar-initial {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.35) 0%, rgba(99, 102, 241, 0.25) 100%) !important;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.45), inset 0 1px 3px rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(192, 132, 252, 0.7) !important;
+  color: #ffffff !important;
+  transform: scale(1.05);
 }
 
 /* ── Active user item ────────────────────────────────────────── */
@@ -3042,13 +3188,6 @@ input[type="password"]::-webkit-reveal {
   border-top-color: rgba(42, 23, 88, 0.45);
 }
 
-.sdh-avatar-self {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(129, 140, 248, 0.18));
-  border-color: rgba(168, 85, 247, 0.55);
-  color: #a855f7;
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.3);
-}
-
 /* ── Chat header divider → purple gradient ───────────────────── */
 .sdh-header-divider {
   background: linear-gradient(90deg,
@@ -3064,14 +3203,6 @@ input[type="password"]::-webkit-reveal {
 .sdh-header-divider::after {
   background: linear-gradient(90deg, transparent 0%, rgba(168, 85, 247, 0.22) 50%, transparent 100%);
   background-size: 200% 100%;
-}
-
-/* ── Chat avatar → purple ────────────────────────────────────── */
-.sdh-chat-avatar {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(129, 140, 248, 0.14));
-  border-color: rgba(168, 85, 247, 0.4);
-  color: #a855f7;
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.22);
 }
 
 /* ── Ambient orbs → cosmic purple ───────────────────────────── */
@@ -3363,9 +3494,22 @@ input[type="password"]::-webkit-reveal {
   box-shadow: none;
 }
 
-[data-theme="light"] .sdh-avatar-initial {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(129, 140, 248, 0.1));
-  border-color: rgba(168, 85, 247, 0.28);
+[data-theme="light"] .sdh-avatar-initial,
+[data-theme="light"] .sdh-chat-avatar,
+[data-theme="light"] .sdh-avatar-self {
+  background: linear-gradient(135deg, #ede9fe 0%, #e0e7ff 100%) !important;
+  border: 1.5px solid rgba(124, 58, 237, 0.42) !important;
+  color: #6d28d9 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-theme="light"] .sdh-user-item:hover .sdh-avatar-initial,
+[data-theme="light"] .sdh-user-item.active .sdh-avatar-initial {
+  background: linear-gradient(135deg, #ddd6fe 0%, #c7d2fe 100%) !important;
+  border-color: #7c3aed !important;
+  color: #4c1d95 !important;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.22) !important;
 }
 
 [data-theme="light"] .sdh-cosmic-bg {
@@ -5726,6 +5870,17 @@ input[type="password"]::-webkit-reveal {
   filter: drop-shadow(0 0 16px rgba(192, 132, 252, 0.5));
   font-size: 2rem;
   font-weight: 900;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: row !important;
+  letter-spacing: -0.02em;
+}
+
+.sdh-profile-avatar-text.sdh-avatar-initial--dual {
+  font-size: 1.55rem !important;
+  letter-spacing: -0.04em !important;
 }
 
 [data-theme="light"] .sdh-profile-avatar-text {
@@ -5735,6 +5890,17 @@ input[type="password"]::-webkit-reveal {
   filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.25));
   font-size: 2rem;
   font-weight: 900;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: row !important;
+  letter-spacing: -0.02em;
+}
+
+[data-theme="light"] .sdh-profile-avatar-text.sdh-avatar-initial--dual {
+  font-size: 1.55rem !important;
+  letter-spacing: -0.04em !important;
 }
 
 .sdh-profile-status-badge {

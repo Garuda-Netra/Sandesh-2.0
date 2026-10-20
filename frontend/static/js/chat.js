@@ -793,6 +793,36 @@ SDH.Chat = (() => {
     return _isSelfChat(username) ? 'Saved Messages' : username;
   }
 
+  function _getAttractiveInitials(name) {
+    if (!name) return '—';
+    const clean = String(name).trim();
+    if (!clean) return '—';
+    if (_isSelfChat(clean)) return '🔖';
+    // If name contains words separated by space, underscore, dot or hyphen
+    const parts = clean.split(/[\s_\.\-]+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    // If exactly 2 characters (e.g. "0B" or "OB"), keep both
+    if (clean.length === 2) {
+      return clean.toUpperCase();
+    }
+    // Otherwise return first character
+    return (clean[0] || '?').toUpperCase();
+  }
+
+  function _setAvatarInitial(el, name) {
+    if (!el) return;
+    const initials = _getAttractiveInitials(name);
+    el.innerHTML = '';
+    el.textContent = initials;
+    if (initials.length >= 2) {
+      el.classList.add('sdh-avatar-initial--dual');
+    } else {
+      el.classList.remove('sdh-avatar-initial--dual');
+    }
+  }
+
   function _defaultEmptyStateInnerHtml() {
     return `
         <div class="sdh-empty-orb mb-7">
@@ -882,7 +912,7 @@ SDH.Chat = (() => {
       }
     }
 
-    const initial = (username[0] || '?').toUpperCase();
+    const initial = _getAttractiveInitials(username);
     const displayName = _displayNameFor(username);
     const itemHTML = `
       <div id="user-item-${username}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5 group/usr"
@@ -890,7 +920,7 @@ SDH.Chat = (() => {
         <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
              onclick="SDH.Chat.selectUser('${username}', '${userId || ''}')">
           <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showUserProfile('${username}', '${userId || ''}')">
-            <div class="sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none">
+            <div class="sdh-avatar sdh-avatar-initial w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold select-none ${initial.length >= 2 ? 'sdh-avatar-initial--dual' : ''}">
               ${initial}
             </div>
             <span id="online-dot-${username}" class="sdh-online-dot absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 flex-shrink-0 sdh-online-dot--off"></span>
@@ -2444,20 +2474,33 @@ SDH.Chat = (() => {
 
     if (messageType === 'call') {
       const isVideo = content && content.toLowerCase().includes('video');
-      const icon = isVideo ? '📹' : '📞';
       const callTypeArgs = isVideo ? "'video', 'medium'" : "'voice', 'medium'";
+      const callTitle = escapeHtml(content || (isVideo ? 'Missed video call' : 'Missed voice call'));
       return `
-          <div class="call-msg-card flex flex-col items-center gap-1.5 text-center w-[195px] max-w-full sm:w-[215px] pt-1 pb-0.5 box-border overflow-hidden">
-            <div class="w-12 h-12 rounded-full flex flex-shrink-0 items-center justify-center text-2xl bg-red-500/15 text-red-500 mb-1">
-              ${icon}
+          <div class="call-msg-card sdh-call-card flex flex-col items-center text-center box-border select-none">
+            <div class="sdh-call-icon-wrap flex-shrink-0 flex items-center justify-center mb-2.5">
+              ${isVideo ? `
+                <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              ` : `
+                <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z"/>
+                </svg>
+              `}
             </div>
             <div class="w-full flex flex-col items-center px-1">
-              <p class="text-[14px] sm:text-[15px] font-semibold leading-tight max-w-full whitespace-normal break-words" style="color:var(--c-text)">${escapeHtml(content || 'Missed Call')}</p>
-              <p class="text-[10px] sm:text-[11px] font-bold text-red-500 mt-1 uppercase tracking-wider">Missed</p>
+              <p class="sdh-call-title font-bold text-[14px] sm:text-[15px] leading-tight max-w-full truncate">${callTitle}</p>
+              <div class="sdh-call-badge-wrap mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                <span>Missed</span>
+              </div>
             </div>
-            <div class="w-full mt-2 box-border">
-              <button onclick="SDH.WebRTC.startCall(${callTypeArgs})" class="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl bg-divine-text text-divine-surface font-semibold text-sm hover:scale-[0.98] active:scale-[0.96] transition-all shadow-sm box-border">
-                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+            <div class="w-full mt-3.5 box-border">
+              <button type="button" onclick="SDH.WebRTC.startCall(${callTypeArgs})" class="sdh-call-back-btn flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl font-semibold text-sm transition-all box-border">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                </svg>
                 <span class="truncate">Call Back</span>
               </button>
             </div>
@@ -3266,7 +3309,7 @@ SDH.Chat = (() => {
       ?.classList.add('active-chat-item');
 
     const avatarEl = document.getElementById('chatAvatar');
-    if (avatarEl) avatarEl.textContent = (username[0] || '?').toUpperCase();
+    if (avatarEl) _setAvatarInitial(avatarEl, username);
     const usernameEl = document.getElementById('chatUsername');
     if (usernameEl) usernameEl.textContent = _displayNameFor(username);
 
@@ -3316,10 +3359,9 @@ SDH.Chat = (() => {
       const headerAvatar = document.getElementById('chatAvatar');
       if (headerAvatar) {
         if (userObj.avatar_url && userObj.avatar_url.trim() !== '') {
-          headerAvatar.innerHTML = `<img src="${userObj.avatar_url}" class="w-full h-full object-cover rounded-full" alt="" onerror="this.parentElement.innerHTML = '${(username[0] || '?').toUpperCase()}';">`;
+          headerAvatar.innerHTML = `<img src="${userObj.avatar_url}" class="w-full h-full object-cover rounded-full" alt="" onerror="window.SDH?.Chat?._setAvatarInitial?.(this.parentElement, '${username}');">`;
         } else {
-          headerAvatar.innerHTML = '';
-          headerAvatar.textContent = (username[0] || '?').toUpperCase();
+          _setAvatarInitial(headerAvatar, username);
         }
       }
     }
@@ -4528,7 +4570,7 @@ SDH.Chat = (() => {
     lastSeenEl.textContent = 'Last seen —';
     lastSeenEl.classList.remove('hidden');
 
-    avatarText.textContent = username[0].toUpperCase();
+    _setAvatarInitial(avatarText, username);
     avatarText.classList.remove('hidden');
     avatarImg.classList.add('hidden');
     avatarImg.src = '';
@@ -4622,7 +4664,7 @@ SDH.Chat = (() => {
         avatarImg.classList.remove('hidden');
         avatarText.classList.add('hidden');
       } else {
-        avatarText.textContent = isGroup ? (data.display_name ? data.display_name[0].toUpperCase() : 'G') : username[0].toUpperCase();
+        _setAvatarInitial(avatarText, isGroup ? (data.display_name || 'Group') : (data.display_name || username));
         avatarText.classList.remove('hidden');
         avatarImg.classList.add('hidden');
         avatarImg.src = '';
@@ -7294,6 +7336,8 @@ SDH.Chat = (() => {
     scrollToBottom: (instant) => scrollToBottom(instant),
     markMessageRendered: (id) => { if (id) renderedIds.add(String(id)); },
     removeTempMessage: (tempId) => { if (tempId) pendingAckMap.delete(tempId); },
+    _setAvatarInitial: (el, name) => _setAvatarInitial(el, name),
+    _getAttractiveInitials: (name) => _getAttractiveInitials(name),
   };
 
 })();
