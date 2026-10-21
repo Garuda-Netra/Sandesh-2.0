@@ -578,6 +578,20 @@ SDH.Moments = (function() {
                 },
                 body: formData
             });
+            if (res.status === 401 || res.redirected) {
+                alert('Your session has expired. Please log in again.');
+                window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+                return;
+            }
+            if (!res.ok) {
+                let errText = 'Upload failed';
+                try {
+                    const errJson = await res.json();
+                    errText = errJson.error || errText;
+                } catch (_) {}
+                alert(errText);
+                return;
+            }
             const json = await res.json();
             if (json.status === 'ok') {
                 document.getElementById('momentUploadModal').classList.add('hidden');
@@ -590,7 +604,7 @@ SDH.Moments = (function() {
             }
         } catch (e) {
             console.error(e);
-            alert('Upload failed');
+            alert('Upload failed: ' + (e.message || 'Network error'));
         } finally {
             btn.disabled = false;
             btn.innerText = 'Share';

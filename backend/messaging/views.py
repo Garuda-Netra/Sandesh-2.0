@@ -1971,13 +1971,14 @@ def moment_privacy_settings(request):
     return HttpResponseNotAllowed(['GET', 'POST'])
 
 
-@login_required
 @csrf_protect
 @require_POST
 def upload_moment(request):
     """
     Upload a new moment with optional privacy settings.
     """
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'error': 'Session expired or not logged in. Please log in again.'}, status=401)
     moment_type = request.POST.get('moment_type', Moment.MOMENT_TYPE_IMAGE)
     caption = request.POST.get('caption', '').strip()
     text_content = request.POST.get('text_content', '').strip()
@@ -2172,13 +2173,14 @@ def delete_moment(request, moment_id):
     return JsonResponse({'status': 'ok'})
 
 
-@login_required
 @require_POST
 @csrf_protect
 def view_moment(request, moment_id):
     """
     Mark a moment as viewed by the current user with privacy check.
     """
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'error': 'Session expired or not logged in. Please log in again.'}, status=401)
     moment = get_object_or_404(Moment, id=moment_id)
 
     # Permission check: verify viewing user is allowed to access this moment

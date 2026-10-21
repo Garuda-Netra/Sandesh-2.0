@@ -1358,7 +1358,7 @@
     </div>
 
     <!-- Sidebar footer: current user -->
-    <a href="{% url 'users:profile' %}" class="sdh-user-footer flex items-center gap-3 px-4 py-3.5 flex-shrink-0 hover:bg-divine-surface/50 transition-colors cursor-pointer group" title="View & Edit Profile">
+    <a href="{% url 'users:profile' %}" class="sdh-user-footer flex items-center gap-3 px-4 py-3.5 flex-shrink-0 transition-colors cursor-pointer group" title="View & Edit Profile">
       <div class="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 border border-divine-gold/40 shadow-sm" id="sidebarUserAvatarWrap">
         {% if current_user.profile.avatar_url %}
         <img id="sidebarUserAvatarImg"

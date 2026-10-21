@@ -1,5 +1,6 @@
 from django.contrib.auth import logout
 from django.utils.deprecation import MiddlewareMixin
+from django.conf import settings
 import hashlib
 
 class SessionSecurityMiddleware(MiddlewareMixin):
@@ -36,8 +37,12 @@ class SessionSecurityMiddleware(MiddlewareMixin):
             # First time for this session, store the hash
             request.session['security_hash'] = current_hash
         elif session_hash != current_hash:
-            # Hash mismatch! Potential session hijacking. Log the user out immediately.
-            logout(request)
+            if getattr(settings, 'DEBUG', False) or ip in ('127.0.0.1', 'localhost', '::1'):
+                # In development or local testing, device emulation or localhost IP shifts should not invalidate session
+                request.session['security_hash'] = current_hash
+            else:
+                # Hash mismatch! Potential session hijacking. Log the user out immediately.
+                logout(request)
             
         return None
 

@@ -1378,8 +1378,8 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         # If it's a call request and the user is offline, immediately reject it
         if sig_type == 'call-request':
             try:
-                target_profile = target_user.profile
-                if not target_profile.is_online:
+                target_profile = getattr(target_user, 'profile', None)
+                if target_profile and not target_profile.is_online:
                     await self.send(text_data=json.dumps({
                         'type': 'call-offline',
                         'from': to_username
@@ -1413,7 +1413,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def _resolve_user(self, username: str):
         try:
-            return User.objects.filter(username=username, is_active=True).first()
+            return User.objects.select_related('profile').filter(username=username, is_active=True).first()
         except Exception as exc:
             logger.warning(f'[Signal] _resolve_user error: {exc}')
             return None

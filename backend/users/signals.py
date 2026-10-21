@@ -6,6 +6,8 @@ from .models import UserSession
 from user_agents import parse
 
 def fetch_location(session_id, ip):
+    from django.db import close_old_connections, connections
+    close_old_connections()
     try:
         if ip in ('127.0.0.1', 'localhost', '::1'):
             UserSession.objects.filter(id=session_id).update(location="Local Network")
@@ -16,6 +18,8 @@ def fetch_location(session_id, ip):
             UserSession.objects.filter(id=session_id).update(location=loc)
     except Exception:
         pass
+    finally:
+        connections.close_all()
 
 @receiver(user_logged_in)
 def track_user_session(sender, user, request, **kwargs):

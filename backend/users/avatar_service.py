@@ -131,7 +131,7 @@ def upload_avatar(user, file_obj):
 
             # Trigger background sweep to ensure only current image remains in the user's Cloudinary folder
             import threading
-            threading.Thread(target=cleanup_user_avatar_history, args=(user,), daemon=True).start()
+            threading.Thread(target=_background_avatar_cleanup_worker, args=(user.id,), daemon=True).start()
 
             return profile.avatar_url, None
 
@@ -201,6 +201,24 @@ def remove_avatar(user):
     return True, None
 
 
+def _background_avatar_cleanup_worker(user_id: int) -> None:
+    """
+    Background worker run in a detached daemon thread to purge orphaned avatar assets.
+    Explicitly closes thread-local database connections on entry and exit to prevent connection leaks.
+    """
+    from django.db import close_old_connections, connections
+    close_old_connections()
+    try:
+        from django.contrib.auth.models import User
+        user = User.objects.filter(id=user_id).first()
+        if user:
+            cleanup_user_avatar_history(user)
+    except Exception as exc:
+        logger.warning("Background avatar cleanup failed for user_id=%s: %s", user_id, exc)
+    finally:
+        connections.close_all()
+
+
 def cleanup_user_avatar_history(user) -> int:
     """
     Cleans up any orphaned or historical avatar images under this user's Cloudinary folder
@@ -264,18 +282,24 @@ def cleanup_user_avatar_history(user) -> int:
 def cleanup_all_orphaned_avatars() -> dict:
     """
     Sweeps across all registered users and deletes historical / orphaned avatars.
+    Ensures database connections are safely closed when executed in a background thread.
     """
+    from django.db import close_old_connections, connections
+    close_old_connections()
     from django.contrib.auth.models import User
     total_purged = 0
     users_processed = 0
 
-    for u in User.objects.all().iterator():
-        try:
-            count = cleanup_user_avatar_history(u)
-            total_purged += count
-            users_processed += 1
-        except Exception as e:
-            logger.error("Error cleaning avatars for user %s: %s", u.username, e)
+    try:
+        for u in User.objects.all().iterator():
+            try:
+                count = cleanup_user_avatar_history(u)
+                total_purged += count
+                users_processed += 1
+            except Exception as e:
+                logger.error("Error cleaning avatars for user %s: %s", u.username, e)
+    finally:
+        connections.close_all()
 
     return {
         'users_processed': users_processed,

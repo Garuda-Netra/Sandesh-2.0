@@ -430,6 +430,7 @@ body {
 
 /* ─── Bridge Tailwind hover states to theme variables ─────────────────── */
 [data-theme="light"] .hover\:bg-divine-surface:hover,
+[data-theme="light"] .hover\:bg-divine-surface\/50:hover,
 [data-theme="light"] .hover\:bg-divine-surface\/80:hover {
   background-color: #f1f5f9 !important;
 }
@@ -3188,6 +3189,10 @@ input[type="password"]::-webkit-reveal {
   border-top-color: rgba(42, 23, 88, 0.45);
 }
 
+.sdh-user-footer:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* ── Chat header divider → purple gradient ───────────────────── */
 .sdh-header-divider {
   background: linear-gradient(90deg,
@@ -3492,6 +3497,18 @@ input[type="password"]::-webkit-reveal {
   background: rgba(240, 238, 255, 0.96);
   border-top: 1px solid rgba(200, 190, 240, 0.5);
   box-shadow: none;
+}
+
+[data-theme="light"] .sdh-user-footer:hover {
+  background: rgba(228, 222, 255, 0.95) !important;
+}
+
+[data-theme="light"] .sdh-user-footer:hover .group-hover\:text-divine-gold {
+  color: #581c87 !important;
+}
+
+[data-theme="light"] .sdh-user-footer:hover .text-\[11px\] {
+  color: #334155 !important;
 }
 
 [data-theme="light"] .sdh-avatar-initial,
