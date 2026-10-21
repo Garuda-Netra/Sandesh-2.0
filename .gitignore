@@ -168,3 +168,4 @@ firebase-credentials.json
 powershell.bat
 powershell.cmd
 ponytail/
+backend/users/tests.py
