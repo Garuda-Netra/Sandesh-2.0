@@ -238,7 +238,7 @@ web: python backend/manage.py migrate && daphne -b 0.0.0.0 -p $PORT sdh.asgi:app
 
 ## 💌 A Note from the Creator
 
-Building Sandesh 2.0 has been an incredible journey of exploring what happens when you combine engineering rigor, user empathy, and beautiful aesthetics. Every feature in here was crafted with intention—to give you a communication tool that respects your time, treats your privacy as sacred, and brings a little spark of joy every time you hear a chime or send a note.
+Building Sandesh 2.0 has been an incredible journey of exploring what happens when you combine engineering rigor, user empathy, and beautiful aesthetics. Every feature in here was crafted with intention-to give you a communication tool that respects your time, treats your privacy as sacred, and brings a little spark of joy every time you hear a chime or send a note.
 
 If you like what you see or have ideas on how to make Sandesh even better, feel free to open an issue, submit a pull request, or drop a line!
 
