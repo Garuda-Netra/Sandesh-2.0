@@ -7,7 +7,7 @@
   <!-- Theme Toggle -->
   <div class="absolute top-6 right-6">
     <button id="themeToggleAuth" onclick="SDH.toggleTheme(event)"
-            class="sdh-icon-btn p-2.5 rounded-full bg-divine-card border border-divine-border shadow-lg hover:shadow-divine transition-all text-divine-text hover:text-divine-gold"
+            class="sdh-icon-btn p-2.5 rounded-full bg-white dark:bg-divine-card border border-slate-200 dark:border-divine-border shadow-lg hover:shadow-divine transition-all text-slate-700 dark:text-divine-text hover:text-divine-gold"
             title="Toggle theme">
       <svg id="iconDark" class="theme-icon-sun w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -20,48 +20,62 @@
     </button>
   </div>
 
-  <div class="w-full max-w-lg bg-divine-card border border-divine-border rounded-3xl p-8 sm:p-10 shadow-2xl relative overflow-hidden">
+  <div class="w-full max-w-lg bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-3xl p-8 sm:p-10 shadow-2xl relative overflow-hidden transition-colors">
     <!-- Subtle glow decoration -->
-    <div class="absolute -top-24 -right-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -top-24 -right-24 w-48 h-48 bg-amber-500/15 dark:bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/15 dark:bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
     <div class="text-center mb-6">
-      <div class="flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 mx-auto mb-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <div class="flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 border border-amber-300 text-amber-700 dark:bg-amber-500/15 dark:border-amber-500/30 dark:text-amber-400 mx-auto mb-4 shadow-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round"
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
         </svg>
       </div>
 
-      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-3">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30 mb-3 shadow-xs">
         ⚠️ Deactivated (Grace Period)
       </span>
 
-      <h1 class="text-2xl sm:text-3xl font-bold text-divine-text">Account Scheduled for Deletion</h1>
-      <p class="text-divine-muted text-sm mt-2">
-        Signed in as <strong class="text-divine-text">{{ request.user.username }}</strong>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-divine-text">Account Scheduled for Deletion</h1>
+      <p class="text-slate-600 dark:text-zinc-400 text-sm mt-2">
+        Signed in as <strong class="text-slate-900 dark:text-zinc-200">{{ request.user.username }}</strong>
         {% if request.user.email %}({{ request.user.email }}){% endif %}
       </p>
     </div>
 
-    <!-- Status Details Card -->
-    <div class="bg-black/30 dark:bg-white/5 border border-divine-border rounded-2xl p-5 mb-6 space-y-3 text-sm">
-      <div class="flex justify-between items-center pb-2 border-b border-divine-border/60">
-        <span class="text-divine-muted">Current Status:</span>
-        <span class="font-medium text-amber-400">Deactivated</span>
+    <!-- Status Details Card (High-Contrast & Fully Visible) -->
+    <div class="bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-2xl p-5 sm:p-6 mb-6 space-y-4 text-sm shadow-sm transition-colors">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-white/10">
+        <span class="text-slate-700 dark:text-zinc-300 font-semibold">Current Status:</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40 shadow-xs">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse"></span>
+          Deactivated
+        </span>
       </div>
-      <div class="flex justify-between items-center pb-2 border-b border-divine-border/60">
-        <span class="text-divine-muted">Permanent Deletion Deadline:</span>
-        <span class="font-semibold text-divine-text">{{ deletion_deadline|date:"F j, Y, g:i A" }}</span>
+
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-white/10 gap-3">
+        <span class="text-slate-700 dark:text-zinc-300 font-semibold whitespace-nowrap">Permanent Deletion Deadline:</span>
+        <div class="text-right">
+          <span class="block font-bold text-slate-900 dark:text-white sm:text-base leading-tight">
+            {{ deletion_deadline|date:"F j, Y" }}
+          </span>
+          <span class="block text-xs font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
+            {{ deletion_deadline|date:"g:i A" }}
+          </span>
+        </div>
       </div>
+
       <div class="flex justify-between items-center">
-        <span class="text-divine-muted">Time Remaining:</span>
-        <span class="font-semibold text-amber-300">{{ days_remaining }} day{{ days_remaining|pluralize }} remaining</span>
+        <span class="text-slate-700 dark:text-zinc-300 font-semibold">Time Remaining:</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40 shadow-xs">
+          ⏳ {{ days_remaining }} day{{ days_remaining|pluralize }} remaining
+        </span>
       </div>
     </div>
 
-    <p class="text-divine-muted text-xs sm:text-sm text-center leading-relaxed mb-8">
-      Your account is currently hidden from other users, and active sessions have been revoked.
+    <p class="text-slate-600 dark:text-zinc-400 text-xs sm:text-sm text-center leading-relaxed mb-8">
+      Your account is currently hidden from other users, and all active sessions have been revoked.
       If you do nothing, your account and all associated messages, moments, and media will be
       permanently deleted on the deadline above. You can cancel this deletion anytime before the deadline.
     </p>
@@ -70,12 +84,12 @@
     <div class="flex flex-col gap-3">
       <form method="POST" action="{% url 'users:cancel_deletion' %}">
         {% csrf_token %}
-        <button type="submit" class="sdh-liquid-btn btn-primary w-full py-3">
+        <button type="submit" class="sdh-liquid-btn btn-primary w-full py-3.5 text-sm sm:text-base">
           <span>✅ Cancel Deletion & Restore Account</span>
         </button>
       </form>
 
-      <a href="{% url 'users:logout' %}" class="sdh-liquid-btn btn-secondary w-full py-3 text-center">
+      <a href="{% url 'users:logout' %}" class="sdh-liquid-btn btn-secondary w-full py-3 text-center text-sm">
         <span>🚪 Keep Deactivated & Sign Out</span>
       </a>
     </div>

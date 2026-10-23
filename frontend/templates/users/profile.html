@@ -255,19 +255,20 @@
 
   <!-- ── Danger Zone ─────────────────────────────────────────────────── -->
   {% if profile.is_pending_deletion %}
-  <div class="mt-8 bg-divine-card border border-amber-500/40 rounded-2xl p-8">
+  <div class="mt-8 bg-amber-50/90 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/40 rounded-2xl p-6 sm:p-8 shadow-sm">
     <div class="flex items-center gap-2 mb-2">
-      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-        ⚠️ Deactivated (Grace Period)
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 shadow-xs">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse"></span>
+        Deactivated (Grace Period)
       </span>
     </div>
-    <h2 class="text-lg font-semibold text-divine-text mb-1">Account Scheduled for Deletion</h2>
-    <p class="text-divine-muted text-sm mb-3">
+    <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Account Scheduled for Deletion</h2>
+    <p class="text-slate-700 dark:text-zinc-300 text-sm mb-3">
       Your account is currently deactivated and scheduled for permanent deletion on
-      <strong class="text-amber-400">{{ profile.deletion_deadline|date:"F j, Y" }}</strong>
+      <strong class="text-amber-900 dark:text-amber-300 font-bold">{{ profile.deletion_deadline|date:"F j, Y" }}</strong>
       ({{ profile.days_until_deletion }} days remaining).
     </p>
-    <p class="text-divine-muted text-xs mb-5">
+    <p class="text-slate-600 dark:text-zinc-400 text-xs mb-5">
       All active sessions are revoked. You can cancel this deletion request immediately to restore full account access.
     </p>
     <form method="POST" action="{% url 'users:cancel_deletion' %}">
@@ -278,9 +279,9 @@
     </form>
   </div>
   {% else %}
-  <div class="mt-8 bg-divine-card border border-red-900/40 rounded-2xl p-8">
-    <h2 class="text-lg font-semibold text-red-400 mb-1">Danger Zone</h2>
-    <p class="text-divine-muted text-sm mb-5">
+  <div class="mt-8 bg-white dark:bg-divine-card border border-red-200 dark:border-red-900/40 rounded-2xl p-6 sm:p-8 shadow-sm">
+    <h2 class="text-lg font-bold text-red-600 dark:text-red-400 mb-1">Danger Zone</h2>
+    <p class="text-slate-600 dark:text-zinc-400 text-sm mb-5">
       Schedule account deletion. Your account will be deactivated immediately with a 30-day grace period before permanent removal.
     </p>
     <button id="openDeleteModal"
@@ -297,11 +298,11 @@
      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden"
      role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
 
-  <div class="relative bg-divine-card border border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-8">
+  <div class="relative bg-white dark:bg-divine-card border border-slate-200 dark:border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 sm:p-8">
 
     <!-- Close button -->
     <button id="closeDeleteModal"
-            class="absolute top-4 right-4 text-divine-muted hover:text-divine-text transition-colors"
+            class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 dark:text-divine-muted dark:hover:text-divine-text transition-colors"
             aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -309,23 +310,23 @@
     </button>
 
     <!-- Icon -->
-    <div class="flex items-center justify-center w-14 h-14 rounded-full bg-red-900/25 border border-red-700/40 mx-auto mb-5">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <div class="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 border border-red-200 text-red-600 dark:bg-red-900/25 dark:border-red-700/40 dark:text-red-400 mx-auto mb-5 shadow-xs">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round"
               d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
       </svg>
     </div>
 
-    <h3 id="deleteModalTitle" class="text-xl font-bold text-center text-divine-text mb-3">
+    <h3 id="deleteModalTitle" class="text-xl font-bold text-center text-slate-900 dark:text-divine-text mb-3">
       Schedule Account Deletion
     </h3>
-    <p class="text-divine-muted text-sm text-center leading-relaxed mb-4">
-      Your account will be <span class="text-amber-400 font-medium">deactivated immediately</span>, all active sessions will be revoked, and your profile will be hidden.
+    <p class="text-slate-600 dark:text-zinc-400 text-sm text-center leading-relaxed mb-4">
+      Your account will be <span class="text-amber-700 dark:text-amber-400 font-semibold">deactivated immediately</span>, all active sessions will be revoked, and your profile will be hidden.
     </p>
 
-    <div class="p-3.5 bg-red-950/20 border border-red-900/40 rounded-xl mb-6 text-xs text-divine-muted text-center leading-relaxed">
-      You have a <strong class="text-divine-text">30-day grace period</strong>. Your account and all personal messages, moments, and media will be permanently purged on
-      <strong class="text-red-400">{% if deletion_deadline_preview %}{{ deletion_deadline_preview|date:"F j, Y" }}{% else %}in 30 days{% endif %}</strong>.
+    <div class="p-4 bg-amber-50 dark:bg-red-950/20 border border-amber-200 dark:border-red-900/40 rounded-xl mb-6 text-xs text-slate-700 dark:text-zinc-300 text-center leading-relaxed">
+      You have a <strong class="text-slate-900 dark:text-white font-bold">30-day grace period</strong>. Your account and all personal messages, moments, and media will be permanently purged on
+      <strong class="text-red-600 dark:text-red-400 font-bold">{% if deletion_deadline_preview %}{{ deletion_deadline_preview|date:"F j, Y" }}{% else %}in 30 days{% endif %}</strong>.
       You can cancel anytime by logging back in.
     </div>
 
