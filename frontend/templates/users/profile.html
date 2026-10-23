@@ -254,16 +254,41 @@
   </div>
 
   <!-- ── Danger Zone ─────────────────────────────────────────────────── -->
+  {% if profile.is_pending_deletion %}
+  <div class="mt-8 bg-divine-card border border-amber-500/40 rounded-2xl p-8">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+        ⚠️ Deactivated (Grace Period)
+      </span>
+    </div>
+    <h2 class="text-lg font-semibold text-divine-text mb-1">Account Scheduled for Deletion</h2>
+    <p class="text-divine-muted text-sm mb-3">
+      Your account is currently deactivated and scheduled for permanent deletion on
+      <strong class="text-amber-400">{{ profile.deletion_deadline|date:"F j, Y" }}</strong>
+      ({{ profile.days_until_deletion }} days remaining).
+    </p>
+    <p class="text-divine-muted text-xs mb-5">
+      All active sessions are revoked. You can cancel this deletion request immediately to restore full account access.
+    </p>
+    <form method="POST" action="{% url 'users:cancel_deletion' %}">
+      {% csrf_token %}
+      <button type="submit" class="sdh-liquid-btn btn-primary">
+        <span>✅ Cancel Deletion & Restore Account</span>
+      </button>
+    </form>
+  </div>
+  {% else %}
   <div class="mt-8 bg-divine-card border border-red-900/40 rounded-2xl p-8">
     <h2 class="text-lg font-semibold text-red-400 mb-1">Danger Zone</h2>
     <p class="text-divine-muted text-sm mb-5">
-      Permanently deactivate your account. This action cannot be undone.
+      Schedule account deletion. Your account will be deactivated immediately with a 30-day grace period before permanent removal.
     </p>
     <button id="openDeleteModal"
             class="sdh-liquid-btn btn-danger">
       <span>🗑️ Delete Account</span>
     </button>
   </div>
+  {% endif %}
 
 </div>
 
@@ -292,22 +317,26 @@
     </div>
 
     <h3 id="deleteModalTitle" class="text-xl font-bold text-center text-divine-text mb-3">
-      Delete Account
+      Schedule Account Deletion
     </h3>
-    <p class="text-divine-muted text-sm text-center leading-relaxed mb-8">
-      Are you sure you want to permanently delete your account?
-      This action <span class="text-red-400 font-medium">cannot be undone</span>.
-      Your account and all associated data will be permanently removed.
+    <p class="text-divine-muted text-sm text-center leading-relaxed mb-4">
+      Your account will be <span class="text-amber-400 font-medium">deactivated immediately</span>, all active sessions will be revoked, and your profile will be hidden.
     </p>
+
+    <div class="p-3.5 bg-red-950/20 border border-red-900/40 rounded-xl mb-6 text-xs text-divine-muted text-center leading-relaxed">
+      You have a <strong class="text-divine-text">30-day grace period</strong>. Your account and all personal messages, moments, and media will be permanently purged on
+      <strong class="text-red-400">{% if deletion_deadline_preview %}{{ deletion_deadline_preview|date:"F j, Y" }}{% else %}in 30 days{% endif %}</strong>.
+      You can cancel anytime by logging back in.
+    </div>
 
     <div class="flex flex-col gap-3">
       <button id="confirmDeleteBtn"
               class="sdh-liquid-btn btn-danger">
-        <span>Confirm Account Deletion</span>
+        <span>Schedule Deletion (30-Day Grace Period)</span>
       </button>
       <button id="cancelDeleteBtn"
               class="sdh-liquid-btn btn-secondary">
-        <span>Cancel</span>
+        <span>Keep Account</span>
       </button>
     </div>
 
@@ -330,12 +359,14 @@
   const confirmBtn   = document.getElementById('confirmDeleteBtn');
   const statusMsg    = document.getElementById('deleteStatusMsg');
 
+  if (!openBtn || !modal) return;
+
   function openModal()  { modal.classList.remove('hidden'); confirmBtn.disabled = false; statusMsg.classList.add('hidden'); }
   function closeModal() { modal.classList.add('hidden'); }
 
   openBtn.addEventListener('click', openModal);
-  closeBtn.addEventListener('click', closeModal);
-  cancelBtn.addEventListener('click', closeModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
 
   // Close on backdrop click
   modal.addEventListener('click', function (e) {
@@ -349,7 +380,7 @@
 
   confirmBtn.addEventListener('click', async function () {
     confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Deleting…';
+    confirmBtn.textContent = 'Scheduling Deletion…';
 
     try {
       const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -363,12 +394,13 @@
       });
 
       if (resp.ok) {
+        const data = await resp.json();
         localStorage.clear();
         sessionStorage.clear();
-        statusMsg.textContent = 'Your account has been permanently deleted. Redirecting…';
-        statusMsg.className   = 'text-center text-sm mt-4 text-green-400';
+        statusMsg.textContent = data.message || 'Account deletion scheduled. Redirecting…';
+        statusMsg.className   = 'text-center text-sm mt-4 text-amber-400';
         statusMsg.classList.remove('hidden');
-        setTimeout(() => { window.location.href = '/'; }, 1500);
+        setTimeout(() => { window.location.href = '{% url "users:login" %}'; }, 2000);
       } else {
         throw new Error('Server error ' + resp.status);
       }
@@ -377,7 +409,7 @@
       statusMsg.className   = 'text-center text-sm mt-4 text-red-400';
       statusMsg.classList.remove('hidden');
       confirmBtn.disabled    = false;
-      confirmBtn.textContent = 'Confirm Account Deletion';
+      confirmBtn.textContent = 'Schedule Deletion (30-Day Grace Period)';
     }
   });
 

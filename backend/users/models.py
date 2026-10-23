@@ -136,6 +136,38 @@ class UserProfile(models.Model):
     def display_name(self):
         return self.user.get_full_name() or self.user.username
 
+    GRACE_PERIOD_DAYS = 30
+
+    @property
+    def is_pending_deletion(self):
+        """Returns True if the account is in temporary deactivation / grace period."""
+        return not self.is_active_account and self.deleted_at is not None
+
+    @property
+    def deletion_deadline(self):
+        """Timestamp when the account will be permanently purged."""
+        if not self.deleted_at:
+            return None
+        from datetime import timedelta
+        return self.deleted_at + timedelta(days=self.GRACE_PERIOD_DAYS)
+
+    @property
+    def days_until_deletion(self):
+        """Days remaining in grace period before permanent purge."""
+        if not self.deletion_deadline:
+            return None
+        from django.utils import timezone
+        diff_days = (self.deletion_deadline.date() - timezone.now().date()).days
+        return max(0, diff_days)
+
+    @property
+    def is_deletion_expired(self):
+        """True if the 30-day grace period has elapsed."""
+        if not self.deletion_deadline:
+            return False
+        from django.utils import timezone
+        return timezone.now() >= self.deletion_deadline
+
 
 
 

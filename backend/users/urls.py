@@ -25,8 +25,10 @@ urlpatterns = [
     path('api/storage-usage/', views.storage_usage_api, name='storage_usage_api'),
     path('api/blocked-contacts/', views.blocked_contacts_api, name='blocked_contacts_api'),
 
-    # Account deletion
+    # Account deletion & recovery
     path('account/delete/', views.delete_account_view, name='delete_account'),
+    path('account/reactivate/', views.reactivate_account_view, name='reactivate_account'),
+    path('account/cancel-deletion/', views.cancel_deletion_view, name='cancel_deletion'),
 
     # API endpoints
     path('api/profile/<str:username>/', views.user_profile_api, name='user_profile_api'),

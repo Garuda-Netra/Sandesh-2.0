@@ -214,7 +214,17 @@ python backend/manage.py cleanup_moments
 
 # Dispatch pending birthday and holiday wishes
 python backend/manage.py send_auto_wishes
+
+# Permanently purges accounts that exceeded their 30-day deletion grace period
+python backend/manage.py purge_deleted_accounts
 ```
+
+### 🗓️ Production Scheduler Setup
+Schedule `purge_deleted_accounts` to run daily in production:
+* **Render**: Create a **Cron Job** service with command: `python backend/manage.py purge_deleted_accounts` and schedule `0 3 * * *`.
+* **Heroku**: Add **Heroku Scheduler** add-on and add job: `python backend/manage.py purge_deleted_accounts` daily.
+* **Linux / VPS**: Add crontab entry: `0 3 * * * cd /path/to/sandesh && .venv/bin/python backend/manage.py purge_deleted_accounts`.
+
 
 ---
 

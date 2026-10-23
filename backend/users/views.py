@@ -64,12 +64,24 @@ def register_view(request):
 @csrf_protect
 def login_view(request):
     if request.user.is_authenticated:
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.is_pending_deletion:
+            return redirect('users:reactivate_account')
         return redirect('messaging:chat')
         
     if request.method == 'POST':
         form = SDHLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
+            profile = getattr(user, 'profile', None)
+            if profile and profile.is_pending_deletion:
+                if profile.is_deletion_expired:
+                    form.add_error(None, 'This account has exceeded the 30-day grace period and has been permanently deleted.')
+                    return render(request, 'login.html', {'form': form})
+                # Verified owner within 30-day grace period!
+                login(request, user)
+                return redirect('users:reactivate_account')
+
             login(request, user)
             return redirect('messaging:chat')
     else:
@@ -259,7 +271,15 @@ def clerk_login_view(request):
         profile, _ = UserProfile.objects.get_or_create(user=user)
 
         if not profile.is_active_account:
-            raise ValueError('Account deleted.')
+            if profile.is_deletion_expired:
+                raise ValueError('This account has exceeded the 30-day grace period and has been permanently deleted.')
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            if request.content_type != 'application/json':
+                return redirect('users:reactivate_account')
+            return JsonResponse({
+                'status': 'pending_reactivation',
+                'redirect_url': reverse('users:reactivate_account'),
+            })
 
         # ── 6. Log in the user ─────────────────────────────────────
         login(request, user, backend='django.contrib.auth.backends.ModelBackend')
@@ -1210,7 +1230,7 @@ def friend_requests_view(request):
 # Profile Page
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
-# Account Deletion
+# Account Deletion & Recovery
 # ---------------------------------------------------------------------------
 @login_required
 @csrf_protect
@@ -1218,7 +1238,9 @@ async def delete_account_view(request):
     """
     POST /account/delete/
 
-    Hard-deletes the authenticated user's account and all associated data.
+    Initiates temporary account deactivation with a 30-day grace period.
+    Immediately deactivates the account, revokes all active sessions,
+    and forces WebSocket disconnections.
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
@@ -1229,6 +1251,7 @@ async def delete_account_view(request):
     from asgiref.sync import sync_to_async
     from channels.layers import get_channel_layer
     from users.models import UserSession
+    from users.deletion import schedule_account_deletion
     
     @sync_to_async
     def get_user_session_keys(user):
@@ -1246,31 +1269,67 @@ async def delete_account_view(request):
             }
         )
 
-    # 2. Perform the hard delete synchronously
-    await sync_to_async(_hard_delete_account)(user, session_keys)
+    # 2. Schedule the deletion and deactivate account with 30-day grace period
+    profile, _ = await sync_to_async(schedule_account_deletion)(user)
 
     # 3. Log out the current request (clears current session cookie)
     from django.contrib.auth import alogout
     await alogout(request)
 
-    return JsonResponse({'status': 'deleted'}, status=200)
+    deadline_str = profile.deletion_deadline.strftime("%B %d, %Y") if profile.deletion_deadline else "in 30 days"
 
-def _hard_delete_account(user, session_keys):
-    """Sync helper: perform the hard delete."""
-    from django.contrib.sessions.models import Session
-    from messaging.models import GroupMessage
+    return JsonResponse({
+        'status': 'scheduled',
+        'message': f'Your account has been deactivated and scheduled for permanent deletion on {deadline_str}. You can cancel this anytime within 30 days by signing back in.',
+        'deletion_deadline': deadline_str,
+        'days_remaining': profile.days_until_deletion,
+    }, status=200)
 
-    # 1. Delete all global sessions matching this user's UserSession records
-    if session_keys:
-        Session.objects.filter(session_key__in=session_keys).delete()
 
-    # 2. Delete all group messages sent by the user (since they default to SET_NULL)
-    GroupMessage.objects.filter(sender=user).delete()
+@login_required
+def reactivate_account_view(request):
+    """
+    GET /account/reactivate/
+    Displays the confirmation screen with deletion deadline, status,
+    and option to cancel deletion or log out.
+    """
+    profile = request.user.profile
+    if profile.is_active_account:
+        return redirect('messaging:chat')
 
-    # 3. Delete the User record
-    # This automatically cascades to UserProfile, Friendship, FriendRequest,
-    # Message, CallLog, Moment, UserSession, GroupMembership, etc.
-    user.delete()
+    if profile.is_deletion_expired:
+        from django.contrib.auth import logout
+        logout(request)
+        messages.error(request, 'The 30-day grace period for this account has expired and your account has been scheduled for permanent removal.')
+        return redirect('users:login')
+
+    return render(request, 'users/reactivate.html', {
+        'profile': profile,
+        'deletion_deadline': profile.deletion_deadline,
+        'days_remaining': profile.days_until_deletion,
+    })
+
+
+@login_required
+@require_POST
+@csrf_protect
+def cancel_deletion_view(request):
+    """
+    POST /account/cancel-deletion/
+    Cancels account deletion for verified owner within 30-day grace period.
+    """
+    from users.deletion import cancel_account_deletion
+    success, msg = cancel_account_deletion(request.user)
+    if success:
+        messages.success(request, 'Account successfully restored! Welcome back to Sandesh.')
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+            return JsonResponse({'status': 'restored', 'message': msg})
+        return redirect('messaging:chat')
+    else:
+        messages.error(request, msg)
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+            return JsonResponse({'status': 'error', 'message': msg}, status=400)
+        return redirect('users:reactivate_account')
 
 
 # ---------------------------------------------------------------------------
@@ -1327,7 +1386,14 @@ def profile_view(request):
                 }, status=400)
             messages.error(request, err_msg)
 
-    return render(request, 'users/profile.html', {'form': form, 'profile': profile})
+    from datetime import timedelta
+    deletion_deadline_preview = timezone.now() + timedelta(days=30)
+
+    return render(request, 'users/profile.html', {
+        'form': form,
+        'profile': profile,
+        'deletion_deadline_preview': deletion_deadline_preview,
+    })
 
 
 # ---------------------------------------------------------------------------

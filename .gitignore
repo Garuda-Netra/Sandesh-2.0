@@ -67,10 +67,12 @@ staticfiles/
 powershell.cmd
 
 # ===========================================================================
-# IDE & Editor Data
+# IDE & Editor Data & Local AI Agents
 # ===========================================================================
 .gemini/
 .agents/
+skills-lock.json
+.ponytail/
 .vscode/
 !.vscode/settings.json.example
 .idea/
@@ -105,6 +107,8 @@ dist/
 # ===========================================================================
 # Testing & Coverage
 # ===========================================================================
+test_*.py
+**/test_*.py
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -143,6 +147,7 @@ $RECYCLE.BIN/
 # ===========================================================================
 backend/db_dump.txt
 frontend/static/js/recover*
+console.log*
 *.bak
 *.tmp
 *.temp

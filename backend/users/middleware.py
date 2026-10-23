@@ -43,7 +43,36 @@ class SessionSecurityMiddleware(MiddlewareMixin):
             else:
                 # Hash mismatch! Potential session hijacking. Log the user out immediately.
                 logout(request)
-            
+                return None
+
+        # Check if the account has been deactivated / scheduled for deletion
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.is_pending_deletion:
+            # If the 30-day grace period has passed, terminate session
+            if profile.is_deletion_expired:
+                logout(request)
+                from django.shortcuts import redirect
+                return redirect('users:login')
+
+            # Verified owner in grace period is strictly constrained to reactivation/cancellation/logout
+            path = request.path
+            exempt_prefixes = (
+                '/account/reactivate/',
+                '/account/cancel-deletion/',
+                '/logout/',
+                '/static/',
+                '/media/',
+            )
+            if not any(path.startswith(prefix) for prefix in exempt_prefixes):
+                if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.content_type == 'application/json':
+                    from django.http import JsonResponse
+                    return JsonResponse({
+                        'error': 'Account deactivated. Reactivation required.',
+                        'code': 'account_deactivated',
+                        'reactivate_url': '/account/reactivate/',
+                    }, status=403)
+                from django.shortcuts import redirect
+                return redirect('users:reactivate_account')
         return None
 
 from django.utils import timezone

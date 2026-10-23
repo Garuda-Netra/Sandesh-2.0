@@ -322,9 +322,15 @@ def auto_delete_moment_media_on_delete(sender, instance, **kwargs):
     Deletes the media and song files from storage when the Moment is deleted.
     """
     if instance.media:
-        instance.media.delete(save=False)
+        try:
+            instance.media.delete(save=False)
+        except Exception:
+            pass
     if instance.song_file:
-        instance.song_file.delete(save=False)
+        try:
+            instance.song_file.delete(save=False)
+        except Exception:
+            pass
 
 @receiver(post_delete, sender=Message)
 def auto_delete_message_media_on_delete(sender, instance, **kwargs):
@@ -332,7 +338,10 @@ def auto_delete_message_media_on_delete(sender, instance, **kwargs):
     Deletes the file attached to a Message when it is deleted.
     """
     if instance.file:
-        instance.file.delete(save=False)
+        try:
+            instance.file.delete(save=False)
+        except Exception:
+            pass
 
 
 class ChatSetting(models.Model):
@@ -674,14 +683,20 @@ class GroupE2EKey(models.Model):
 def auto_delete_group_message_file_on_delete(sender, instance, **kwargs):
     """Deletes the file attached to a GroupMessage when it is deleted."""
     if instance.file:
-        instance.file.delete(save=False)
+        try:
+            instance.file.delete(save=False)
+        except Exception:
+            pass
 
 
 @receiver(post_delete, sender=Group)
 def auto_delete_group_avatar_on_delete(sender, instance, **kwargs):
     """Deletes the avatar file when a Group is deleted."""
     if instance.avatar:
-        instance.avatar.delete(save=False)
+        try:
+            instance.avatar.delete(save=False)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------

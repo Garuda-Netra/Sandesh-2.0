@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Account Deactivated — Sandesh{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 py-16 relative">
+  <!-- Theme Toggle -->
+  <div class="absolute top-6 right-6">
+    <button id="themeToggleAuth" onclick="SDH.toggleTheme(event)"
+            class="sdh-icon-btn p-2.5 rounded-full bg-divine-card border border-divine-border shadow-lg hover:shadow-divine transition-all text-divine-text hover:text-divine-gold"
+            title="Toggle theme">
+      <svg id="iconDark" class="theme-icon-sun w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <svg id="iconLight" class="theme-icon-moon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="w-full max-w-lg bg-divine-card border border-divine-border rounded-3xl p-8 sm:p-10 shadow-2xl relative overflow-hidden">
+    <!-- Subtle glow decoration -->
+    <div class="absolute -top-24 -right-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="text-center mb-6">
+      <div class="flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-3">
+        ⚠️ Deactivated (Grace Period)
+      </span>
+
+      <h1 class="text-2xl sm:text-3xl font-bold text-divine-text">Account Scheduled for Deletion</h1>
+      <p class="text-divine-muted text-sm mt-2">
+        Signed in as <strong class="text-divine-text">{{ request.user.username }}</strong>
+        {% if request.user.email %}({{ request.user.email }}){% endif %}
+      </p>
+    </div>
+
+    <!-- Status Details Card -->
+    <div class="bg-black/30 dark:bg-white/5 border border-divine-border rounded-2xl p-5 mb-6 space-y-3 text-sm">
+      <div class="flex justify-between items-center pb-2 border-b border-divine-border/60">
+        <span class="text-divine-muted">Current Status:</span>
+        <span class="font-medium text-amber-400">Deactivated</span>
+      </div>
+      <div class="flex justify-between items-center pb-2 border-b border-divine-border/60">
+        <span class="text-divine-muted">Permanent Deletion Deadline:</span>
+        <span class="font-semibold text-divine-text">{{ deletion_deadline|date:"F j, Y, g:i A" }}</span>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-divine-muted">Time Remaining:</span>
+        <span class="font-semibold text-amber-300">{{ days_remaining }} day{{ days_remaining|pluralize }} remaining</span>
+      </div>
+    </div>
+
+    <p class="text-divine-muted text-xs sm:text-sm text-center leading-relaxed mb-8">
+      Your account is currently hidden from other users, and active sessions have been revoked.
+      If you do nothing, your account and all associated messages, moments, and media will be
+      permanently deleted on the deadline above. You can cancel this deletion anytime before the deadline.
+    </p>
+
+    <!-- Actions -->
+    <div class="flex flex-col gap-3">
+      <form method="POST" action="{% url 'users:cancel_deletion' %}">
+        {% csrf_token %}
+        <button type="submit" class="sdh-liquid-btn btn-primary w-full py-3">
+          <span>✅ Cancel Deletion & Restore Account</span>
+        </button>
+      </form>
+
+      <a href="{% url 'users:logout' %}" class="sdh-liquid-btn btn-secondary w-full py-3 text-center">
+        <span>🚪 Keep Deactivated & Sign Out</span>
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
