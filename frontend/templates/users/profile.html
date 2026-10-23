@@ -255,7 +255,7 @@
 
   <!-- ── Danger Zone ─────────────────────────────────────────────────── -->
   {% if profile.is_pending_deletion %}
-  <div class="mt-8 bg-amber-50/90 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/40 rounded-2xl p-6 sm:p-8 shadow-sm">
+  <div class="mt-8 bg-amber-50/90 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/40 rounded-2xl p-5 sm:p-8 shadow-sm">
     <div class="flex items-center gap-2 mb-2">
       <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 shadow-xs">
         <span class="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse"></span>
@@ -273,19 +273,19 @@
     </p>
     <form method="POST" action="{% url 'users:cancel_deletion' %}">
       {% csrf_token %}
-      <button type="submit" class="sdh-liquid-btn btn-primary">
+      <button type="submit" class="sdh-liquid-btn btn-primary text-xs sm:text-sm">
         <span>✅ Cancel Deletion & Restore Account</span>
       </button>
     </form>
   </div>
   {% else %}
-  <div class="mt-8 bg-white dark:bg-divine-card border border-red-200 dark:border-red-900/40 rounded-2xl p-6 sm:p-8 shadow-sm">
+  <div class="mt-8 bg-white dark:bg-divine-card border border-red-200 dark:border-red-900/40 rounded-2xl p-5 sm:p-8 shadow-sm">
     <h2 class="text-lg font-bold text-red-600 dark:text-red-400 mb-1">Danger Zone</h2>
     <p class="text-slate-600 dark:text-zinc-400 text-sm mb-5">
       Schedule account deletion. Your account will be deactivated immediately with a 30-day grace period before permanent removal.
     </p>
     <button id="openDeleteModal"
-            class="sdh-liquid-btn btn-danger">
+            class="sdh-liquid-btn btn-danger text-xs sm:text-sm">
       <span>🗑️ Delete Account</span>
     </button>
   </div>
@@ -295,10 +295,10 @@
 
 <!-- ── Delete Account Confirmation Modal ───────────────────────────── -->
 <div id="deleteAccountModal"
-     class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden"
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden p-3 sm:p-4"
      role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
 
-  <div class="relative bg-white dark:bg-divine-card border border-slate-200 dark:border-divine-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 sm:p-8">
+  <div class="relative bg-white dark:bg-divine-card border border-slate-200 dark:border-divine-border rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-8">
 
     <!-- Close button -->
     <button id="closeDeleteModal"
@@ -317,14 +317,14 @@
       </svg>
     </div>
 
-    <h3 id="deleteModalTitle" class="text-xl font-bold text-center text-slate-900 dark:text-divine-text mb-3">
+    <h3 id="deleteModalTitle" class="text-lg sm:text-xl font-bold text-center text-slate-900 dark:text-divine-text mb-3">
       Schedule Account Deletion
     </h3>
-    <p class="text-slate-600 dark:text-zinc-400 text-sm text-center leading-relaxed mb-4">
+    <p class="text-slate-600 dark:text-zinc-400 text-xs sm:text-sm text-center leading-relaxed mb-4">
       Your account will be <span class="text-amber-700 dark:text-amber-400 font-semibold">deactivated immediately</span>, all active sessions will be revoked, and your profile will be hidden.
     </p>
 
-    <div class="p-4 bg-amber-50 dark:bg-red-950/20 border border-amber-200 dark:border-red-900/40 rounded-xl mb-6 text-xs text-slate-700 dark:text-zinc-300 text-center leading-relaxed">
+    <div class="p-3.5 sm:p-4 bg-amber-50 dark:bg-red-950/20 border border-amber-200 dark:border-red-900/40 rounded-xl mb-6 text-xs text-slate-700 dark:text-zinc-300 text-center leading-relaxed">
       You have a <strong class="text-slate-900 dark:text-white font-bold">30-day grace period</strong>. Your account and all personal messages, moments, and media will be permanently purged on
       <strong class="text-red-600 dark:text-red-400 font-bold">{% if deletion_deadline_preview %}{{ deletion_deadline_preview|date:"F j, Y" }}{% else %}in 30 days{% endif %}</strong>.
       You can cancel anytime by logging back in.
@@ -332,11 +332,11 @@
 
     <div class="flex flex-col gap-3">
       <button id="confirmDeleteBtn"
-              class="sdh-liquid-btn btn-danger">
+              class="sdh-liquid-btn btn-danger text-xs sm:text-sm py-3">
         <span>Schedule Deletion (30-Day Grace Period)</span>
       </button>
       <button id="cancelDeleteBtn"
-              class="sdh-liquid-btn btn-secondary">
+              class="sdh-liquid-btn btn-secondary text-xs sm:text-sm py-2.5">
         <span>Keep Account</span>
       </button>
     </div>
