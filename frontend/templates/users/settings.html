@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Settings — Sandesh{% endblock %}
+{% block title %}Settings -- Sandesh{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
@@ -135,21 +135,24 @@
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Everyone</span>
                 <input type="radio" name="last_seen_visibility" value="everyone"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.last_seen_visibility == 'everyone' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
+                  settings.last_seen_visibility=='everyone' %}checked{% endif %}
                   onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
               <label
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">My Contacts</span>
                 <input type="radio" name="last_seen_visibility" value="contacts"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.last_seen_visibility == 'contacts' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
+                  settings.last_seen_visibility=='contacts' %}checked{% endif %}
                   onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
               <label
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Nobody</span>
                 <input type="radio" name="last_seen_visibility" value="nobody"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.last_seen_visibility == 'nobody' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
+                  settings.last_seen_visibility=='nobody' %}checked{% endif %}
                   onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
             </div>
@@ -165,14 +168,16 @@
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Everyone</span>
                 <input type="radio" name="online_visibility" value="everyone"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.online_visibility == 'everyone' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
+                  settings.online_visibility=='everyone' %}checked{% endif %}
                   onchange="updateSetting('online_visibility', this.value)">
               </label>
               <label
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Same as Last Seen</span>
                 <input type="radio" name="online_visibility" value="same_as_last_seen"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.online_visibility == 'same_as_last_seen' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
+                  settings.online_visibility=='same_as_last_seen' %}checked{% endif %}
                   onchange="updateSetting('online_visibility', this.value)">
               </label>
             </div>
@@ -209,7 +214,8 @@
               </p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="readReceiptsToggle" class="sr-only peer" {% if settings.read_receipts_enabled %}checked{% endif %} onchange="updateSetting('read_receipts_enabled', this.checked)">
+              <input type="checkbox" id="readReceiptsToggle" class="sr-only peer" {% if settings.read_receipts_enabled
+                %}checked{% endif %} onchange="updateSetting('read_receipts_enabled', this.checked)">
               <div
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
@@ -359,7 +365,8 @@
                   media files for rapid transmission and minimal data usage. Recommended for daily messaging.</span>
               </div>
               <input type="radio" name="media_upload_quality" value="standard"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1 cursor-pointer" {% if settings.media_upload_quality == 'standard' %}checked{% endif %}
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1 cursor-pointer" {% if
+                settings.media_upload_quality=='standard' %}checked{% endif %}
                 onchange="updateSetting('media_upload_quality', this.value)">
             </label>
 
@@ -372,7 +379,9 @@
                   crystal-clear high resolution. Preserves full detail but consumes more storage and bandwidth.</span>
               </div>
               <input type="radio" name="media_upload_quality" value="hd"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1 cursor-pointer" {% if settings.media_upload_quality == 'hd' %}checked{% endif %} onchange="updateSetting('media_upload_quality', this.value)">
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1 cursor-pointer" {% if
+                settings.media_upload_quality=='hd' %}checked{% endif %}
+                onchange="updateSetting('media_upload_quality', this.value)">
             </label>
           </div>
         </div>
@@ -391,19 +400,25 @@
               class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
               <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Wi-Fi & Cellular</span>
               <input type="radio" name="media_auto_download" value="all"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.media_auto_download == 'all' %}checked{% endif %} onchange="updateSetting('media_auto_download', this.value)">
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
+                settings.media_auto_download=='all' %}checked{% endif %}
+                onchange="updateSetting('media_auto_download', this.value)">
             </label>
             <label
               class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
               <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Wi-Fi Only</span>
               <input type="radio" name="media_auto_download" value="wifi"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.media_auto_download == 'wifi' %}checked{% endif %} onchange="updateSetting('media_auto_download', this.value)">
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
+                settings.media_auto_download=='wifi' %}checked{% endif %}
+                onchange="updateSetting('media_auto_download', this.value)">
             </label>
             <label
               class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
               <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Never</span>
               <input type="radio" name="media_auto_download" value="never"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.media_auto_download == 'never' %}checked{% endif %} onchange="updateSetting('media_auto_download', this.value)">
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
+                settings.media_auto_download=='never' %}checked{% endif %}
+                onchange="updateSetting('media_auto_download', this.value)">
             </label>
           </div>
         </div>
@@ -423,13 +438,14 @@
               <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed max-w-lg">
                 Pressing the <span
                   class="font-mono bg-slate-100 dark:bg-white/10 border border-slate-300 dark:border-white/15 px-2 py-0.5 rounded text-slate-800 dark:text-divine-text text-xs font-semibold shadow-xs">Enter</span>
-                  key will immediately send your message. Use <span
+                key will immediately send your message. Use <span
                   class="font-mono bg-slate-100 dark:bg-white/10 border border-slate-300 dark:border-white/15 px-2 py-0.5 rounded text-slate-800 dark:text-divine-text text-xs font-semibold shadow-xs">Shift
                   + Enter</span> to insert a new line.
               </p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="enterIsSendToggle" class="sr-only peer" {% if settings.enter_is_send %}checked{% endif %} onchange="updateSetting('enter_is_send', this.checked)">
+              <input type="checkbox" id="enterIsSendToggle" class="sr-only peer" {% if settings.enter_is_send
+                %}checked{% endif %} onchange="updateSetting('enter_is_send', this.checked)">
               <div
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
@@ -437,30 +453,54 @@
           </div>
         </div>
 
-        <!-- Cursor Trail & Click Blasting Animation Toggle -->
+        <!-- Cursor Trail & Click Blasting Animation Card (Professional & Centered) -->
         <div
-          class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
-          <div class="flex items-center justify-between gap-4">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Cursor Trail & Blasting Animation</h2>
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                  ✨ Interactive Effect
-                </span>
+          class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-5">
+          
+          <!-- Card Header with Icon, Title and Unwrapped Badge -->
+          <div class="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-slate-200/80 dark:border-divine-border/60">
+            <div class="flex items-center gap-3">
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
               </div>
-              <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed max-w-lg">
-                Shows particle trail and click blasting effects across Sandesh. Enabled by default — turn off for a minimal interface or to save device battery.
+              <div>
+                <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Cursor Particle Blasting</h2>
+                <p class="text-xs text-slate-500 dark:text-divine-muted">Dynamic particle bursting effects across Sandesh</p>
+              </div>
+            </div>
+            <span
+              class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-500/15 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-500/30 whitespace-nowrap shrink-0 shadow-2xs">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              ✨ Interactive Effect
+            </span>
+          </div>
+
+          <!-- Centered Inset Control Box in Middle of Container -->
+          <div
+            class="flex items-center justify-between gap-4 p-4 rounded-xl bg-slate-50/80 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 transition-colors">
+            <div class="space-y-1">
+              <span class="text-sm font-semibold text-slate-800 dark:text-divine-text block">
+                Enable Cursor Blasting Trail
+              </span>
+              <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed max-w-md">
+                Emits glowing particle bursts on cursor movement and clicks. Enabled by default — turn off for a minimal interface or to save battery.
               </p>
             </div>
+
+            <!-- Toggle Switch -->
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="cursorBlastToggle" class="sr-only peer"
-                {% if settings.cursor_blast_enabled %}checked{% endif %}
+              <input type="checkbox" id="cursorBlastToggle" class="sr-only peer" {% if settings.cursor_blast_enabled %}checked{% endif %}
                 onchange="updateSetting('cursor_blast_enabled', this.checked); if (window.SDH && SDH.setCursorBlast) SDH.setCursorBlast(this.checked);">
               <div
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
             </label>
           </div>
+
         </div>
 
         <!-- Chat Lock & Biometrics Hub -->
@@ -602,7 +642,8 @@
       <div id="panel-notifications" class="settings-panel hidden space-y-6">
 
         <!-- Default Notification Tone & Conversation Chimes -->
-        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
+        <div
+          class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="space-y-1">
               <h2 class="text-base font-bold text-slate-900 dark:text-divine-text flex items-center gap-2">
@@ -620,13 +661,17 @@
           </div>
 
           <!-- Device Notification Tune Note -->
-          <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 text-xs text-slate-600 dark:text-divine-muted flex items-start gap-2.5">
+          <div
+            class="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 text-xs text-slate-600 dark:text-divine-muted flex items-start gap-2.5">
             <span class="text-base leading-none">📱</span>
             <div>
               <span class="font-semibold text-slate-800 dark:text-divine-text">Custom Notification Tune:</span>
-              <p class="mt-0.5 leading-relaxed">If you want to customize your notification sound, you can configure it directly in your device's native system settings:
-                <span class="font-medium text-slate-700 dark:text-white/80">Android: App Info &gt; Notifications &gt; Sound</span> • 
-                <span class="font-medium text-slate-700 dark:text-white/80">iOS: Settings &gt; Sandesh &gt; Sounds</span> • 
+              <p class="mt-0.5 leading-relaxed">If you want to customize your notification sound, you can configure it
+                directly in your device's native system settings:
+                <span class="font-medium text-slate-700 dark:text-white/80">Android: App Info &gt; Notifications &gt;
+                  Sound</span> •
+                <span class="font-medium text-slate-700 dark:text-white/80">iOS: Settings &gt; Sandesh &gt;
+                  Sounds</span> •
                 <span class="font-medium text-slate-700 dark:text-white/80">Desktop: System Notifications</span>
               </p>
             </div>
@@ -634,11 +679,14 @@
 
           <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-4">
             <div class="space-y-0.5">
-              <span class="text-sm font-semibold text-slate-900 dark:text-divine-text">In-Chat Conversation Chimes</span>
-              <p class="text-xs text-slate-500 dark:text-divine-muted">Play subtle audio feedback when sending or receiving messages inside active conversations.</p>
+              <span class="text-sm font-semibold text-slate-900 dark:text-divine-text">In-Chat Conversation
+                Chimes</span>
+              <p class="text-xs text-slate-500 dark:text-divine-muted">Play subtle audio feedback when sending or
+                receiving messages inside active conversations.</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="messageSoundToggle" class="sr-only peer" {% if settings.message_sound_enabled %}checked{% endif %} onchange="onMessageSoundToggle(this.checked)">
+              <input type="checkbox" id="messageSoundToggle" class="sr-only peer" {% if settings.message_sound_enabled
+                %}checked{% endif %} onchange="onMessageSoundToggle(this.checked)">
               <div
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
@@ -647,7 +695,8 @@
         </div>
 
         <!-- Call Ringtones (Professional & Soft) -->
-        <div class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
+        <div
+          class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="space-y-1">
               <h2 class="text-base font-bold text-slate-900 dark:text-divine-text flex items-center gap-2">
@@ -668,15 +717,20 @@
                 <div>
                   <div class="flex items-center gap-2">
                     <span class="font-bold text-sm text-slate-900 dark:text-divine-text">Professional Suite</span>
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-divine-gold border border-amber-500/20">Professional</span>
+                    <span
+                      class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-divine-gold border border-amber-500/20">Professional</span>
                   </div>
-                  <p class="text-xs text-slate-500 dark:text-divine-muted mt-1">Sleek Rhodes electric piano arpeggio chord progression</p>
+                  <p class="text-xs text-slate-500 dark:text-divine-muted mt-1">Sleek Rhodes electric piano arpeggio
+                    chord progression</p>
                 </div>
-                <div id="check-ringtone-professional" class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-amber-500 text-black">✓</div>
+                <div id="check-ringtone-professional"
+                  class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-amber-500 text-black">
+                  ✓</div>
               </div>
               <div class="mt-3 flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/5">
                 <span class="text-[11px] text-slate-400 dark:text-divine-muted font-medium">4.2s Studio Loop</span>
-                <button type="button" onclick="event.stopPropagation(); toggleSettingsRingtonePreview('professional', this)"
+                <button type="button"
+                  onclick="event.stopPropagation(); toggleSettingsRingtonePreview('professional', this)"
                   class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-divine-gold transition-all">
                   ▶ Preview
                 </button>
@@ -690,11 +744,16 @@
                 <div>
                   <div class="flex items-center gap-2">
                     <span class="font-bold text-sm text-slate-900 dark:text-divine-text">Soft Horizon</span>
-                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">Soft &amp; Calm</span>
+                    <span
+                      class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">Soft
+                      &amp; Calm</span>
                   </div>
-                  <p class="text-xs text-slate-500 dark:text-divine-muted mt-1">Gentle, soothing ambient kalimba &amp; celeste chime melody</p>
+                  <p class="text-xs text-slate-500 dark:text-divine-muted mt-1">Gentle, soothing ambient kalimba &amp;
+                    celeste chime melody</p>
                 </div>
-                <div id="check-ringtone-soft" class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold hidden bg-amber-500 text-black">✓</div>
+                <div id="check-ringtone-soft"
+                  class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold hidden bg-amber-500 text-black">
+                  ✓</div>
               </div>
               <div class="mt-3 flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-white/5">
                 <span class="text-[11px] text-slate-400 dark:text-divine-muted font-medium">4.0s Studio Loop</span>
@@ -1319,9 +1378,9 @@
   }
 
   // ── Chat Lock & Biometrics Settings Controller ────────────────────
-  let sdhHasSecurityPin = {{ has_security_pin|yesno:"true,false" }};
-  let sdhBiometricEnabled = {{ biometric_enabled|yesno:"true,false" }};
-  let sdhSessionUnlocked = {{ is_session_unlocked|yesno:"true,false" }};
+  let sdhHasSecurityPin = {{ has_security_pin| yesno: "true,false" }};
+  let sdhBiometricEnabled = {{ biometric_enabled| yesno: "true,false" }};
+  let sdhSessionUnlocked = {{ is_session_unlocked| yesno: "true,false" }};
 
   function showSettingsToast(message, type = 'info') {
     const toast = document.getElementById('settingsToast');
@@ -1590,7 +1649,7 @@
       if (blastToggle && storedBlast !== null) {
         blastToggle.checked = storedBlast === 'true';
       }
-    } catch (e) {}
+    } catch (e) { }
   });
 </script>
 {% endblock %}
