@@ -135,24 +135,21 @@
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Everyone</span>
                 <input type="radio" name="last_seen_visibility" value="everyone"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
-                  settings.last_seen_visibility=='everyone' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.last_seen_visibility == 'everyone' %}checked{% endif %}
                   onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
               <label
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">My Contacts</span>
                 <input type="radio" name="last_seen_visibility" value="contacts"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
-                  settings.last_seen_visibility=='contacts' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.last_seen_visibility == 'contacts' %}checked{% endif %}
                   onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
               <label
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Nobody</span>
                 <input type="radio" name="last_seen_visibility" value="nobody"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
-                  settings.last_seen_visibility=='nobody' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.last_seen_visibility == 'nobody' %}checked{% endif %}
                   onchange="updateSetting('last_seen_visibility', this.value)">
               </label>
             </div>
@@ -168,16 +165,14 @@
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Everyone</span>
                 <input type="radio" name="online_visibility" value="everyone"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
-                  settings.online_visibility=='everyone' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.online_visibility == 'everyone' %}checked{% endif %}
                   onchange="updateSetting('online_visibility', this.value)">
               </label>
               <label
                 class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all select-none active:scale-[0.99] touch-manipulation">
                 <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Same as Last Seen</span>
                 <input type="radio" name="online_visibility" value="same_as_last_seen"
-                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
-                  settings.online_visibility=='same_as_last_seen' %}checked{% endif %}
+                  class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.online_visibility == 'same_as_last_seen' %}checked{% endif %}
                   onchange="updateSetting('online_visibility', this.value)">
               </label>
             </div>
@@ -214,8 +209,7 @@
               </p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="readReceiptsToggle" class="sr-only peer" {% if settings.read_receipts_enabled
-                %}checked{% endif %} onchange="updateSetting('read_receipts_enabled', this.checked)">
+              <input type="checkbox" id="readReceiptsToggle" class="sr-only peer" {% if settings.read_receipts_enabled %}checked{% endif %} onchange="updateSetting('read_receipts_enabled', this.checked)">
               <div
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
@@ -365,8 +359,7 @@
                   media files for rapid transmission and minimal data usage. Recommended for daily messaging.</span>
               </div>
               <input type="radio" name="media_upload_quality" value="standard"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1 cursor-pointer" {% if
-                settings.media_upload_quality=='standard' %}checked{% endif %}
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1 cursor-pointer" {% if settings.media_upload_quality == 'standard' %}checked{% endif %}
                 onchange="updateSetting('media_upload_quality', this.value)">
             </label>
 
@@ -379,8 +372,7 @@
                   crystal-clear high resolution. Preserves full detail but consumes more storage and bandwidth.</span>
               </div>
               <input type="radio" name="media_upload_quality" value="hd"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1 cursor-pointer" {% if
-                settings.media_upload_quality=='hd' %}checked{% endif %}
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 mt-1 cursor-pointer" {% if settings.media_upload_quality == 'hd' %}checked{% endif %}
                 onchange="updateSetting('media_upload_quality', this.value)">
             </label>
           </div>
@@ -400,24 +392,21 @@
               class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
               <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Wi-Fi & Cellular</span>
               <input type="radio" name="media_auto_download" value="all"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
-                settings.media_auto_download=='all' %}checked{% endif %}
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.media_auto_download == 'all' %}checked{% endif %}
                 onchange="updateSetting('media_auto_download', this.value)">
             </label>
             <label
               class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
               <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Wi-Fi Only</span>
               <input type="radio" name="media_auto_download" value="wifi"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
-                settings.media_auto_download=='wifi' %}checked{% endif %}
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.media_auto_download == 'wifi' %}checked{% endif %}
                 onchange="updateSetting('media_auto_download', this.value)">
             </label>
             <label
               class="setting-option-card flex items-center justify-between p-3.5 rounded-xl border border-slate-200 dark:border-divine-border bg-slate-50/70 dark:bg-white/[0.02] cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
               <span class="text-sm font-medium text-slate-800 dark:text-divine-text">Never</span>
               <input type="radio" name="media_auto_download" value="never"
-                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if
-                settings.media_auto_download=='never' %}checked{% endif %}
+                class="accent-purple-600 dark:accent-purple-500 w-4 h-4 cursor-pointer" {% if settings.media_auto_download == 'never' %}checked{% endif %}
                 onchange="updateSetting('media_auto_download', this.value)">
             </label>
           </div>
@@ -444,8 +433,7 @@
               </p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="enterIsSendToggle" class="sr-only peer" {% if settings.enter_is_send
-                %}checked{% endif %} onchange="updateSetting('enter_is_send', this.checked)">
+              <input type="checkbox" id="enterIsSendToggle" class="sr-only peer" {% if settings.enter_is_send %}checked{% endif %} onchange="updateSetting('enter_is_send', this.checked)">
               <div
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
@@ -685,8 +673,7 @@
                 receiving messages inside active conversations.</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="messageSoundToggle" class="sr-only peer" {% if settings.message_sound_enabled
-                %}checked{% endif %} onchange="onMessageSoundToggle(this.checked)">
+              <input type="checkbox" id="messageSoundToggle" class="sr-only peer" {% if settings.message_sound_enabled %}checked{% endif %} onchange="onMessageSoundToggle(this.checked)">
               <div
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
@@ -1378,9 +1365,9 @@
   }
 
   // ── Chat Lock & Biometrics Settings Controller ────────────────────
-  let sdhHasSecurityPin = {{ has_security_pin| yesno: "true,false" }};
-  let sdhBiometricEnabled = {{ biometric_enabled| yesno: "true,false" }};
-  let sdhSessionUnlocked = {{ is_session_unlocked| yesno: "true,false" }};
+  let sdhHasSecurityPin = {{ has_security_pin|yesno:"true,false" }};
+  let sdhBiometricEnabled = {{ biometric_enabled|yesno:"true,false" }};
+  let sdhSessionUnlocked = {{ is_session_unlocked|yesno:"true,false" }};
 
   function showSettingsToast(message, type = 'info') {
     const toast = document.getElementById('settingsToast');
