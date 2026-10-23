@@ -14,6 +14,7 @@ SDH.Moments = (function() {
     let currentAudio = null;
     const MOMENT_DURATION = 30000; // 30 seconds standard duration per story/moment
     let countdownTimer = null;
+    let isEditingCaption = false;
 
     // Keep track of viewed moments in localStorage
     let viewedMomentsKey = 'sdh_viewed_moments';
@@ -636,6 +637,7 @@ SDH.Moments = (function() {
         clearTimeout(progressTimer);
         clearInterval(countdownTimer);
         countdownTimer = null;
+        cancelCaptionEditor(false);
         const video = document.getElementById('mvVideo');
         video.pause();
         video.src = '';
@@ -697,7 +699,7 @@ SDH.Moments = (function() {
         document.getElementById('mvUsername').innerText = isSelf ? `${userGroup.username} (You)` : userGroup.username;
         document.getElementById('mvTime').innerText = new Date(moment.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-        // Show/Hide Delete and Views buttons
+        // Show/Hide Delete, Views buttons, and Owner vs Viewer bottom bars
         const isMine = isSelf;
         document.getElementById('mvDeleteBtn').classList.toggle('hidden', !isMine);
         
@@ -706,6 +708,19 @@ SDH.Moments = (function() {
         if (isMine) {
             moment.viewers = moment.viewers || [];
             document.getElementById('mvViewsCount').innerText = moment.viewers.length;
+        }
+
+        // Toggle owner bar (Caption Edit) vs viewer bar (Emojis & Reply)
+        const interactionBar = document.getElementById('mvInteractionBar');
+        const ownerBar = document.getElementById('mvOwnerBar');
+        if (interactionBar) interactionBar.classList.toggle('hidden', isMine);
+        if (ownerBar) {
+            ownerBar.classList.toggle('hidden', !isMine);
+            cancelCaptionEditor(false);
+            const editBtnText = document.getElementById('mvEditCaptionBtnText');
+            if (editBtnText) {
+                editBtnText.innerText = moment.caption ? 'Edit Caption' : 'Add Caption';
+            }
         }
 
         // Send view API if it's not mine and not already seen
@@ -748,6 +763,15 @@ SDH.Moments = (function() {
             caption.innerHTML = window.SDH.Mentions.format(moment.caption || '');
         } else {
             caption.innerText = moment.caption || '';
+        }
+        if (isMine) {
+            caption.classList.add('cursor-pointer');
+            caption.title = 'Click to edit caption';
+            caption.onclick = () => openCaptionEditor();
+        } else {
+            caption.classList.remove('cursor-pointer');
+            caption.title = '';
+            caption.onclick = null;
         }
         
         // Reset active bar animation duration
@@ -1124,6 +1148,128 @@ SDH.Moments = (function() {
         }
     }
 
+    // ─── CAPTION EDITING (FOR STORY OWNER) ────────────────────────────────────
+
+    function openCaptionEditor() {
+        const userGroup = momentsData.find(g => g.user_id === currentUserId || String(g.user_id) === String(currentUserId));
+        if (!userGroup) return;
+        const moment = userGroup.moments[currentMomentIndex];
+        if (!moment) return;
+
+        isEditingCaption = true;
+        // Pause playback timers and media while editing
+        clearTimeout(progressTimer);
+        clearInterval(countdownTimer);
+        const vid = document.getElementById('mvVideo');
+        if (vid && !vid.paused) vid.pause();
+        if (currentAudio && !currentAudio.paused) currentAudio.pause();
+
+        const ownerControls = document.getElementById('mvOwnerControls');
+        const captionEditor = document.getElementById('mvCaptionEditor');
+        const captionInput = document.getElementById('mvCaptionInput');
+
+        if (ownerControls) ownerControls.classList.add('hidden');
+        if (captionEditor) captionEditor.classList.remove('hidden');
+        if (captionInput) {
+            captionInput.value = moment.caption || '';
+            captionInput.focus();
+            captionInput.select();
+        }
+    }
+
+    function cancelCaptionEditor(resumePlay = true) {
+        isEditingCaption = false;
+        const ownerControls = document.getElementById('mvOwnerControls');
+        const captionEditor = document.getElementById('mvCaptionEditor');
+        if (captionEditor) captionEditor.classList.add('hidden');
+        if (ownerControls) ownerControls.classList.remove('hidden');
+
+        if (resumePlay && currentUserId) {
+            playMoment();
+        }
+    }
+
+    async function saveCaption() {
+        const userGroup = momentsData.find(g => g.user_id === currentUserId || String(g.user_id) === String(currentUserId));
+        if (!userGroup) return;
+        const moment = userGroup.moments[currentMomentIndex];
+        if (!moment) return;
+
+        const input = document.getElementById('mvCaptionInput');
+        const newCaption = (input ? input.value : '').trim();
+
+        try {
+            const formData = new FormData();
+            formData.append('caption', newCaption);
+
+            const res = await fetch(`/messaging/api/moments/${moment.id}/caption/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': window.SDH_DATA.csrfToken
+                },
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok && data.status === 'ok') {
+                moment.caption = data.caption !== undefined ? data.caption : newCaption;
+                
+                const captionEl = document.getElementById('mvCaption');
+                if (captionEl) {
+                    if (window.SDH?.Mentions?.format) {
+                        captionEl.innerHTML = window.SDH.Mentions.format(moment.caption || '');
+                    } else {
+                        captionEl.innerText = moment.caption || '';
+                    }
+                }
+                const editBtnText = document.getElementById('mvEditCaptionBtnText');
+                if (editBtnText) {
+                    editBtnText.innerText = moment.caption ? 'Edit Caption' : 'Add Caption';
+                }
+
+                // Show toast confirmation
+                const floater = document.createElement('div');
+                floater.innerText = "Caption Updated ✓";
+                floater.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-amber-400 text-black font-bold px-4 py-2 rounded-full shadow-2xl animate-float-up z-[100]';
+                document.body.appendChild(floater);
+                setTimeout(() => floater.remove(), 2000);
+
+                cancelCaptionEditor(true);
+            } else {
+                alert(data.error || 'Failed to update caption');
+            }
+        } catch (e) {
+            console.error('Failed to update caption:', e);
+            alert('Failed to update caption. Please try again.');
+        }
+    }
+
+    function handleUpdateMomentCaptionEvent(userId, momentId, newCaption) {
+        const userGroup = momentsData.find(g => g.user_id === userId || String(g.user_id) === String(userId));
+        if (userGroup) {
+            const moment = userGroup.moments.find(m => m.id === momentId || String(m.id) === String(momentId));
+            if (moment) {
+                moment.caption = newCaption;
+                if (String(currentUserId) === String(userId)) {
+                    const currentMoment = userGroup.moments[currentMomentIndex];
+                    if (currentMoment && (currentMoment.id === momentId || String(currentMoment.id) === String(momentId))) {
+                        const captionEl = document.getElementById('mvCaption');
+                        if (captionEl) {
+                            if (window.SDH?.Mentions?.format) {
+                                captionEl.innerHTML = window.SDH.Mentions.format(newCaption || '');
+                            } else {
+                                captionEl.innerText = newCaption || '';
+                            }
+                        }
+                        const editBtnText = document.getElementById('mvEditCaptionBtnText');
+                        if (editBtnText) {
+                            editBtnText.innerText = newCaption ? 'Edit Caption' : 'Add Caption';
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return {
         init,
         retryCurrentMedia,
@@ -1147,6 +1293,10 @@ SDH.Moments = (function() {
         handleDeleteMomentEvent,  // Exposed for chat.js WS event routing
         handleMomentViewedEvent,  // Exposed for chat.js WS event routing
         handleMomentReactedEvent, // Exposed for chat.js WS event routing
+        handleUpdateMomentCaptionEvent, // Exposed for chat.js WS event routing
+        openCaptionEditor,
+        cancelCaptionEditor,
+        saveCaption,
         showViews,
         hideViews,
         // Status Privacy APIs

@@ -141,7 +141,7 @@ ASGI_APPLICATION = 'sdh.asgi.application'
 
 WSGI_APPLICATION = 'sdh.wsgi.application'
 
-# Channel layers — use Redis in production, in-memory for development
+# Channel layers -- use Redis in production, in-memory for development
 _REDIS_URL = config('REDIS_URL', default='')
 
 if _REDIS_URL:
@@ -376,7 +376,7 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # ---------------------------------------------------------------------------
-# CORS (optional — for API use)
+# CORS (optional -- for API use)
 # ---------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',

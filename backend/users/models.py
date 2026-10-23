@@ -73,7 +73,7 @@ class UserProfile(models.Model):
                 pass
         return None
 
-    # Simple online indicator — updated via WebSocket connect/disconnect
+    # Simple online indicator -- updated via WebSocket connect/disconnect
     is_online = models.BooleanField(default=False)
 
     last_seen = models.DateTimeField(auto_now=True)

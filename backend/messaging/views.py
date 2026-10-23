@@ -412,7 +412,7 @@ def message_history(request, username):
             Q(sender=request.user, deleted_by_sender=True) |
             Q(receiver=request.user, deleted_by_receiver=True)
         )
-        # "Remove from My View" — hide only for the requesting user
+        # "Remove from My View" -- hide only for the requesting user
         .exclude(hidden_for_users=request.user)
         .select_related('sender__profile', 'receiver__profile', 'replied_moment')
         .order_by('-timestamp')
@@ -502,7 +502,7 @@ def message_history(request, username):
 
 
 # ---------------------------------------------------------------------------
-# Save Message (REST fallback — primary path is via WebSocket)
+# Save Message (REST fallback -- primary path is via WebSocket)
 # ---------------------------------------------------------------------------
 @login_required
 @require_POST
@@ -2173,6 +2173,42 @@ def delete_moment(request, moment_id):
     return JsonResponse({'status': 'ok'})
 
 
+@login_required
+@require_POST
+@csrf_protect
+def edit_moment_caption(request, moment_id):
+    """
+    Edits caption of a specific moment owned by the user.
+    """
+    moment = get_object_or_404(Moment, id=moment_id, user=request.user)
+    new_caption = request.POST.get('caption', '').strip()
+    if len(new_caption) > 255:
+        new_caption = new_caption[:255]
+
+    moment.caption = new_caption
+    moment.save(update_fields=['caption'])
+
+    # Broadcast caption update to friends and self
+    try:
+        my_profile = request.user.profile
+        friend_profile_ids = Friendship.get_friend_profile_ids(my_profile)
+        friend_users = User.objects.filter(profile__id__in=friend_profile_ids)
+        channel_layer = get_channel_layer()
+        event_payload = {
+            'type': 'update_moment_caption',
+            'moment_id': moment_id,
+            'user_id': request.user.id,
+            'caption': new_caption,
+        }
+        for friend in friend_users:
+            async_to_sync(channel_layer.group_send)(f"user_chat_{friend.id}", event_payload)
+        async_to_sync(channel_layer.group_send)(f"user_chat_{request.user.id}", event_payload)
+    except Exception:
+        pass
+
+    return JsonResponse({'status': 'ok', 'caption': new_caption})
+
+
 @require_POST
 @csrf_protect
 def view_moment(request, moment_id):
@@ -2861,7 +2897,7 @@ def group_leave(request, group_id):
                 is_system_message=True,
             )
         else:
-            # Last member — delete the group
+            # Last member -- delete the group
             group.delete()
             return JsonResponse({'status': 'ok', 'group_deleted': True})
 

@@ -244,7 +244,7 @@
   --glow-blue: 0 0 14px rgba(96, 165, 250, 0.2);
   --glow-red: 0 0 14px rgba(239, 68, 68, 0.2);
 
-  /* Glassmorphism presets — iOS inspired dark blur */
+  /* Glassmorphism presets -- iOS inspired dark blur */
   --glass-bg: rgba(10, 10, 15, 0.45);
   --glass-border: rgba(255, 255, 255, 0.05);
   --glass-blur: blur(40px) saturate(200%);
@@ -812,7 +812,7 @@ body {
   animation: ancientOrbPulse 25s ease-in-out infinite;
 }
 
-/* ─── Sandesh brand title — sleek silver/white gradient ─────────────────── */
+/* ─── Sandesh brand title -- sleek silver/white gradient ─────────────────── */
 .sandesh-title {
   background: linear-gradient(160deg,
       #ffffff 0%,
@@ -884,7 +884,7 @@ body {
 
 
 /* ════════════════════════════════════════════════════════════════
-   CHAT LAYOUT — WRAPPER
+   CHAT LAYOUT -- WRAPPER
 ════════════════════════════════════════════════════════════════ */
 .sdh-chat-wrap {
   background: var(--c-deep);
@@ -1230,7 +1230,7 @@ body {
   opacity: 1;
 }
 
-/* Active — chat.js adds bg-divine-card */
+/* Active -- chat.js adds bg-divine-card */
 .sdh-user-item.active,
 .sdh-user-item.bg-divine-card,
 .sdh-user-item[class*="bg-divine-card"] {
@@ -1661,7 +1661,7 @@ body {
   filter: blur(4px);
 }
 
-/* Conic-gradient border ring (mask trick — no animation) */
+/* Conic-gradient border ring (mask trick -- no animation) */
 .sdh-orb-ring {
   position: absolute;
   inset: 0;
@@ -2915,7 +2915,7 @@ input[type="password"]::-webkit-reveal {
   }
 }
 
-/* Hover glow pulse — usable as a utility */
+/* Hover glow pulse -- usable as a utility */
 @keyframes glowPulse {
 
   0%,
@@ -3059,7 +3059,7 @@ input[type="password"]::-webkit-reveal {
 
 
 /* ════════════════════════════════════════════════════════════════
-   COSMIC NEON THEME — Sandesh Purple override layer
+   COSMIC NEON THEME -- Sandesh Purple override layer
    Converts all gold/amber accent to neon purple/indigo palette.
 ════════════════════════════════════════════════════════════════ */
 
@@ -3993,7 +3993,7 @@ input[type="password"]::-webkit-reveal {
   transition: all 0.15s ease !important;
 }
 
-/* Hover state on dropdown items in Light Mode — crystal clear visibility */
+/* Hover state on dropdown items in Light Mode -- crystal clear visibility */
 [data-theme="light"] .msg-dropdown button:hover,
 [data-theme="light"] .user-ctx-dropdown button:hover,
 [data-theme="light"] #kebabDropdown button:hover,
@@ -4738,7 +4738,7 @@ input[type="password"]::-webkit-reveal {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   LIGHT MODE — DROPDOWN, MODAL & BUTTON VISIBILITY FIXES
+   LIGHT MODE -- DROPDOWN, MODAL & BUTTON VISIBILITY FIXES
    ════════════════════════════════════════════════════════════════ */
 
 /* ─── Kebab Dropdown Menu ─────────────────────────────────────── */
@@ -4752,7 +4752,7 @@ input[type="password"]::-webkit-reveal {
   backdrop-filter: blur(20px) saturate(180%);
 }
 
-/* Kebab menu items — base state */
+/* Kebab menu items -- base state */
 [data-theme="light"] #kebabDropdown .sdh-kebab-item {
   color: #1f2937 !important;
 }
@@ -4761,7 +4761,7 @@ input[type="password"]::-webkit-reveal {
   color: #6b7280 !important;
 }
 
-/* Kebab menu items — hover state */
+/* Kebab menu items -- hover state */
 [data-theme="light"] #kebabDropdown .sdh-kebab-item:hover {
   background: rgba(245, 158, 11, 0.08) !important;
   color: #92400e !important;
@@ -5347,14 +5347,14 @@ input[type="password"]::-webkit-reveal {
   --btn-glow-border: rgba(14, 165, 233, 0.9) !important;
 }
 
-/* Ancient button (warm amber) — keep existing gradient, improve hover feedback */
+/* Ancient button (warm amber) -- keep existing gradient, improve hover feedback */
 [data-theme="light"] .sdh-liquid-btn.btn-ancient:hover::before {
   box-shadow: inset 0 0 14px rgba(245, 158, 11, 0.25),
               0 6px 20px rgba(245, 158, 11, 0.3) !important;
   transform: scaleY(1.04) scaleX(1.02) !important;
 }
 
-/* ─── Profile Modal Members (Group) — Light Mode ──────────────── */
+/* ─── Profile Modal Members (Group) -- Light Mode ──────────────── */
 [data-theme="light"] #userProfileModal .bg-black\/20,
 [data-theme="light"] #userProfileModal div[class*="bg-black"] {
   background: rgba(245, 158, 11, 0.06) !important;
@@ -5371,7 +5371,7 @@ input[type="password"]::-webkit-reveal {
   color: #6b7280 !important;
 }
 
-/* ─── Message Details Modal (Read Receipts) — Light Mode ──────── */
+/* ─── Message Details Modal (Read Receipts) -- Light Mode ──────── */
 [data-theme="light"] #messageDetailsModal .bg-black\/20,
 [data-theme="light"] #messageDetailsModal div[class*="bg-black"] {
   background: rgba(245, 158, 11, 0.06) !important;
@@ -5438,7 +5438,7 @@ input[type="password"]::-webkit-reveal {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   CREATE GROUP MODAL — PREMIUM DESIGN SYSTEM (sdh-cg-*)
+   CREATE GROUP MODAL -- PREMIUM DESIGN SYSTEM (sdh-cg-*)
    Dark mode: deep glass with purple accents & fully visible text
    Light mode: warm parchment with amber accents
    ════════════════════════════════════════════════════════════════ */
@@ -5563,7 +5563,7 @@ input[type="password"]::-webkit-reveal {
 }
 
 /* ════════════════════════════════════════════════════════════════
-   LIGHT THEME — CREATE GROUP MODAL
+   LIGHT THEME -- CREATE GROUP MODAL
    ════════════════════════════════════════════════════════════════ */
 
 [data-theme="light"] .sdh-cg-modal {
@@ -5754,7 +5754,7 @@ input[type="password"]::-webkit-reveal {
 
 
 /* ══════════════════════════════════════════════════════════════════
-   USER PROFILE DASHBOARD — Ultra Obsidian Dark & Frosted Liquid Light
+   USER PROFILE DASHBOARD -- Ultra Obsidian Dark & Frosted Liquid Light
 ══════════════════════════════════════════════════════════════════ */
 
 /* Modal Backdrop */

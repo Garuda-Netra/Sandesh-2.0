@@ -307,7 +307,7 @@ def clerk_login_view(request):
 
 
 # ---------------------------------------------------------------------------
-# Logout  (sync — avoids SynchronousOnlyOperation from ORM/session access)
+# Logout  (sync -- avoids SynchronousOnlyOperation from ORM/session access)
 # ---------------------------------------------------------------------------
 def logout_view(request):
     if request.user.is_authenticated:
@@ -362,7 +362,7 @@ def _get_hidden_user_ids(user):
     """Return User IDs that should be hidden from `user`'s contact list.
 
     Only checks hidden_users (cosmetic removal).
-    Blocked users are NOT hidden — they remain visible in the chat list.
+    Blocked users are NOT hidden -- they remain visible in the chat list.
     """
     try:
         profile = user.profile
@@ -476,7 +476,7 @@ def remove_user_view(request):
     should_block = bool(body.get('block'))
 
     if should_block:
-        # Block only — do NOT hide from chat list
+        # Block only -- do NOT hide from chat list
         my_profile.blocked_users.add(target_profile)
         
         from channels.layers import get_channel_layer
@@ -813,7 +813,7 @@ def _sync_groups_after_unfriend(user_a, user_b):
 from django.views.decorators.cache import never_cache
 
 # ---------------------------------------------------------------------------
-# User List API (for sidebar) — friends + active conversations + blocked contacts
+# User List API (for sidebar) -- friends + active conversations + blocked contacts
 # ---------------------------------------------------------------------------
 @login_required
 @require_GET
@@ -1040,7 +1040,7 @@ def send_friend_request_view(request):
         if existing.from_user == my_profile:
             return JsonResponse({'error': 'Request already sent'}, status=400)
         else:
-            # They already sent us a request — auto-accept
+            # They already sent us a request -- auto-accept
             existing.status = FriendRequest.STATUS_ACCEPTED
             existing.save(update_fields=['status', 'updated_at'])
             Friendship.add_friendship(my_profile, target_profile)
@@ -1069,7 +1069,7 @@ def send_friend_request_view(request):
             )
 
             return JsonResponse({'status': 'accepted',
-                                 'message': 'They already sent you a request — now friends!'})
+                                 'message': 'They already sent you a request -- now friends!'})
 
     # Create new request (or update a previously rejected one)
     fr, created = FriendRequest.objects.update_or_create(

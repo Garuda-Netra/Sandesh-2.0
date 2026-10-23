@@ -22,7 +22,7 @@ window.SDH = window.SDH || {};
 // ════════════════════════════════════════════════════════════════
 //  SDH.Mentions - Interactive @ Mention Autocomplete System
 // ════════════════════════════════════════════════════════════════
-SDH.Mentions = (function() {
+SDH.Mentions = (function () {
   function _esc(s) {
     if (!s) return '';
     return String(s)
@@ -273,7 +273,7 @@ SDH.Mentions = (function() {
       const filtered = allCandidates.filter(c => {
         if (!activeQuery) return true;
         return (c.username.toLowerCase().includes(activeQuery) ||
-                (c.display_name && c.display_name.toLowerCase().includes(activeQuery)));
+          (c.display_name && c.display_name.toLowerCase().includes(activeQuery)));
       });
 
       if (!filtered.length) {
@@ -423,7 +423,7 @@ SDH.Chat = (() => {
         _sharedAudioCtx = new AudioCtx();
       }
       if (_sharedAudioCtx.state === 'suspended') {
-        _sharedAudioCtx.resume().catch(() => {});
+        _sharedAudioCtx.resume().catch(() => { });
       }
       return _sharedAudioCtx;
     } catch {
@@ -448,7 +448,7 @@ SDH.Chat = (() => {
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.35);
-    } catch { /* AudioContext suppressed by browser policy — fail silently */ }
+    } catch { /* AudioContext suppressed by browser policy -- fail silently */ }
   }
 
   function playNotificationSound() {
@@ -574,6 +574,7 @@ SDH.Chat = (() => {
       case 'delete_moment': SDH.Moments?.handleDeleteMomentEvent?.(data.user_id, data.moment_id); break;
       case 'moment_viewed': SDH.Moments?.handleMomentViewedEvent?.(data.moment_id, data.viewer); break;
       case 'moment_reacted': SDH.Moments?.handleMomentReactedEvent?.(data.moment_id, data.reaction); break;
+      case 'update_moment_caption': SDH.Moments?.handleUpdateMomentCaptionEvent?.(data.user_id, data.moment_id, data.caption); break;
       case 'system_notification':
         Notif.show(data.title || 'Sandesh Alert', data.body || '', 'sdh-system-alert');
         if (typeof showToast === 'function') showToast(data.body || '', 'info');
@@ -745,7 +746,7 @@ SDH.Chat = (() => {
       // Additional header cleanup that _resetConversationPanel misses
       const avatarEl = document.getElementById('chatAvatar');
       if (avatarEl) {
-        avatarEl.innerHTML = '—';
+        avatarEl.innerHTML = '--';
         avatarEl.style.backgroundImage = '';
         avatarEl.className = 'sdh-chat-avatar w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold select-none flex-shrink-0';
       }
@@ -794,9 +795,9 @@ SDH.Chat = (() => {
   }
 
   function _getAttractiveInitials(name) {
-    if (!name) return '—';
+    if (!name) return '--';
     const clean = String(name).trim();
-    if (!clean) return '—';
+    if (!clean) return '--';
     if (_isSelfChat(clean)) return '🔖';
     // If name contains words separated by space, underscore, dot or hyphen
     const parts = clean.split(/[\s_\.\-]+/).filter(Boolean);
@@ -1500,7 +1501,7 @@ SDH.Chat = (() => {
     });
   }
 
-  /** "Remove from My View" — hides the message only for the current user. */
+  /** "Remove from My View" -- hides the message only for the current user. */
   async function _removeFromMyView(btn) {
     const dropdown = btn.closest('.msg-dropdown');
     const bubble = dropdown?._targetBubble || (dropdown?._originalParent || btn).closest('[data-message-id]');
@@ -1574,7 +1575,7 @@ SDH.Chat = (() => {
   }, { passive: true });
 
   // ═════════════════════════════════════════════════════════════════════
-  //  "Remove from My List" — sidebar user context menu
+  //  "Remove from My List" -- sidebar user context menu
   // ═════════════════════════════════════════════════════════════════════
 
   /** Toggle the three-dot dropdown for a specific sidebar user item. */
@@ -1675,7 +1676,7 @@ SDH.Chat = (() => {
     if (usernameEl) usernameEl.textContent = 'Select a contact';
 
     const avatarEl = document.getElementById('chatAvatar');
-    if (avatarEl) avatarEl.textContent = '—';
+    if (avatarEl) avatarEl.textContent = '--';
 
     const statusEl = document.getElementById('chatTypingStatus');
     if (statusEl) statusEl.textContent = 'Choose someone to start messaging';
@@ -2508,18 +2509,18 @@ SDH.Chat = (() => {
         `;
     }
 
-  function _linkifyHtml(html) {
-    if (!html) return '';
-    const urlPattern = /(?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|edu|gov|io|co|in|ai|me|app|dev|link|info)(?:\/[^\s<>"']*)?/gi;
-    return html.replace(urlPattern, (match) => {
-      const cleanUrl = match.replace(/[.,!?:;)"']+$/, '');
-      const trailing = match.slice(cleanUrl.length);
-      const href = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
-        ? cleanUrl
-        : `https://${cleanUrl}`;
-      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="sdh-chat-link underline underline-offset-2 break-all transition-colors" onclick="event.stopPropagation()">${cleanUrl}</a>${trailing}`;
-    });
-  }
+    function _linkifyHtml(html) {
+      if (!html) return '';
+      const urlPattern = /(?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|edu|gov|io|co|in|ai|me|app|dev|link|info)(?:\/[^\s<>"']*)?/gi;
+      return html.replace(urlPattern, (match) => {
+        const cleanUrl = match.replace(/[.,!?:;)"']+$/, '');
+        const trailing = match.slice(cleanUrl.length);
+        const href = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
+          ? cleanUrl
+          : `https://${cleanUrl}`;
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="sdh-chat-link underline underline-offset-2 break-all transition-colors" onclick="event.stopPropagation()">${cleanUrl}</a>${trailing}`;
+      });
+    }
 
     if (messageType === 'text') {
       let formatted = window.SDH?.Mentions?.format
@@ -4429,7 +4430,7 @@ SDH.Chat = (() => {
 
   function _renderGroupMemberCard(m, groupId, isAdminOrOwner) {
     const isMe = (m.user_id && m.user_id === window.SDH_DATA?.userId) ||
-                 (m.username === window.SDH_DATA?.currentUser);
+      (m.username === window.SDH_DATA?.currentUser);
     const canRemove = Boolean(isAdminOrOwner && !isMe && m.role !== 'owner');
     const roleLower = (m.role || 'member').toLowerCase();
 
@@ -4491,9 +4492,9 @@ SDH.Chat = (() => {
              onclick="document.getElementById('userProfileModal').classList.add('hidden'); SDH.Chat.showUserProfile('${escapeHtml(m.username)}', ${m.user_id})">
           <div class="relative shrink-0">
             ${m.avatar_url ?
-              `<img src="${escapeHtml(m.avatar_url)}" class="w-8 h-8 rounded-full object-cover ring-1 ring-white/10" alt="${escapeHtml(displayName)}" />` :
-              `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600/30 to-purple-800/40 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-200">${initial}</div>`
-            }
+        `<img src="${escapeHtml(m.avatar_url)}" class="w-8 h-8 rounded-full object-cover ring-1 ring-white/10" alt="${escapeHtml(displayName)}" />` :
+        `<div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-600/30 to-purple-800/40 border border-purple-500/30 flex items-center justify-center text-xs font-bold text-purple-200">${initial}</div>`
+      }
             <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-[#0c0a1d] dark:ring-[#0c0a1d] ${m.is_online ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]' : 'bg-slate-500/80'}"></span>
           </div>
           <div class="flex-1 min-w-0">
@@ -4564,10 +4565,10 @@ SDH.Chat = (() => {
     displayNameEl.textContent = 'Loading...';
     usernameEl.textContent = `@${username}`;
     bioEl.textContent = 'Fetching biography...';
-    emailEl.textContent = '—';
-    phoneEl.textContent = '—';
-    joinedEl.textContent = 'Joined —';
-    lastSeenEl.textContent = 'Last seen —';
+    emailEl.textContent = '--';
+    phoneEl.textContent = '--';
+    joinedEl.textContent = 'Joined --';
+    lastSeenEl.textContent = 'Last seen --';
     lastSeenEl.classList.remove('hidden');
 
     _setAvatarInitial(avatarText, username);
@@ -4698,7 +4699,7 @@ SDH.Chat = (() => {
       }
 
       // Update dates
-      joinedEl.textContent = data.date_joined ? `Joined ${data.date_joined}` : 'Joined —';
+      joinedEl.textContent = data.date_joined ? `Joined ${data.date_joined}` : 'Joined --';
 
       // Update online status and dynamic glow
       const statusWrapper = document.getElementById('upmStatusDotWrapper');
@@ -4873,7 +4874,7 @@ SDH.Chat = (() => {
     const emailEl = document.getElementById('upmEmail');
     if (!emailEl) return;
     const text = emailEl.textContent.trim();
-    if (!text || text === '—' || text.startsWith('🔒') || text === 'No email shared') return;
+    if (!text || text === '--' || text.startsWith('🔒') || text === 'No email shared') return;
     navigator.clipboard.writeText(text).then(() => {
       showToast('Email copied to clipboard', 'info');
       if (btn) {
@@ -5036,7 +5037,7 @@ SDH.Chat = (() => {
                     let domain = normUrl;
                     try {
                       domain = new URL(normUrl).hostname || normUrl;
-                    } catch (_) {}
+                    } catch (_) { }
                     data.web_links.push({
                       id: cand.id,
                       message_id: cand.message_id,
@@ -5062,7 +5063,7 @@ SDH.Chat = (() => {
 
       // Also merge any links from currently active chat messages in DOM if viewing active chat
       const isCurrentChat = (groupId && activeUser === `group_${groupId}`) ||
-                            (!groupId && targetUser && activeUser && targetUser.toLowerCase() === activeUser.toLowerCase());
+        (!groupId && targetUser && activeUser && targetUser.toLowerCase() === activeUser.toLowerCase());
       if (isCurrentChat) {
         const msgItems = document.querySelectorAll('#messagesContainer [data-message-id], #messagesContainer [id^="msg-"], #messagesContainer .group\\/msg');
         msgItems.forEach(el => {
@@ -5094,7 +5095,7 @@ SDH.Chat = (() => {
                 let domain = normUrl;
                 try {
                   domain = new URL(normUrl).hostname || normUrl;
-                } catch (_) {}
+                } catch (_) { }
                 data.web_links.push({
                   id: msgId || Date.now(),
                   message_id: msgId || Date.now(),
@@ -5128,7 +5129,7 @@ SDH.Chat = (() => {
                   let domain = normUrl;
                   try {
                     domain = new URL(normUrl).hostname || normUrl;
-                  } catch (_) {}
+                  } catch (_) { }
                   data.web_links.push({
                     id: msgId || Date.now(),
                     message_id: msgId || Date.now(),
@@ -5465,7 +5466,7 @@ SDH.Chat = (() => {
     const effectiveGroupId = currentProfileTarget.groupId || (activeUser && activeUser.startsWith('group_') ? activeUser.replace('group_', '') : null);
 
     if ((!profileMediaItems || !profileMediaItems.stats || profileMediaItems.stats.total_count === 0) &&
-        (effectiveTargetUser || effectiveGroupId)) {
+      (effectiveTargetUser || effectiveGroupId)) {
       loadProfileMedia(effectiveTargetUser, effectiveGroupId);
     }
   }
@@ -6740,11 +6741,11 @@ SDH.Chat = (() => {
 
     displayNameEl.textContent = 'Loading Group...';
     usernameEl.textContent = 'Fetching details';
-    bioEl.textContent = '—';
-    emailEl.textContent = '—';
-    phoneEl.textContent = '—';
-    joinedEl.textContent = '—';
-    lastSeenEl.textContent = '—';
+    bioEl.textContent = '--';
+    emailEl.textContent = '--';
+    phoneEl.textContent = '--';
+    joinedEl.textContent = '--';
+    lastSeenEl.textContent = '--';
     lastSeenEl.classList.add('hidden');
     if (avatarText) { avatarText.textContent = 'G'; avatarText.classList.remove('hidden'); }
     if (avatarImg) { avatarImg.classList.add('hidden'); avatarImg.src = ''; }
@@ -6772,7 +6773,7 @@ SDH.Chat = (() => {
       bioEl.textContent = data.description || 'No description provided.';
       bioEl.classList.remove('text-divine-muted/50');
       emailEl.textContent = `Creator: ${data.created_by || 'Unknown'}`;
-      joinedEl.textContent = data.created_at ? `Created ${new Date(data.created_at).toLocaleDateString()}` : '—';
+      joinedEl.textContent = data.created_at ? `Created ${new Date(data.created_at).toLocaleDateString()}` : '--';
 
       if (data.avatar_url && avatarImg && avatarText) {
         avatarImg.src = data.avatar_url;
@@ -7202,7 +7203,7 @@ SDH.Chat = (() => {
     }
   }
 
-    // ── Aliases ─────────────────────────────────────────────────────────
+  // ── Aliases ─────────────────────────────────────────────────────────
 
 
   // â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

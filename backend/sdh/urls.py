@@ -46,7 +46,7 @@ urlpatterns = [
     # Messaging
     path('messaging/', include('messaging.urls')),
 
-    # Landing page (root) — served by users app (index view)
+    # Landing page (root) -- served by users app (index view)
     path('', include('users.urls')),
 ]
 

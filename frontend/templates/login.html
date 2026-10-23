@@ -1,21 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}Login — Sandesh{% endblock %}
+{% block title %}Login -- Sandesh{% endblock %}
 
 {% block content %}
 <!-- ══════════════════════════════════════════════════════════════
      INSTANT AUTHENTICATING OVERLAY (Google SSO / Clerk)
      Renders immediately at 0ms if returning from OAuth callback or active sync
 ══════════════════════════════════════════════════════════════ -->
-<div id="authLoadingOverlay" class="fixed inset-0 z-[100] flex flex-col items-center justify-center transition-all duration-300 bg-slate-900/40 dark:bg-black/85 backdrop-blur-md" style="display: none;">
-  <div class="sdh-auth-overlay-card flex flex-col items-center p-8 rounded-3xl bg-white dark:bg-[#121220] border border-purple-200/80 dark:border-purple-500/30 shadow-[0_25px_60px_-15px_rgba(168,85,247,0.25)] dark:shadow-[0_0_50px_rgba(168,85,247,0.3)] max-w-sm w-[90%] text-center animate-fade-in">
+<div id="authLoadingOverlay"
+  class="fixed inset-0 z-[100] flex flex-col items-center justify-center transition-all duration-300 bg-slate-900/40 dark:bg-black/85 backdrop-blur-md"
+  style="display: none;">
+  <div
+    class="sdh-auth-overlay-card flex flex-col items-center p-8 rounded-3xl bg-white dark:bg-[#121220] border border-purple-200/80 dark:border-purple-500/30 shadow-[0_25px_60px_-15px_rgba(168,85,247,0.25)] dark:shadow-[0_0_50px_rgba(168,85,247,0.3)] max-w-sm w-[90%] text-center animate-fade-in">
     <div class="relative w-16 h-16 mb-5">
-      <div class="sdh-auth-spinner-outer absolute inset-0 rounded-full border-4 border-purple-400/25 dark:border-purple-500/20 animate-ping"></div>
-      <div class="sdh-auth-spinner-inner w-16 h-16 rounded-full border-4 border-purple-100 dark:border-purple-500/30 border-t-purple-600 dark:border-t-purple-400 animate-spin"></div>
+      <div
+        class="sdh-auth-spinner-outer absolute inset-0 rounded-full border-4 border-purple-400/25 dark:border-purple-500/20 animate-ping">
+      </div>
+      <div
+        class="sdh-auth-spinner-inner w-16 h-16 rounded-full border-4 border-purple-100 dark:border-purple-500/30 border-t-purple-600 dark:border-t-purple-400 animate-spin">
+      </div>
     </div>
-    <h3 id="authOverlayTitle" class="text-xl font-bold text-slate-900 dark:text-white mb-2">Authenticating with Google</h3>
-    <p id="authOverlaySubtitle" class="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">Securing your session and signing you into Sandesh...</p>
-    <div class="sdh-auth-overlay-badge mt-5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50/90 dark:bg-white/5 border border-purple-200/80 dark:border-white/10 text-[11px] text-purple-900 dark:text-zinc-300">
+    <h3 id="authOverlayTitle" class="text-xl font-bold text-slate-900 dark:text-white mb-2">Authenticating with Google
+    </h3>
+    <p id="authOverlaySubtitle" class="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">Securing your session
+      and signing you into Sandesh...</p>
+    <div
+      class="sdh-auth-overlay-badge mt-5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-50/90 dark:bg-white/5 border border-purple-200/80 dark:border-white/10 text-[11px] text-purple-900 dark:text-zinc-300">
       <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
       <span id="authOverlayStatus">Verifying credentials...</span>
     </div>
@@ -24,7 +34,7 @@
 
 <script>
   // ── Synchronous Instant Check (0ms execution before DOMContentLoaded) ──
-  (function() {
+  (function () {
     try {
       var s = window.location.search || '';
       var h = window.location.hash || '';
@@ -43,7 +53,7 @@
         var ov = document.getElementById('authLoadingOverlay');
         if (ov) ov.style.display = 'flex';
       }
-    } catch(e) {}
+    } catch (e) { }
   })();
 </script>
 
@@ -51,17 +61,17 @@
   <!-- Theme Toggle for Auth Pages -->
   <div class="absolute top-6 right-6">
     <button id="themeToggleAuth" onclick="SDH.toggleTheme(event)"
-            class="sdh-icon-btn p-2.5 rounded-full bg-divine-card border border-divine-border shadow-lg hover:shadow-divine transition-all text-divine-text hover:text-divine-gold"
-            title="Toggle theme">
+      class="sdh-icon-btn p-2.5 rounded-full bg-divine-card border border-divine-border shadow-lg hover:shadow-divine transition-all text-divine-text hover:text-divine-gold"
+      title="Toggle theme">
       <!-- Sun icon (shown in dark mode to switch to light) -->
       <svg id="iconDark" class="theme-icon-sun w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <!-- Moon icon (shown in light mode to switch to dark) -->
       <svg id="iconLight" class="theme-icon-moon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
       </svg>
     </button>
   </div>
@@ -72,31 +82,34 @@
         <div class="sdh-sandesh-login-icon">
           <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-14 h-14">
             <path d="M48 6H18a8 8 0 00-8 8v16a8 8 0 008 8h4l-4 10 12-10h16a8 8 0 008-8V14a8 8 0 00-8-8z"
-                  fill="rgba(168,85,247,0.15)" stroke="rgba(168,85,247,0.7)" stroke-width="1.5"/>
-            <circle cx="26" cy="22" r="2.5" fill="rgba(192,132,252,0.9)"/>
-            <circle cx="33" cy="22" r="2.5" fill="rgba(192,132,252,0.9)"/>
-            <circle cx="40" cy="22" r="2.5" fill="rgba(192,132,252,0.9)"/>
+              fill="rgba(168,85,247,0.15)" stroke="rgba(168,85,247,0.7)" stroke-width="1.5" />
+            <circle cx="26" cy="22" r="2.5" fill="rgba(192,132,252,0.9)" />
+            <circle cx="33" cy="22" r="2.5" fill="rgba(192,132,252,0.9)" />
+            <circle cx="40" cy="22" r="2.5" fill="rgba(192,132,252,0.9)" />
           </svg>
         </div>
       </div>
-      <h1 class="text-3xl font-semibold text-divine-text">Sign in to <span class="sandesh-nav-brand font-bold">Sandesh</span></h1>
+      <h1 class="text-3xl font-semibold text-divine-text">Sign in to <span
+          class="sandesh-nav-brand font-bold">Sandesh</span></h1>
       <p class="text-divine-muted text-sm mt-2">Sign in using your username, email, or phone number</p>
     </div>
 
     <form method="POST" class="space-y-5">
       {% csrf_token %}
-      
+
       {% if form.non_field_errors %}
-      <div class="p-3 rounded-lg bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200 text-sm">
+      <div
+        class="p-3 rounded-lg bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200 text-sm">
         {{ form.non_field_errors.0 }}
       </div>
       {% endif %}
 
       <div>
-        <label class="block text-sm text-divine-muted mb-2" for="{{ form.username.id_for_label }}">Username, Email, or Phone</label>
+        <label class="block text-sm text-divine-muted mb-2" for="{{ form.username.id_for_label }}">Username, Email, or
+          Phone</label>
         {{ form.username }}
         {% if form.username.errors %}
-          <p class="text-red-500 text-xs mt-1">{{ form.username.errors.0 }}</p>
+        <p class="text-red-500 text-xs mt-1">{{ form.username.errors.0 }}</p>
         {% endif %}
       </div>
 
@@ -104,13 +117,23 @@
         <label class="block text-sm text-divine-muted mb-2" for="{{ form.password.id_for_label }}">Password</label>
         <div class="relative">
           {{ form.password }}
-          <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-divine-muted hover:text-divine-gold focus:outline-none transition-colors sdh-toggle-password" tabindex="-1">
-            <svg class="w-4 h-4 sdh-eye-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-            <svg class="w-4 h-4 sdh-eye-off-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+          <button type="button"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-divine-muted hover:text-divine-gold focus:outline-none transition-colors sdh-toggle-password"
+            tabindex="-1">
+            <svg class="w-4 h-4 sdh-eye-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <svg class="w-4 h-4 sdh-eye-off-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            </svg>
           </button>
         </div>
         {% if form.password.errors %}
-          <p class="text-red-500 text-xs mt-1">{{ form.password.errors.0 }}</p>
+        <p class="text-red-500 text-xs mt-1">{{ form.password.errors.0 }}</p>
         {% endif %}
       </div>
 
@@ -124,12 +147,21 @@
         <div class="flex-grow border-t border-divine-border"></div>
       </div>
 
-      <button type="button" id="google-signin-btn" class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-xl border border-gray-200 transition-colors">
+      <button type="button" id="google-signin-btn"
+        class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-4 rounded-xl border border-gray-200 transition-colors">
         <svg class="w-5 h-5" viewBox="0 0 24 24">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          <path
+            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+            fill="#4285F4" />
+          <path
+            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+            fill="#34A853" />
+          <path
+            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+            fill="#FBBC05" />
+          <path
+            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+            fill="#EA4335" />
         </svg>
         Sign in with Google
       </button>
@@ -142,7 +174,7 @@
 
     <!-- Attribution -->
     <p class="text-center text-[11px] mt-8 select-none tracking-widest text-zinc-500 uppercase">
-      Engineered & Crafted by 
+      Engineered & Crafted by
       <span class="text-indigo-400 font-bold ml-1 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]">Prince</span>
     </p>
   </div>
@@ -168,7 +200,7 @@
     sessionStorage.removeItem('clerk_signing_in');
   }
 
-  document.addEventListener('DOMContentLoaded', async function() {
+  document.addEventListener('DOMContentLoaded', async function () {
     // Clear any stale chat states from previous accounts in this browser tab
     sessionStorage.removeItem('ndm_last_chat');
     sessionStorage.removeItem('ndm_last_chat_id');
@@ -178,7 +210,7 @@
     // On standard login form submit, flag fresh login
     const loginForm = document.querySelector('form');
     if (loginForm) {
-      loginForm.addEventListener('submit', function() {
+      loginForm.addEventListener('submit', function () {
         sessionStorage.removeItem('ndm_last_chat');
         sessionStorage.removeItem('ndm_last_chat_id');
         sessionStorage.removeItem('ndm_last_chat_name');
@@ -192,7 +224,7 @@
 
     // ── Capture URL params BEFORE Clerk.load() strips them ─────
     const rawSearch = window.location.search || '';
-    const rawHash   = window.location.hash || '';
+    const rawHash = window.location.hash || '';
     const signingInTime = sessionStorage.getItem('clerk_signing_in');
     let isRecentSigningIn = false;
     if (signingInTime) {
@@ -237,24 +269,24 @@
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = '{% url "users:clerk_login" %}';
-      
+
       const csrfInput = document.createElement('input');
       csrfInput.type = 'hidden';
       csrfInput.name = 'csrfmiddlewaretoken';
       csrfInput.value = '{{ csrf_token }}';
-      
+
       const tokenInput = document.createElement('input');
       tokenInput.type = 'hidden';
       tokenInput.name = 'token';
       tokenInput.value = idToken;
-      
+
       form.appendChild(csrfInput);
       form.appendChild(tokenInput);
       document.body.appendChild(form);
       form.submit();
-      
+
       // Return a hanging promise so UI stays in authenticating state during navigation
-      return new Promise(() => {});
+      return new Promise(() => { });
     }
 
     // ── Wait for Clerk JS to be ready ───────────────────────────
@@ -284,9 +316,9 @@
           sessionStorage.removeItem('clerk_sync_pending');
           sessionStorage.removeItem('clerk_signing_in');
           hideAuthOverlay();
-          try { await Clerk.signOut(); } catch(e) { console.error('[Sandesh] signOut error:', e); }
+          try { await Clerk.signOut(); } catch (e) { console.error('[Sandesh] signOut error:', e); }
         } else if (isOAuthCallback) {
-          // Returning from an active Google OAuth flow explicitly initiated by user — sync with Django
+          // Returning from an active Google OAuth flow explicitly initiated by user -- sync with Django
           sessionStorage.removeItem('clerk_signing_in');
           await syncWithDjango();
           return;
@@ -299,12 +331,12 @@
           hideAuthOverlay();
           try {
             await Clerk.signOut();
-          } catch(e) {
+          } catch (e) {
             console.warn('[Sandesh] Cleaned stale Clerk session on login page:', e);
           }
         }
       } else {
-        // No Clerk session — clear any stale flags and hide overlay
+        // No Clerk session -- clear any stale flags and hide overlay
         sessionStorage.removeItem('clerk_sync_pending');
         sessionStorage.removeItem('clerk_signing_in');
         hideAuthOverlay();
@@ -314,7 +346,7 @@
     }
 
     // ── Button click → immediate feedback & open Clerk modal ───
-    btn.addEventListener('click', async function(e) {
+    btn.addEventListener('click', async function (e) {
       e.preventDefault();
 
       if (!Clerk) {
@@ -391,10 +423,10 @@
 
 <script>
   // Custom eye button functionality for password fields
-  document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
     const toggleBtns = document.querySelectorAll('.sdh-toggle-password');
     toggleBtns.forEach(btn => {
-      btn.addEventListener('click', function() {
+      btn.addEventListener('click', function () {
         const input = this.previousElementSibling;
         const eyeIcon = this.querySelector('.sdh-eye-icon');
         const eyeOffIcon = this.querySelector('.sdh-eye-off-icon');
@@ -412,4 +444,3 @@
   });
 </script>
 {% endblock %}
-

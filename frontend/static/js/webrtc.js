@@ -32,7 +32,7 @@ SDH.WebRTC = (() => {
   let isCameraOff = false;
   let isCallActive = false;
   let pendingOffer = null;   // call-request data while waiting for user to accept
-  let pendingOfferSdp = null;   // buffered SDP offer — processed only AFTER user accepts
+  let pendingOfferSdp = null;   // buffered SDP offer -- processed only AFTER user accepts
   let pendingIceCandidates = [];     // ICE candidates buffered before setRemoteDescription
   let ringtoneInterval = null;   // handle for incoming-call ringtone loop
   let videoSwapped = false;
@@ -89,7 +89,7 @@ SDH.WebRTC = (() => {
     },
   };
 
-  // STUN / TURN servers — TURN credentials loaded from server config
+  // STUN / TURN servers -- TURN credentials loaded from server config
   const ICE_SERVERS = (() => {
     const servers = [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -116,7 +116,7 @@ SDH.WebRTC = (() => {
    * init(username)
    * Called once on page load with the CURRENT (logged-in) user's username.
    * Opens a persistent signaling socket so this user can receive calls
-   * from anyone at any time — not just when a contact is already selected.
+   * from anyone at any time -- not just when a contact is already selected.
    */
   function init(username) {
     currentUsername = username;
@@ -200,7 +200,7 @@ SDH.WebRTC = (() => {
 
   /**
    * _openSignalSocket(username)
-   * Internal helper — (re)opens the WebSocket to /ws/signal/<username>/.
+   * Internal helper -- (re)opens the WebSocket to /ws/signal/<username>/.
    * The server ignores the URL param for routing; it adds the authenticated
    * user to their own  user_<id>  presence group.
    */
@@ -239,7 +239,7 @@ SDH.WebRTC = (() => {
   function sendSignal(payload, toUser = null) {
     const target = toUser || callPeer || remoteUser;
     if (!target) {
-      console.warn('[WebRTC] sendSignal: no target user — frame dropped.', payload?.type);
+      console.warn('[WebRTC] sendSignal: no target user -- frame dropped.', payload?.type);
       return;
     }
     const frame = Object.assign({}, payload, { to_user: target });
@@ -378,7 +378,7 @@ SDH.WebRTC = (() => {
 
     isCallActive = true;
 
-    // Show "Calling…" stage — active panel shown only after remote accepts
+    // Show "Calling…" stage -- active panel shown only after remote accepts
     showCallingPanel(callType);
 
     // Signal the remote user.  sendSignal() picks up callPeer automatically.
@@ -394,7 +394,7 @@ SDH.WebRTC = (() => {
   // ── Handle incoming call request ──────────────────────────────
   async function handleIncomingCallRequest(data) {
     if (isCallActive) {
-      // Already in a call — silently decline with 'busy'
+      // Already in a call -- silently decline with 'busy'
       sendSignal({ type: 'call-reject', reason: 'busy' }, data.from);
       return;
     }
@@ -416,7 +416,7 @@ SDH.WebRTC = (() => {
     document.querySelectorAll('#qualitySelect').forEach(el => { el.value = currentQuality; });
     // callPeer was already set in handleIncomingCallRequest
 
-    // Get local media FIRST — tracks must be added before creating the answer
+    // Get local media FIRST -- tracks must be added before creating the answer
     try {
       localStream = await navigator.mediaDevices.getUserMedia(QUALITY[call_type][quality]);
     } catch (err) {
@@ -432,7 +432,7 @@ SDH.WebRTC = (() => {
     sendSignal({ type: 'call-accept' });   // to_user = callPeer (caller)
     isCallActive = true;
 
-    // Build peer connection — local stream tracks are added inside
+    // Build peer connection -- local stream tracks are added inside
     await createPeerConnection();
 
     // Process the buffered SDP offer from the caller
@@ -1241,7 +1241,7 @@ SDH.WebRTC = (() => {
   /**
    * setRemoteUser(username)
    * Called by SDH.Chat when the user selects a contact in the sidebar.
-   * Only updates the remoteUser reference — does NOT reconnect the socket,
+   * Only updates the remoteUser reference -- does NOT reconnect the socket,
    * because the persistent signaling socket opened via init() serves ALL calls.
    * If init() was never called (e.g. page visited without DOMContentLoaded
    * triggering it), we lazily open the socket here as a fallback.
@@ -1335,7 +1335,7 @@ SDH.WebRTC = (() => {
           let timeoutId = null;
           if (maxDuration) {
             timeoutId = setTimeout(() => {
-              try { audio.pause(); audio.currentTime = 0; } catch (e) {}
+              try { audio.pause(); audio.currentTime = 0; } catch (e) { }
             }, maxDuration * 1000);
           }
           activeNodes.push({
@@ -1349,7 +1349,7 @@ SDH.WebRTC = (() => {
               audio.pause();
               audio.currentTime = 0;
             },
-            disconnect: () => {}
+            disconnect: () => { }
           });
         } catch (e) {
           console.warn('[RingtoneEngine] HTML5 fallback error:', e);

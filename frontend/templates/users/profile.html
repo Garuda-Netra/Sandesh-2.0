@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Profile — Sandesh{% endblock %}
+{% block title %}Profile -- Sandesh{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto px-6 py-12">
@@ -22,23 +22,27 @@
     {% if messages %}
     <div class="space-y-2 mb-4" id="djangoMessagesContainer">
       {% for message in messages %}
-      <div class="p-4 rounded-xl text-xs flex items-center justify-between gap-3 {% if message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400{% else %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400{% endif %}">
+      <div
+        class="p-4 rounded-xl text-xs flex items-center justify-between gap-3 {% if message.tags == 'error' %}bg-red-500/10 border border-red-500/30 text-red-400{% else %}bg-emerald-500/10 border border-emerald-500/30 text-emerald-400{% endif %}">
         <div class="flex items-center gap-2.5">
           <span class="text-base">{% if message.tags == 'error' %}⚠️{% else %}✅{% endif %}</span>
           <span class="font-medium">{{ message }}</span>
         </div>
-        <button type="button" onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100 text-sm">✕</button>
+        <button type="button" onclick="this.parentElement.remove()"
+          class="opacity-60 hover:opacity-100 text-sm">✕</button>
       </div>
       {% endfor %}
     </div>
     {% endif %}
 
-    <div id="profileFormAlert" class="hidden p-4 rounded-xl text-xs flex items-center justify-between gap-3 mb-4 transition-all">
+    <div id="profileFormAlert"
+      class="hidden p-4 rounded-xl text-xs flex items-center justify-between gap-3 mb-4 transition-all">
       <div class="flex items-center gap-2.5">
         <span id="alertIcon" class="text-base">ℹ️</span>
         <span id="alertText" class="font-medium"></span>
       </div>
-      <button type="button" onclick="document.getElementById('profileFormAlert').classList.add('hidden')" class="opacity-60 hover:opacity-100 text-sm">✕</button>
+      <button type="button" onclick="document.getElementById('profileFormAlert').classList.add('hidden')"
+        class="opacity-60 hover:opacity-100 text-sm">✕</button>
     </div>
 
     <form method="post" enctype="multipart/form-data" id="profileForm" novalidate>
@@ -46,28 +50,29 @@
       {{ form.avatar }}
 
       <!-- ── Unified Professional Profile Picture Card ──────────────── -->
-      <div class="p-6 rounded-2xl bg-divine-darker/70 border border-divine-border/80 shadow-md mb-6 transition-all hover:border-divine-gold/30">
+      <div
+        class="p-6 rounded-2xl bg-divine-darker/70 border border-divine-border/80 shadow-md mb-6 transition-all hover:border-divine-gold/30">
         <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-          
+
           <!-- Avatar circle with interactive hover & click -->
           <div class="relative group cursor-pointer w-24 h-24 sm:w-28 sm:h-28 shrink-0"
-               onclick="triggerAvatarFileInput()"
-               title="Click to select new profile picture">
+            onclick="triggerAvatarFileInput()" title="Click to select new profile picture">
             <img id="profileAvatarImg"
-                 src="{% if profile.avatar_url %}{{ profile.avatar_url }}{% else %}https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff{% endif %}"
-                 alt="{{ user.username }}"
-                 class="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-2 border-divine-gold/70 shadow-xl transition-all duration-300 group-hover:scale-105 group-hover:border-divine-gold"
-                 loading="eager"
-                 onerror="onAvatarImgError(this)" />
-            
+              src="{% if profile.avatar_url %}{{ profile.avatar_url }}{% else %}https://ui-avatars.com/api/?name={{ user.username|urlencode }}&background=6366f1&color=fff{% endif %}"
+              alt="{{ user.username }}"
+              class="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-2 border-divine-gold/70 shadow-xl transition-all duration-300 group-hover:scale-105 group-hover:border-divine-gold"
+              loading="eager" onerror="onAvatarImgError(this)" />
+
             <!-- Hover change overlay -->
-            <div class="absolute inset-0 rounded-full bg-black/65 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all text-white text-[11px] font-bold">
+            <div
+              class="absolute inset-0 rounded-full bg-black/65 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all text-white text-[11px] font-bold">
               <span class="text-xl mb-0.5">📷</span>
               <span>Change</span>
             </div>
 
             <!-- Edit pencil badge -->
-            <div class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-divine-gold text-black flex items-center justify-center text-xs font-bold shadow-lg border-2 border-divine-card transition-transform group-hover:scale-110">
+            <div
+              class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-divine-gold text-black flex items-center justify-center text-xs font-bold shadow-lg border-2 border-divine-card transition-transform group-hover:scale-110">
               ✏️
             </div>
           </div>
@@ -76,25 +81,23 @@
           <div class="text-center sm:text-left flex-1 min-w-0 flex flex-col justify-center">
             <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mb-1">
               <h3 class="text-divine-text font-bold text-xl tracking-tight truncate">{{ user.username }}</h3>
-              <span id="avatarStatusBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full {% if profile.avatar_url %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-white/5 text-divine-muted border border-white/10{% endif %}">
+              <span id="avatarStatusBadge"
+                class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full {% if profile.avatar_url %}bg-emerald-500/15 text-emerald-400 border border-emerald-500/30{% else %}bg-white/5 text-divine-muted border border-white/10{% endif %}">
                 {% if profile.avatar_url %}Custom Photo Active{% else %}Default Avatar{% endif %}
               </span>
             </div>
-            
+
             <p class="text-divine-muted text-xs truncate mb-3">{{ user.email }}</p>
 
             <!-- Action buttons: Upload & Remove -->
             <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-              <button type="button"
-                      onclick="triggerAvatarFileInput()"
-                      class="sdh-liquid-btn btn-ancient !py-2 !px-4 text-xs font-semibold flex items-center gap-2 shadow-sm hover:shadow-md transition-all">
+              <button type="button" onclick="triggerAvatarFileInput()"
+                class="sdh-liquid-btn btn-ancient !py-2 !px-4 text-xs font-semibold flex items-center gap-2 shadow-sm hover:shadow-md transition-all">
                 <span>📷 Upload New Photo</span>
               </button>
 
-              <button type="button"
-                      id="removeAvatarBtn"
-                      onclick="removeAvatar()"
-                      class="{% if not profile.avatar_url %}hidden{% endif %} sdh-liquid-btn btn-danger !py-2 !px-3.5 text-xs font-semibold flex items-center gap-1.5 transition-all">
+              <button type="button" id="removeAvatarBtn" onclick="removeAvatar()"
+                class="{% if not profile.avatar_url %}hidden{% endif %} sdh-liquid-btn btn-danger !py-2 !px-3.5 text-xs font-semibold flex items-center gap-1.5 transition-all">
                 <span>🗑️ Remove</span>
               </button>
             </div>
@@ -107,32 +110,35 @@
         </div>
 
         <!-- Selected image chip (shown when file is picked, before saving) -->
-        <div id="selectedImageChip" class="hidden mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 animate-fade-in flex-wrap">
+        <div id="selectedImageChip"
+          class="hidden mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 animate-fade-in flex-wrap">
           <div class="flex items-center gap-3 min-w-0">
             <span class="text-lg">🖼️</span>
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <p id="selectedFileName" class="text-xs font-bold text-divine-text truncate"></p>
-                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 shrink-0">Ready</span>
+                <span
+                  class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 shrink-0">Ready</span>
               </div>
               <p id="selectedFileSize" class="text-[10px] text-divine-muted mt-0.5"></p>
             </div>
           </div>
           <div class="flex items-center gap-2">
             <button type="button" id="chipUploadBtn" onclick="uploadAvatarDirectly()"
-                    class="sdh-liquid-btn btn-ancient !py-1.5 !px-3.5 text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow-md transition-all">
+              class="sdh-liquid-btn btn-ancient !py-1.5 !px-3.5 text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow-md transition-all">
               <span>🚀 Upload Now</span>
             </button>
             <button type="button" onclick="clearSelectedAvatarFile()"
-                    class="text-xs text-red-400 hover:text-red-300 font-semibold px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors"
-                    title="Cancel selection">
+              class="text-xs text-red-400 hover:text-red-300 font-semibold px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors"
+              title="Cancel selection">
               ✕ Cancel
             </button>
           </div>
         </div>
 
         <!-- Live Upload Progress Card -->
-        <div id="uploadProgressCard" class="hidden mt-4 p-4 rounded-xl bg-divine-darker/90 border border-divine-gold/40 shadow-xl space-y-3">
+        <div id="uploadProgressCard"
+          class="hidden mt-4 p-4 rounded-xl bg-divine-darker/90 border border-divine-gold/40 shadow-xl space-y-3">
           <div class="flex items-center justify-between text-xs font-bold text-divine-gold">
             <div class="flex items-center gap-2">
               <svg class="w-4 h-4 animate-spin text-divine-gold" fill="none" viewBox="0 0 24 24">
@@ -145,7 +151,9 @@
           </div>
 
           <div class="w-full h-2.5 bg-white/10 rounded-full overflow-hidden">
-            <div id="uploadProgressBar" class="h-full bg-gradient-to-r from-amber-400 via-divine-gold to-yellow-500 rounded-full transition-all duration-150" style="width: 0%;"></div>
+            <div id="uploadProgressBar"
+              class="h-full bg-gradient-to-r from-amber-400 via-divine-gold to-yellow-500 rounded-full transition-all duration-150"
+              style="width: 0%;"></div>
           </div>
 
           <p class="text-[11px] text-divine-muted flex items-center gap-1.5">
@@ -200,7 +208,7 @@
       <!-- Save Changes Button -->
       <div class="pt-2">
         <button type="submit" id="saveChangesBtn"
-                class="sdh-liquid-btn btn-ancient transition-all flex items-center justify-center gap-2 w-full sm:w-auto !py-2.5 !px-8 text-sm font-bold shadow-md">
+          class="sdh-liquid-btn btn-ancient transition-all flex items-center justify-center gap-2 w-full sm:w-auto !py-2.5 !px-8 text-sm font-bold shadow-md">
           <span id="saveBtnIcon">💾</span>
           <span id="saveBtnText">Save Changes</span>
         </button>
@@ -218,11 +226,12 @@
           Manage the devices where you are currently logged in.
         </p>
       </div>
-      <button id="terminateOtherSessionsBtn" class="sdh-liquid-btn btn-secondary text-xs !py-1.5 !px-3 shrink-0" style="display: none;">
+      <button id="terminateOtherSessionsBtn" class="sdh-liquid-btn btn-secondary text-xs !py-1.5 !px-3 shrink-0"
+        style="display: none;">
         <span>🔒 Terminate All Other Sessions</span>
       </button>
     </div>
-    
+
     <div id="sessionsListContainer" class="flex flex-col gap-3">
       <!-- Loading skeleton or sessions will be inserted here -->
       <div class="animate-pulse flex space-x-4">
@@ -239,7 +248,8 @@
   <div class="mt-8 bg-divine-card border border-divine-border rounded-2xl p-8">
     <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
       <h2 class="text-lg font-semibold text-divine-text">Help & Support</h2>
-      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+      <span
+        class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
         <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
         Active Development
       </span>
@@ -248,16 +258,18 @@
       Found an issue or have suggestions? Our engineering team is actively enhancing our diagnostic & reporting systems.
     </p>
     <button onclick="openBugReportModal()"
-            class="sdh-liquid-btn btn-secondary !border-divine-gold/30 hover:!border-divine-gold hover:shadow-[0_0_15px_rgba(255,215,0,0.25)] hover:-translate-y-0.5 transition-all">
+      class="sdh-liquid-btn btn-secondary !border-divine-gold/30 hover:!border-divine-gold hover:shadow-[0_0_15px_rgba(255,215,0,0.25)] hover:-translate-y-0.5 transition-all">
       <span>🐛 Report a Bug</span>
     </button>
   </div>
 
   <!-- ── Danger Zone ─────────────────────────────────────────────────── -->
   {% if profile.is_pending_deletion %}
-  <div class="mt-8 bg-amber-50/90 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/40 rounded-2xl p-5 sm:p-8 shadow-sm">
+  <div
+    class="mt-8 bg-amber-50/90 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-500/40 rounded-2xl p-5 sm:p-8 shadow-sm">
     <div class="flex items-center gap-2 mb-2">
-      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 shadow-xs">
+      <span
+        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-950 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 shadow-xs">
         <span class="w-1.5 h-1.5 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse"></span>
         Deactivated (Grace Period)
       </span>
@@ -265,7 +277,8 @@
     <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Account Scheduled for Deletion</h2>
     <p class="text-slate-700 dark:text-zinc-300 text-sm mb-3">
       Your account is currently deactivated and scheduled for permanent deletion on
-      <strong class="text-amber-900 dark:text-amber-300 font-bold">{{ profile.deletion_deadline|date:"F j, Y" }}</strong>
+      <strong class="text-amber-900 dark:text-amber-300 font-bold">{{ profile.deletion_deadline|date:"F j, Y"
+        }}</strong>
       ({{ profile.days_until_deletion }} days remaining).
     </p>
     <p class="text-slate-600 dark:text-zinc-400 text-xs mb-5">
@@ -279,13 +292,14 @@
     </form>
   </div>
   {% else %}
-  <div class="mt-8 bg-white dark:bg-divine-card border border-red-200 dark:border-red-900/40 rounded-2xl p-5 sm:p-8 shadow-sm">
+  <div
+    class="mt-8 bg-white dark:bg-divine-card border border-red-200 dark:border-red-900/40 rounded-2xl p-5 sm:p-8 shadow-sm">
     <h2 class="text-lg font-bold text-red-600 dark:text-red-400 mb-1">Danger Zone</h2>
     <p class="text-slate-600 dark:text-zinc-400 text-sm mb-5">
-      Schedule account deletion. Your account will be deactivated immediately with a 30-day grace period before permanent removal.
+      Schedule account deletion. Your account will be deactivated immediately with a 30-day grace period before
+      permanent removal.
     </p>
-    <button id="openDeleteModal"
-            class="sdh-liquid-btn btn-danger text-xs sm:text-sm">
+    <button id="openDeleteModal" class="sdh-liquid-btn btn-danger text-xs sm:text-sm">
       <span>🗑️ Delete Account</span>
     </button>
   </div>
@@ -295,48 +309,55 @@
 
 <!-- ── Delete Account Confirmation Modal ───────────────────────────── -->
 <div id="deleteAccountModal"
-     class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden p-3 sm:p-4"
-     role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+  class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm hidden p-3 sm:p-4"
+  role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
 
-  <div class="relative bg-white dark:bg-divine-card border border-slate-200 dark:border-divine-border rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-8">
+  <div
+    class="relative bg-white dark:bg-divine-card border border-slate-200 dark:border-divine-border rounded-2xl shadow-2xl w-full max-w-md p-5 sm:p-8">
 
     <!-- Close button -->
     <button id="closeDeleteModal"
-            class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 dark:text-divine-muted dark:hover:text-divine-text transition-colors"
-            aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 dark:text-divine-muted dark:hover:text-divine-text transition-colors"
+      aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
 
     <!-- Icon -->
-    <div class="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 border border-red-200 text-red-600 dark:bg-red-900/25 dark:border-red-700/40 dark:text-red-400 mx-auto mb-5 shadow-xs">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <div
+      class="flex items-center justify-center w-14 h-14 rounded-full bg-red-100 border border-red-200 text-red-600 dark:bg-red-900/25 dark:border-red-700/40 dark:text-red-400 mx-auto mb-5 shadow-xs">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round"
-              d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
       </svg>
     </div>
 
-    <h3 id="deleteModalTitle" class="text-lg sm:text-xl font-bold text-center text-slate-900 dark:text-divine-text mb-3">
+    <h3 id="deleteModalTitle"
+      class="text-lg sm:text-xl font-bold text-center text-slate-900 dark:text-divine-text mb-3">
       Schedule Account Deletion
     </h3>
     <p class="text-slate-600 dark:text-zinc-400 text-xs sm:text-sm text-center leading-relaxed mb-4">
-      Your account will be <span class="text-amber-700 dark:text-amber-400 font-semibold">deactivated immediately</span>, all active sessions will be revoked, and your profile will be hidden.
+      Your account will be <span class="text-amber-700 dark:text-amber-400 font-semibold">deactivated
+        immediately</span>, all active sessions will be revoked, and your profile will be hidden.
     </p>
 
-    <div class="p-3.5 sm:p-4 bg-amber-50 dark:bg-red-950/20 border border-amber-200 dark:border-red-900/40 rounded-xl mb-6 text-xs text-slate-700 dark:text-zinc-300 text-center leading-relaxed">
-      You have a <strong class="text-slate-900 dark:text-white font-bold">30-day grace period</strong>. Your account and all personal messages, moments, and media will be permanently purged on
-      <strong class="text-red-600 dark:text-red-400 font-bold">{% if deletion_deadline_preview %}{{ deletion_deadline_preview|date:"F j, Y" }}{% else %}in 30 days{% endif %}</strong>.
+    <div
+      class="p-3.5 sm:p-4 bg-amber-50 dark:bg-red-950/20 border border-amber-200 dark:border-red-900/40 rounded-xl mb-6 text-xs text-slate-700 dark:text-zinc-300 text-center leading-relaxed">
+      You have a <strong class="text-slate-900 dark:text-white font-bold">30-day grace period</strong>. Your account and
+      all personal messages, moments, and media will be permanently purged on
+      <strong class="text-red-600 dark:text-red-400 font-bold">{% if deletion_deadline_preview %}{{
+        deletion_deadline_preview|date:"F j, Y" }}{% else %}in 30 days{% endif %}</strong>.
       You can cancel anytime by logging back in.
     </div>
 
     <div class="flex flex-col gap-3">
-      <button id="confirmDeleteBtn"
-              class="sdh-liquid-btn btn-danger text-xs sm:text-sm py-3">
+      <button id="confirmDeleteBtn" class="sdh-liquid-btn btn-danger text-xs sm:text-sm py-3">
         <span>Schedule Deletion (30-Day Grace Period)</span>
       </button>
-      <button id="cancelDeleteBtn"
-              class="sdh-liquid-btn btn-secondary text-xs sm:text-sm py-2.5">
+      <button id="cancelDeleteBtn" class="sdh-liquid-btn btn-secondary text-xs sm:text-sm py-2.5">
         <span>Keep Account</span>
       </button>
     </div>
@@ -350,385 +371,240 @@
 
 {% block extra_js %}
 <script>
-(function () {
-  'use strict';
+  (function () {
+    'use strict';
 
-  const modal        = document.getElementById('deleteAccountModal');
-  const openBtn      = document.getElementById('openDeleteModal');
-  const closeBtn     = document.getElementById('closeDeleteModal');
-  const cancelBtn    = document.getElementById('cancelDeleteBtn');
-  const confirmBtn   = document.getElementById('confirmDeleteBtn');
-  const statusMsg    = document.getElementById('deleteStatusMsg');
+    const modal = document.getElementById('deleteAccountModal');
+    const openBtn = document.getElementById('openDeleteModal');
+    const closeBtn = document.getElementById('closeDeleteModal');
+    const cancelBtn = document.getElementById('cancelDeleteBtn');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const statusMsg = document.getElementById('deleteStatusMsg');
 
-  if (!openBtn || !modal) return;
+    if (!openBtn || !modal) return;
 
-  function openModal()  { modal.classList.remove('hidden'); confirmBtn.disabled = false; statusMsg.classList.add('hidden'); }
-  function closeModal() { modal.classList.add('hidden'); }
+    function openModal() { modal.classList.remove('hidden'); confirmBtn.disabled = false; statusMsg.classList.add('hidden'); }
+    function closeModal() { modal.classList.add('hidden'); }
 
-  openBtn.addEventListener('click', openModal);
-  if (closeBtn) closeBtn.addEventListener('click', closeModal);
-  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    openBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
 
-  // Close on backdrop click
-  modal.addEventListener('click', function (e) {
-    if (e.target === modal) closeModal();
-  });
+    // Close on backdrop click
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) closeModal();
+    });
 
-  // Keyboard: Escape closes
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
-  });
+    // Keyboard: Escape closes
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
 
-  confirmBtn.addEventListener('click', async function () {
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Scheduling Deletion…';
+    confirmBtn.addEventListener('click', async function () {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Scheduling Deletion…';
 
-    try {
-      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-      const resp = await fetch('{% url "users:delete_account" %}', {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': csrfToken,
-          'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin',
-      });
+      try {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const resp = await fetch('{% url "users:delete_account" %}', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'same-origin',
+        });
 
-      if (resp.ok) {
-        const data = await resp.json();
-        localStorage.clear();
-        sessionStorage.clear();
-        statusMsg.textContent = data.message || 'Account deletion scheduled. Redirecting…';
-        statusMsg.className   = 'text-center text-sm mt-4 text-amber-400';
+        if (resp.ok) {
+          const data = await resp.json();
+          localStorage.clear();
+          sessionStorage.clear();
+          statusMsg.textContent = data.message || 'Account deletion scheduled. Redirecting…';
+          statusMsg.className = 'text-center text-sm mt-4 text-amber-400';
+          statusMsg.classList.remove('hidden');
+          setTimeout(() => { window.location.href = '{% url "users:login" %}'; }, 2000);
+        } else {
+          throw new Error('Server error ' + resp.status);
+        }
+      } catch (err) {
+        statusMsg.textContent = 'Something went wrong. Please try again.';
+        statusMsg.className = 'text-center text-sm mt-4 text-red-400';
         statusMsg.classList.remove('hidden');
-        setTimeout(() => { window.location.href = '{% url "users:login" %}'; }, 2000);
-      } else {
-        throw new Error('Server error ' + resp.status);
-      }
-    } catch (err) {
-      statusMsg.textContent = 'Something went wrong. Please try again.';
-      statusMsg.className   = 'text-center text-sm mt-4 text-red-400';
-      statusMsg.classList.remove('hidden');
-      confirmBtn.disabled    = false;
-      confirmBtn.textContent = 'Schedule Deletion (30-Day Grace Period)';
-    }
-  });
-
-  // ── Dynamic Avatar Upload & Live Progress System ─────────────────────
-  const avatarInput = document.querySelector('input[type="file"][name="avatar"]') || document.getElementById('id_avatar');
-  const profileForm = document.getElementById('profileForm');
-  const previewImg = document.getElementById('profileAvatarImg');
-  const chip = document.getElementById('selectedImageChip');
-  const chipName = document.getElementById('selectedFileName');
-  const chipSize = document.getElementById('selectedFileSize');
-  const progressCard = document.getElementById('uploadProgressCard');
-  const progressBar = document.getElementById('uploadProgressBar');
-  const progressPercent = document.getElementById('uploadProgressPercent');
-  const progressStep = document.getElementById('uploadProgressStep');
-  const saveBtn = document.getElementById('saveChangesBtn');
-  const saveIcon = document.getElementById('saveBtnIcon');
-  const saveText = document.getElementById('saveBtnText');
-  const formAlert = document.getElementById('profileFormAlert');
-  const alertText = document.getElementById('alertText');
-  const alertIcon = document.getElementById('alertIcon');
-
-  function showFormAlert(message, type = 'error') {
-    if (!formAlert) return;
-    formAlert.classList.remove('hidden', 'bg-red-500/10', 'border-red-500/30', 'text-red-400', 'bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-400', 'bg-amber-500/10', 'border-amber-500/30', 'text-amber-300');
-    if (type === 'error') {
-      formAlert.classList.add('bg-red-500/10', 'border', 'border-red-500/30', 'text-red-400');
-      if (alertIcon) alertIcon.textContent = '⚠️';
-    } else if (type === 'success') {
-      formAlert.classList.add('bg-emerald-500/10', 'border', 'border-emerald-500/30', 'text-emerald-400');
-      if (alertIcon) alertIcon.textContent = '✅';
-    } else {
-      formAlert.classList.add('bg-amber-500/10', 'border', 'border-amber-500/30', 'text-amber-300');
-      if (alertIcon) alertIcon.textContent = 'ℹ️';
-    }
-    if (alertText) alertText.textContent = message;
-    formAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-
-  function hideFormAlert() {
-    if (formAlert) formAlert.classList.add('hidden');
-  }
-
-  // SVG avatar generator for guaranteed zero-broken-image display
-  window.getSvgAvatar = function(name) {
-    const cleanName = (name || 'U').trim();
-    let initial = (cleanName.charAt(0) || 'U').toUpperCase();
-    if (cleanName.length === 2) {
-      initial = cleanName.toUpperCase();
-    }
-    const colors = [
-      ['#6366f1', '#4338ca'], // Indigo
-      ['#8b5cf6', '#6d28d9'], // Violet
-      ['#ec4899', '#be185d'], // Pink
-      ['#f59e0b', '#b45309'], // Amber
-      ['#10b981', '#047857'], // Emerald
-      ['#06b6d4', '#0e7490'], // Cyan
-      ['#3b82f6', '#1d4ed8'], // Blue
-    ];
-    const charCode = (initial.charCodeAt(0) || 0) + (initial.length > 1 ? initial.charCodeAt(1) : 0);
-    const [col1, col2] = colors[charCode % colors.length];
-    const fontSize = initial.length > 1 ? 34 : 44;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><defs><linearGradient id="g_${charCode}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${col1}"/><stop offset="100%" stop-color="${col2}"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#g_${charCode})"/><text x="50" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="${fontSize}" font-weight="700" letter-spacing="-1">${initial}</text></svg>`;
-    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-  };
-
-  window.triggerAvatarFileInput = function() {
-    if (avatarInput) avatarInput.click();
-  };
-
-  window.clearSelectedAvatarFile = function() {
-    if (avatarInput) avatarInput.value = '';
-    if (chip) chip.classList.add('hidden');
-    // Revert preview to current active avatar
-    if (previewImg) {
-      previewImg.dataset.hasFailed = '';
-      previewImg.onerror = function() { window.onAvatarImgError(this); };
-      const originalUrl = "{% if profile.avatar_url %}{{ profile.avatar_url }}{% else %}" + window.getSvgAvatar('{{ user.username|escapejs }}') + "{% endif %}";
-      previewImg.src = originalUrl;
-    }
-    hideFormAlert();
-  };
-
-  window.onAvatarImgError = function(img) {
-    if (img.dataset.hasFailed === 'true') return;
-    img.dataset.hasFailed = 'true';
-    img.onerror = null;
-    img.src = window.getSvgAvatar('{{ user.username|escapejs }}');
-  };
-
-  if (avatarInput) {
-    avatarInput.addEventListener('change', function (e) {
-      hideFormAlert();
-      const file = e.target.files && e.target.files[0];
-      if (!file) {
-        clearSelectedAvatarFile();
-        return;
-      }
-
-      // Check format
-      const validExtensions = /\.(jpe?g|png|gif|webp|bmp)$/i;
-      const isImage = (file.type && file.type.startsWith('image/')) || validExtensions.test(file.name);
-      if (!isImage) {
-        showFormAlert('Please select a valid image file (JPG, PNG, WEBP, GIF).', 'error');
-        avatarInput.value = '';
-        return;
-      }
-
-      // Check size (5 MB limit)
-      const maxSize = 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-        showFormAlert(`The selected image is ${sizeMb} MB. The maximum allowed size is 5.0 MB. Please choose a smaller photo.`, 'error');
-        avatarInput.value = '';
-        return;
-      }
-
-      // Render instant preview
-      if (previewImg) {
-        previewImg.dataset.hasFailed = '';
-        previewImg.src = URL.createObjectURL(file);
-      }
-
-      // Show chip with file info
-      if (chip && chipName && chipSize) {
-        chipName.textContent = file.name;
-        const formattedSize = file.size >= 1024 * 1024
-          ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
-          : (file.size / 1024).toFixed(0) + ' KB';
-        chipSize.textContent = `Size: ${formattedSize}`;
-        chip.classList.remove('hidden');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Schedule Deletion (30-Day Grace Period)';
       }
     });
-  }
 
-  // Dedicated direct avatar uploader with Cloudinary persistence & live progress
-  window.uploadAvatarDirectly = function () {
-    const file = avatarInput && avatarInput.files && avatarInput.files[0];
-    if (!file) {
-      showFormAlert('Please select an image file first.', 'error');
-      return;
-    }
+    // ── Dynamic Avatar Upload & Live Progress System ─────────────────────
+    const avatarInput = document.querySelector('input[type="file"][name="avatar"]') || document.getElementById('id_avatar');
+    const profileForm = document.getElementById('profileForm');
+    const previewImg = document.getElementById('profileAvatarImg');
+    const chip = document.getElementById('selectedImageChip');
+    const chipName = document.getElementById('selectedFileName');
+    const chipSize = document.getElementById('selectedFileSize');
+    const progressCard = document.getElementById('uploadProgressCard');
+    const progressBar = document.getElementById('uploadProgressBar');
+    const progressPercent = document.getElementById('uploadProgressPercent');
+    const progressStep = document.getElementById('uploadProgressStep');
+    const saveBtn = document.getElementById('saveChangesBtn');
+    const saveIcon = document.getElementById('saveBtnIcon');
+    const saveText = document.getElementById('saveBtnText');
+    const formAlert = document.getElementById('profileFormAlert');
+    const alertText = document.getElementById('alertText');
+    const alertIcon = document.getElementById('alertIcon');
 
-    hideFormAlert();
-    const chipBtn = document.getElementById('chipUploadBtn');
-    if (chipBtn) {
-      chipBtn.disabled = true;
-      chipBtn.innerHTML = `<span>⏳ Uploading...</span>`;
-    }
-
-    if (progressCard) {
-      progressCard.classList.remove('hidden');
-      if (progressBar) progressBar.style.width = '0%';
-      if (progressPercent) progressPercent.textContent = '0%';
-      if (progressStep) progressStep.textContent = 'Uploading to Cloudinary...';
-    }
-
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
-    const formData = new FormData();
-    formData.append('avatar', file);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '{% url "users:update_avatar_api" %}', true);
-    xhr.setRequestHeader('X-CSRFToken', csrfToken);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-    if (xhr.upload) {
-      xhr.upload.onprogress = function (event) {
-        if (event.lengthComputable) {
-          const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
-          if (progressBar) progressBar.style.width = percent + '%';
-          if (progressPercent) progressPercent.textContent = percent + '%';
-          if (percent >= 85 && progressStep) {
-            progressStep.textContent = 'Optimizing and securing photo on Cloudinary...';
-          }
-        }
-      };
-    }
-
-    xhr.onload = function () {
-      if (progressBar) progressBar.style.width = '100%';
-      if (progressPercent) progressPercent.textContent = '100%';
-
-      let resData = null;
-      try {
-        resData = JSON.parse(xhr.responseText);
-      } catch (_) {}
-
-      if (xhr.status >= 200 && xhr.status < 300 && resData && resData.status === 'ok') {
-        const freshUrl = (resData.avatar_url || '') + ((resData.avatar_url && resData.avatar_url.includes('?')) ? '&' : '?') + 't=' + Date.now();
-
-        // Update preview image immediately
-        if (previewImg && resData.avatar_url) {
-          previewImg.dataset.hasFailed = '';
-          previewImg.onerror = function () { window.onAvatarImgError(this); };
-          previewImg.src = freshUrl;
-        }
-
-        // Update top navbar and dropdown avatars across layout
-        const navImg = document.getElementById('userNavbarAvatarImg');
-        const navInit = document.getElementById('userNavbarAvatarInitial');
-        if (navImg) {
-          navImg.src = freshUrl;
-          navImg.style.display = 'block';
-          if (navInit) navInit.style.display = 'none';
-        }
-        const dropImg = document.getElementById('userDropdownAvatarImg');
-        const dropInit = document.getElementById('userDropdownAvatarInitial');
-        if (dropImg) {
-          dropImg.src = freshUrl;
-          dropImg.style.display = 'block';
-          if (dropInit) dropInit.style.display = 'none';
-        }
-
-        // Reveal Remove Avatar button
-        const removeBtn = document.getElementById('removeAvatarBtn');
-        if (removeBtn) removeBtn.classList.remove('hidden');
-
-        // Update status badge to Custom Photo Active
-        const statusBadge = document.getElementById('avatarStatusBadge');
-        if (statusBadge) {
-          statusBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-          statusBadge.textContent = 'Custom Photo Active';
-        }
-
-        showFormAlert(resData.message || 'Profile picture uploaded and saved permanently! ✨', 'success');
-
-        // Clear file input & chip
-        if (avatarInput) avatarInput.value = '';
-        if (chip) chip.classList.add('hidden');
-
-        setTimeout(() => {
-          if (progressCard) progressCard.classList.add('hidden');
-        }, 1200);
-
+    function showFormAlert(message, type = 'error') {
+      if (!formAlert) return;
+      formAlert.classList.remove('hidden', 'bg-red-500/10', 'border-red-500/30', 'text-red-400', 'bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-400', 'bg-amber-500/10', 'border-amber-500/30', 'text-amber-300');
+      if (type === 'error') {
+        formAlert.classList.add('bg-red-500/10', 'border', 'border-red-500/30', 'text-red-400');
+        if (alertIcon) alertIcon.textContent = '⚠️';
+      } else if (type === 'success') {
+        formAlert.classList.add('bg-emerald-500/10', 'border', 'border-emerald-500/30', 'text-emerald-400');
+        if (alertIcon) alertIcon.textContent = '✅';
       } else {
-        const msg = (resData && (resData.message || resData.error)) || 'Failed to upload profile picture. Please try again.';
-        showFormAlert(msg, 'error');
-        if (progressCard) progressCard.classList.add('hidden');
+        formAlert.classList.add('bg-amber-500/10', 'border', 'border-amber-500/30', 'text-amber-300');
+        if (alertIcon) alertIcon.textContent = 'ℹ️';
       }
+      if (alertText) alertText.textContent = message;
+      formAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 
-      if (chipBtn) {
-        chipBtn.disabled = false;
-        chipBtn.innerHTML = `<span>🚀 Upload Now</span>`;
+    function hideFormAlert() {
+      if (formAlert) formAlert.classList.add('hidden');
+    }
+
+    // SVG avatar generator for guaranteed zero-broken-image display
+    window.getSvgAvatar = function (name) {
+      const cleanName = (name || 'U').trim();
+      let initial = (cleanName.charAt(0) || 'U').toUpperCase();
+      if (cleanName.length === 2) {
+        initial = cleanName.toUpperCase();
       }
+      const colors = [
+        ['#6366f1', '#4338ca'], // Indigo
+        ['#8b5cf6', '#6d28d9'], // Violet
+        ['#ec4899', '#be185d'], // Pink
+        ['#f59e0b', '#b45309'], // Amber
+        ['#10b981', '#047857'], // Emerald
+        ['#06b6d4', '#0e7490'], // Cyan
+        ['#3b82f6', '#1d4ed8'], // Blue
+      ];
+      const charCode = (initial.charCodeAt(0) || 0) + (initial.length > 1 ? initial.charCodeAt(1) : 0);
+      const [col1, col2] = colors[charCode % colors.length];
+      const fontSize = initial.length > 1 ? 34 : 44;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><defs><linearGradient id="g_${charCode}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${col1}"/><stop offset="100%" stop-color="${col2}"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#g_${charCode})"/><text x="50" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="${fontSize}" font-weight="700" letter-spacing="-1">${initial}</text></svg>`;
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     };
 
-    xhr.onerror = function () {
-      showFormAlert('Network error occurred during upload. Please check your internet connection.', 'error');
-      if (progressCard) progressCard.classList.add('hidden');
-      if (chipBtn) {
-        chipBtn.disabled = false;
-        chipBtn.innerHTML = `<span>🚀 Upload Now</span>`;
-      }
+    window.triggerAvatarFileInput = function () {
+      if (avatarInput) avatarInput.click();
     };
 
-    xhr.send(formData);
-  };
-
-  // Fetch and display latest avatar from server
-  window.fetchLatestAvatar = async function () {
-    try {
-      const resp = await fetch('{% url "users:update_avatar_api" %}', {
-        headers: { 'Accept': 'application/json' }
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.avatar_url && previewImg) {
-          previewImg.dataset.hasFailed = '';
-          const fresh = data.avatar_url + (data.avatar_url.includes('?') ? '&' : '?') + 't=' + Date.now();
-          previewImg.src = fresh;
-        }
+    window.clearSelectedAvatarFile = function () {
+      if (avatarInput) avatarInput.value = '';
+      if (chip) chip.classList.add('hidden');
+      // Revert preview to current active avatar
+      if (previewImg) {
+        previewImg.dataset.hasFailed = '';
+        previewImg.onerror = function () { window.onAvatarImgError(this); };
+        const originalUrl = "{% if profile.avatar_url %}{{ profile.avatar_url }}{% else %}" + window.getSvgAvatar('{{ user.username|escapejs }}') + "{% endif %}";
+        previewImg.src = originalUrl;
       }
-    } catch (_) {}
-  };
-
-  // Sync avatar on page load
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', window.fetchLatestAvatar);
-  } else {
-    window.fetchLatestAvatar();
-  }
-
-  // Handle Form Submit with live upload progress
-  if (profileForm) {
-    profileForm.addEventListener('submit', function (e) {
-      e.preventDefault();
       hideFormAlert();
+    };
 
+    window.onAvatarImgError = function (img) {
+      if (img.dataset.hasFailed === 'true') return;
+      img.dataset.hasFailed = 'true';
+      img.onerror = null;
+      img.src = window.getSvgAvatar('{{ user.username|escapejs }}');
+    };
+
+    if (avatarInput) {
+      avatarInput.addEventListener('change', function (e) {
+        hideFormAlert();
+        const file = e.target.files && e.target.files[0];
+        if (!file) {
+          clearSelectedAvatarFile();
+          return;
+        }
+
+        // Check format
+        const validExtensions = /\.(jpe?g|png|gif|webp|bmp)$/i;
+        const isImage = (file.type && file.type.startsWith('image/')) || validExtensions.test(file.name);
+        if (!isImage) {
+          showFormAlert('Please select a valid image file (JPG, PNG, WEBP, GIF).', 'error');
+          avatarInput.value = '';
+          return;
+        }
+
+        // Check size (5 MB limit)
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+          const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+          showFormAlert(`The selected image is ${sizeMb} MB. The maximum allowed size is 5.0 MB. Please choose a smaller photo.`, 'error');
+          avatarInput.value = '';
+          return;
+        }
+
+        // Render instant preview
+        if (previewImg) {
+          previewImg.dataset.hasFailed = '';
+          previewImg.src = URL.createObjectURL(file);
+        }
+
+        // Show chip with file info
+        if (chip && chipName && chipSize) {
+          chipName.textContent = file.name;
+          const formattedSize = file.size >= 1024 * 1024
+            ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+            : (file.size / 1024).toFixed(0) + ' KB';
+          chipSize.textContent = `Size: ${formattedSize}`;
+          chip.classList.remove('hidden');
+        }
+      });
+    }
+
+    // Dedicated direct avatar uploader with Cloudinary persistence & live progress
+    window.uploadAvatarDirectly = function () {
       const file = avatarInput && avatarInput.files && avatarInput.files[0];
-      const formData = new FormData(profileForm);
+      if (!file) {
+        showFormAlert('Please select an image file first.', 'error');
+        return;
+      }
 
-      // Disable button & show spinner
-      if (saveBtn) saveBtn.disabled = true;
-      if (saveIcon) saveIcon.innerHTML = `<svg class="w-4 h-4 animate-spin inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>`;
-      if (saveText) saveText.textContent = file ? 'Uploading Profile Pic...' : 'Saving Changes...';
+      hideFormAlert();
+      const chipBtn = document.getElementById('chipUploadBtn');
+      if (chipBtn) {
+        chipBtn.disabled = true;
+        chipBtn.innerHTML = `<span>⏳ Uploading...</span>`;
+      }
 
-      // Show upload progress card if uploading a file
-      if (file && progressCard) {
+      if (progressCard) {
         progressCard.classList.remove('hidden');
         if (progressBar) progressBar.style.width = '0%';
         if (progressPercent) progressPercent.textContent = '0%';
-        if (progressStep) progressStep.textContent = 'Uploading image...';
+        if (progressStep) progressStep.textContent = 'Uploading to Cloudinary...';
       }
 
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+      const formData = new FormData();
+      formData.append('avatar', file);
+
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', profileForm.action || window.location.href, true);
+      xhr.open('POST', '{% url "users:update_avatar_api" %}', true);
+      xhr.setRequestHeader('X-CSRFToken', csrfToken);
       xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
-      // Live upload progress event
-      if (xhr.upload && file) {
+      if (xhr.upload) {
         xhr.upload.onprogress = function (event) {
           if (event.lengthComputable) {
             const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
             if (progressBar) progressBar.style.width = percent + '%';
             if (progressPercent) progressPercent.textContent = percent + '%';
-            if (saveText) saveText.textContent = `Uploading... (${percent}%)`;
-            if (percent >= 98 && progressStep) {
-              progressStep.textContent = 'Processing & securing photo...';
+            if (percent >= 85 && progressStep) {
+              progressStep.textContent = 'Optimizing and securing photo on Cloudinary...';
             }
           }
         };
@@ -741,45 +617,46 @@
         let resData = null;
         try {
           resData = JSON.parse(xhr.responseText);
-        } catch (_) {}
+        } catch (_) { }
 
-        if (xhr.status >= 200 && xhr.status < 300) {
-          // Success
-          showFormAlert(resData && resData.message ? resData.message : 'Profile updated successfully! ✨', 'success');
-          
-          if (resData && resData.avatar_url && previewImg) {
+        if (xhr.status >= 200 && xhr.status < 300 && resData && resData.status === 'ok') {
+          const freshUrl = (resData.avatar_url || '') + ((resData.avatar_url && resData.avatar_url.includes('?')) ? '&' : '?') + 't=' + Date.now();
+
+          // Update preview image immediately
+          if (previewImg && resData.avatar_url) {
             previewImg.dataset.hasFailed = '';
-            // Append cache buster to force browser to load fresh photo
-            const buster = (resData.avatar_url.includes('?') ? '&' : '?') + 't=' + Date.now();
-            const freshUrl = resData.avatar_url + buster;
+            previewImg.onerror = function () { window.onAvatarImgError(this); };
             previewImg.src = freshUrl;
-
-            // Immediately update top navbar and dropdown avatars
-            const navImg = document.getElementById('userNavbarAvatarImg');
-            const navInit = document.getElementById('userNavbarAvatarInitial');
-            if (navImg) {
-              navImg.src = freshUrl;
-              navImg.style.display = 'block';
-              if (navInit) navInit.style.display = 'none';
-            }
-            const dropImg = document.getElementById('userDropdownAvatarImg');
-            const dropInit = document.getElementById('userDropdownAvatarInitial');
-            if (dropImg) {
-              dropImg.src = freshUrl;
-              dropImg.style.display = 'block';
-              if (dropInit) dropInit.style.display = 'none';
-            }
           }
 
-          // Show Remove Avatar button
+          // Update top navbar and dropdown avatars across layout
+          const navImg = document.getElementById('userNavbarAvatarImg');
+          const navInit = document.getElementById('userNavbarAvatarInitial');
+          if (navImg) {
+            navImg.src = freshUrl;
+            navImg.style.display = 'block';
+            if (navInit) navInit.style.display = 'none';
+          }
+          const dropImg = document.getElementById('userDropdownAvatarImg');
+          const dropInit = document.getElementById('userDropdownAvatarInitial');
+          if (dropImg) {
+            dropImg.src = freshUrl;
+            dropImg.style.display = 'block';
+            if (dropInit) dropInit.style.display = 'none';
+          }
+
+          // Reveal Remove Avatar button
           const removeBtn = document.getElementById('removeAvatarBtn');
           if (removeBtn) removeBtn.classList.remove('hidden');
 
+          // Update status badge to Custom Photo Active
           const statusBadge = document.getElementById('avatarStatusBadge');
           if (statusBadge) {
             statusBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
             statusBadge.textContent = 'Custom Photo Active';
           }
+
+          showFormAlert(resData.message || 'Profile picture uploaded and saved permanently! ✨', 'success');
 
           // Clear file input & chip
           if (avatarInput) avatarInput.value = '';
@@ -790,128 +667,272 @@
           }, 1200);
 
         } else {
-          // Server error
-          let msg = 'Failed to update profile. Please try again.';
-          if (resData && resData.message) {
-            msg = resData.message;
-          } else if (resData && resData.errors) {
-            msg = Object.values(resData.errors).flat().join(' ');
-          }
+          const msg = (resData && (resData.message || resData.error)) || 'Failed to upload profile picture. Please try again.';
           showFormAlert(msg, 'error');
           if (progressCard) progressCard.classList.add('hidden');
         }
 
-        // Restore save button
-        if (saveBtn) saveBtn.disabled = false;
-        if (saveIcon) saveIcon.textContent = '💾';
-        if (saveText) saveText.textContent = 'Save Changes';
+        if (chipBtn) {
+          chipBtn.disabled = false;
+          chipBtn.innerHTML = `<span>🚀 Upload Now</span>`;
+        }
       };
 
       xhr.onerror = function () {
-        showFormAlert('Network error occurred during upload. Please check your internet connection and try again.', 'error');
+        showFormAlert('Network error occurred during upload. Please check your internet connection.', 'error');
         if (progressCard) progressCard.classList.add('hidden');
-        if (saveBtn) saveBtn.disabled = false;
-        if (saveIcon) saveIcon.textContent = '💾';
-        if (saveText) saveText.textContent = 'Save Changes';
+        if (chipBtn) {
+          chipBtn.disabled = false;
+          chipBtn.innerHTML = `<span>🚀 Upload Now</span>`;
+        }
       };
 
       xhr.send(formData);
-    });
-  }
-})();
+    };
 
-async function removeAvatar() {
-  if (!confirm('Are you sure you want to remove your profile picture?')) return;
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  const removeBtn = document.getElementById('removeAvatarBtn');
-  if (removeBtn) {
-    removeBtn.disabled = true;
-    removeBtn.innerHTML = '<span>⏳ Removing...</span>';
-  }
+    // Fetch and display latest avatar from server
+    window.fetchLatestAvatar = async function () {
+      try {
+        const resp = await fetch('{% url "users:update_avatar_api" %}', {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.avatar_url && previewImg) {
+            previewImg.dataset.hasFailed = '';
+            const fresh = data.avatar_url + (data.avatar_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+            previewImg.src = fresh;
+          }
+        }
+      } catch (_) { }
+    };
 
-  try {
-    const resp = await fetch('{% url "users:remove_avatar" %}', {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrfToken,
-        'X-Requested-With': 'XMLHttpRequest'
-      }
-    });
-    if (resp.ok) {
-      const previewImg = document.getElementById('profileAvatarImg');
-      if (previewImg) {
-        previewImg.dataset.hasFailed = '';
-        previewImg.onerror = null;
-        previewImg.src = window.getSvgAvatar('{{ user.username|escapejs }}');
-      }
-
-      // Revert navbar and dropdown avatars to initial
-      const navImg = document.getElementById('userNavbarAvatarImg');
-      const navInit = document.getElementById('userNavbarAvatarInitial');
-      if (navImg) navImg.style.display = 'none';
-      if (navInit) navInit.style.display = 'flex';
-      const dropImg = document.getElementById('userDropdownAvatarImg');
-      const dropInit = document.getElementById('userDropdownAvatarInitial');
-      if (dropImg) dropImg.style.display = 'none';
-      if (dropInit) dropInit.style.display = 'flex';
-
-      const removeBtn = document.getElementById('removeAvatarBtn');
-      if (removeBtn) removeBtn.classList.add('hidden');
-
-      const statusBadge = document.getElementById('avatarStatusBadge');
-      if (statusBadge) {
-        statusBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/5 text-divine-muted border border-white/10';
-        statusBadge.textContent = 'Default Avatar';
-      }
-
-      const alert = document.getElementById('profileFormAlert');
-      const alertText = document.getElementById('alertText');
-      if (alert && alertText) {
-        alert.className = 'p-4 rounded-xl text-xs flex items-center justify-between gap-3 mb-4 transition-all bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
-        alertText.textContent = 'Profile picture removed successfully.';
-        alert.classList.remove('hidden');
-      }
+    // Sync avatar on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', window.fetchLatestAvatar);
     } else {
-      alert('Failed to remove avatar. Please try again.');
+      window.fetchLatestAvatar();
     }
-  } catch (err) {
-    alert('Error removing avatar.');
-  } finally {
-    if (removeBtn) {
-      removeBtn.disabled = false;
-      removeBtn.innerHTML = '<span>🗑️ Remove Profile Picture</span>';
-    }
-  }
-}
 
-// ── Sessions Management ────────────────────────────────────────────────
-async function loadSessions() {
-  try {
-    const resp = await fetch('{% url "users:session_list" %}', { cache: 'no-store' });
-    const data = await resp.json();
-    const container = document.getElementById('sessionsListContainer');
-    const terminateOtherBtn = document.getElementById('terminateOtherSessionsBtn');
+    // Handle Form Submit with live upload progress
+    if (profileForm) {
+      profileForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        hideFormAlert();
 
-    if (data.sessions && data.sessions.length > 0) {
-      container.innerHTML = '';
-      let otherSessionsCount = 0;
+        const file = avatarInput && avatarInput.files && avatarInput.files[0];
+        const formData = new FormData(profileForm);
 
-      data.sessions.forEach(s => {
-        if (!s.is_current) otherSessionsCount++;
-        
-        let iconSvg = '';
-        if (s.device_name && s.device_name.toLowerCase().includes('mobile')) {
-          iconSvg = '<svg class="w-6 h-6 text-divine-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>';
-        } else {
-          iconSvg = '<svg class="w-6 h-6 text-divine-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>';
+        // Disable button & show spinner
+        if (saveBtn) saveBtn.disabled = true;
+        if (saveIcon) saveIcon.innerHTML = `<svg class="w-4 h-4 animate-spin inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>`;
+        if (saveText) saveText.textContent = file ? 'Uploading Profile Pic...' : 'Saving Changes...';
+
+        // Show upload progress card if uploading a file
+        if (file && progressCard) {
+          progressCard.classList.remove('hidden');
+          if (progressBar) progressBar.style.width = '0%';
+          if (progressPercent) progressPercent.textContent = '0%';
+          if (progressStep) progressStep.textContent = 'Uploading image...';
         }
 
-        const dateStr = s.last_activity ? new Date(s.last_activity).toLocaleString() : 'Unknown';
-        
-        const card = document.createElement('div');
-        card.className = 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-divine-darker rounded-xl p-4 border border-divine-border transition hover:border-divine-gold/30';
-        
-        card.innerHTML = `
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', profileForm.action || window.location.href, true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        // Live upload progress event
+        if (xhr.upload && file) {
+          xhr.upload.onprogress = function (event) {
+            if (event.lengthComputable) {
+              const percent = Math.min(99, Math.round((event.loaded / event.total) * 100));
+              if (progressBar) progressBar.style.width = percent + '%';
+              if (progressPercent) progressPercent.textContent = percent + '%';
+              if (saveText) saveText.textContent = `Uploading... (${percent}%)`;
+              if (percent >= 98 && progressStep) {
+                progressStep.textContent = 'Processing & securing photo...';
+              }
+            }
+          };
+        }
+
+        xhr.onload = function () {
+          if (progressBar) progressBar.style.width = '100%';
+          if (progressPercent) progressPercent.textContent = '100%';
+
+          let resData = null;
+          try {
+            resData = JSON.parse(xhr.responseText);
+          } catch (_) { }
+
+          if (xhr.status >= 200 && xhr.status < 300) {
+            // Success
+            showFormAlert(resData && resData.message ? resData.message : 'Profile updated successfully! ✨', 'success');
+
+            if (resData && resData.avatar_url && previewImg) {
+              previewImg.dataset.hasFailed = '';
+              // Append cache buster to force browser to load fresh photo
+              const buster = (resData.avatar_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+              const freshUrl = resData.avatar_url + buster;
+              previewImg.src = freshUrl;
+
+              // Immediately update top navbar and dropdown avatars
+              const navImg = document.getElementById('userNavbarAvatarImg');
+              const navInit = document.getElementById('userNavbarAvatarInitial');
+              if (navImg) {
+                navImg.src = freshUrl;
+                navImg.style.display = 'block';
+                if (navInit) navInit.style.display = 'none';
+              }
+              const dropImg = document.getElementById('userDropdownAvatarImg');
+              const dropInit = document.getElementById('userDropdownAvatarInitial');
+              if (dropImg) {
+                dropImg.src = freshUrl;
+                dropImg.style.display = 'block';
+                if (dropInit) dropInit.style.display = 'none';
+              }
+            }
+
+            // Show Remove Avatar button
+            const removeBtn = document.getElementById('removeAvatarBtn');
+            if (removeBtn) removeBtn.classList.remove('hidden');
+
+            const statusBadge = document.getElementById('avatarStatusBadge');
+            if (statusBadge) {
+              statusBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+              statusBadge.textContent = 'Custom Photo Active';
+            }
+
+            // Clear file input & chip
+            if (avatarInput) avatarInput.value = '';
+            if (chip) chip.classList.add('hidden');
+
+            setTimeout(() => {
+              if (progressCard) progressCard.classList.add('hidden');
+            }, 1200);
+
+          } else {
+            // Server error
+            let msg = 'Failed to update profile. Please try again.';
+            if (resData && resData.message) {
+              msg = resData.message;
+            } else if (resData && resData.errors) {
+              msg = Object.values(resData.errors).flat().join(' ');
+            }
+            showFormAlert(msg, 'error');
+            if (progressCard) progressCard.classList.add('hidden');
+          }
+
+          // Restore save button
+          if (saveBtn) saveBtn.disabled = false;
+          if (saveIcon) saveIcon.textContent = '💾';
+          if (saveText) saveText.textContent = 'Save Changes';
+        };
+
+        xhr.onerror = function () {
+          showFormAlert('Network error occurred during upload. Please check your internet connection and try again.', 'error');
+          if (progressCard) progressCard.classList.add('hidden');
+          if (saveBtn) saveBtn.disabled = false;
+          if (saveIcon) saveIcon.textContent = '💾';
+          if (saveText) saveText.textContent = 'Save Changes';
+        };
+
+        xhr.send(formData);
+      });
+    }
+  })();
+
+  async function removeAvatar() {
+    if (!confirm('Are you sure you want to remove your profile picture?')) return;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const removeBtn = document.getElementById('removeAvatarBtn');
+    if (removeBtn) {
+      removeBtn.disabled = true;
+      removeBtn.innerHTML = '<span>⏳ Removing...</span>';
+    }
+
+    try {
+      const resp = await fetch('{% url "users:remove_avatar" %}', {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      if (resp.ok) {
+        const previewImg = document.getElementById('profileAvatarImg');
+        if (previewImg) {
+          previewImg.dataset.hasFailed = '';
+          previewImg.onerror = null;
+          previewImg.src = window.getSvgAvatar('{{ user.username|escapejs }}');
+        }
+
+        // Revert navbar and dropdown avatars to initial
+        const navImg = document.getElementById('userNavbarAvatarImg');
+        const navInit = document.getElementById('userNavbarAvatarInitial');
+        if (navImg) navImg.style.display = 'none';
+        if (navInit) navInit.style.display = 'flex';
+        const dropImg = document.getElementById('userDropdownAvatarImg');
+        const dropInit = document.getElementById('userDropdownAvatarInitial');
+        if (dropImg) dropImg.style.display = 'none';
+        if (dropInit) dropInit.style.display = 'flex';
+
+        const removeBtn = document.getElementById('removeAvatarBtn');
+        if (removeBtn) removeBtn.classList.add('hidden');
+
+        const statusBadge = document.getElementById('avatarStatusBadge');
+        if (statusBadge) {
+          statusBadge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white/5 text-divine-muted border border-white/10';
+          statusBadge.textContent = 'Default Avatar';
+        }
+
+        const alert = document.getElementById('profileFormAlert');
+        const alertText = document.getElementById('alertText');
+        if (alert && alertText) {
+          alert.className = 'p-4 rounded-xl text-xs flex items-center justify-between gap-3 mb-4 transition-all bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
+          alertText.textContent = 'Profile picture removed successfully.';
+          alert.classList.remove('hidden');
+        }
+      } else {
+        alert('Failed to remove avatar. Please try again.');
+      }
+    } catch (err) {
+      alert('Error removing avatar.');
+    } finally {
+      if (removeBtn) {
+        removeBtn.disabled = false;
+        removeBtn.innerHTML = '<span>🗑️ Remove Profile Picture</span>';
+      }
+    }
+  }
+
+  // ── Sessions Management ────────────────────────────────────────────────
+  async function loadSessions() {
+    try {
+      const resp = await fetch('{% url "users:session_list" %}', { cache: 'no-store' });
+      const data = await resp.json();
+      const container = document.getElementById('sessionsListContainer');
+      const terminateOtherBtn = document.getElementById('terminateOtherSessionsBtn');
+
+      if (data.sessions && data.sessions.length > 0) {
+        container.innerHTML = '';
+        let otherSessionsCount = 0;
+
+        data.sessions.forEach(s => {
+          if (!s.is_current) otherSessionsCount++;
+
+          let iconSvg = '';
+          if (s.device_name && s.device_name.toLowerCase().includes('mobile')) {
+            iconSvg = '<svg class="w-6 h-6 text-divine-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>';
+          } else {
+            iconSvg = '<svg class="w-6 h-6 text-divine-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>';
+          }
+
+          const dateStr = s.last_activity ? new Date(s.last_activity).toLocaleString() : 'Unknown';
+
+          const card = document.createElement('div');
+          card.className = 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-divine-darker rounded-xl p-4 border border-divine-border transition hover:border-divine-gold/30';
+
+          card.innerHTML = `
           <div class="flex items-start sm:items-center gap-4 min-w-0">
             <div class="p-2 bg-divine-card rounded-lg border border-divine-border shadow-inner shrink-0">
               ${iconSvg}
@@ -939,79 +960,79 @@ async function loadSessions() {
           `}
           </div>
         `;
-        container.appendChild(card);
-      });
+          container.appendChild(card);
+        });
 
-      if (otherSessionsCount > 0) {
-        terminateOtherBtn.style.display = 'block';
+        if (otherSessionsCount > 0) {
+          terminateOtherBtn.style.display = 'block';
+        } else {
+          terminateOtherBtn.style.display = 'none';
+        }
       } else {
-        terminateOtherBtn.style.display = 'none';
+        container.innerHTML = '<p class="text-sm text-divine-muted">No active sessions found.</p>';
       }
-    } else {
-      container.innerHTML = '<p class="text-sm text-divine-muted">No active sessions found.</p>';
+    } catch (err) {
+      console.error('Failed to load sessions', err);
     }
-  } catch (err) {
-    console.error('Failed to load sessions', err);
   }
-}
 
-async function terminateSession(sessionKey) {
-  if (!confirm('Are you sure you want to terminate this session?')) return;
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  const btn = document.getElementById(`btn-term-${sessionKey}`);
-  if (btn) { btn.disabled = true; btn.textContent = 'Terminating...'; }
-  try {
-    const resp = await fetch(`/api/sessions/${sessionKey}/terminate/`, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrfToken,
+  async function terminateSession(sessionKey) {
+    if (!confirm('Are you sure you want to terminate this session?')) return;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const btn = document.getElementById(`btn-term-${sessionKey}`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Terminating...'; }
+    try {
+      const resp = await fetch(`/api/sessions/${sessionKey}/terminate/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken,
+        }
+      });
+      if (resp.ok) {
+        alert('Session terminated successfully.');
+        loadSessions();
+      } else {
+        alert('Failed to terminate session.');
+        if (btn) { btn.disabled = false; btn.textContent = 'Terminate'; }
       }
-    });
-    if (resp.ok) {
-      alert('Session terminated successfully.');
-      loadSessions();
-    } else {
-      alert('Failed to terminate session.');
+    } catch (err) {
+      console.error('Termination error', err);
+      alert('An error occurred.');
       if (btn) { btn.disabled = false; btn.textContent = 'Terminate'; }
     }
-  } catch (err) {
-    console.error('Termination error', err);
-    alert('An error occurred.');
-    if (btn) { btn.disabled = false; btn.textContent = 'Terminate'; }
   }
-}
 
-document.getElementById('terminateOtherSessionsBtn')?.addEventListener('click', async (e) => {
-  if (!confirm('Are you sure you want to log out of all other devices?')) return;
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-  const btn = e.currentTarget;
-  const originalText = btn.innerHTML;
-  btn.innerHTML = 'Terminating...';
-  btn.disabled = true;
-  try {
-    const resp = await fetch(`/api/sessions/terminate-others/`, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': csrfToken,
+  document.getElementById('terminateOtherSessionsBtn')?.addEventListener('click', async (e) => {
+    if (!confirm('Are you sure you want to log out of all other devices?')) return;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const btn = e.currentTarget;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Terminating...';
+    btn.disabled = true;
+    try {
+      const resp = await fetch(`/api/sessions/terminate-others/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken,
+        }
+      });
+      if (resp.ok) {
+        alert('All other sessions terminated successfully.');
+        loadSessions();
+      } else {
+        alert('Failed to terminate other sessions.');
       }
-    });
-    if (resp.ok) {
-      alert('All other sessions terminated successfully.');
-      loadSessions();
-    } else {
-      alert('Failed to terminate other sessions.');
+    } catch (err) {
+      console.error('Termination error', err);
+      alert('An error occurred.');
+    } finally {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
     }
-  } catch (err) {
-    console.error('Termination error', err);
-    alert('An error occurred.');
-  } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-  }
-});
+  });
 
-// Load sessions on page load
-document.addEventListener('DOMContentLoaded', loadSessions);
+  // Load sessions on page load
+  document.addEventListener('DOMContentLoaded', loadSessions);
 
 </script>
 {% endblock %}

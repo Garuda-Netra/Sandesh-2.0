@@ -184,7 +184,7 @@ Copy-Item .env.example .env
 # On macOS / Linux:
 cp .env.example .env
 ```
-*(By default, `.env.example` is preconfigured to run immediately with SQLite and in-memory WebSockets—no database setup required!)*
+*(By default, `.env.example` is preconfigured to run immediately with SQLite and in-memory WebSockets--no database setup required!)*
 
 ### 5. Apply Migrations & Create an Admin User
 ```bash

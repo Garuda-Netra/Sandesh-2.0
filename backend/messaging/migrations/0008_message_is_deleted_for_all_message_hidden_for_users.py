@@ -1,4 +1,4 @@
-# Generated migration — professional deletion fields
+# Generated migration -- professional deletion fields
 
 from django.conf import settings
 from django.db import migrations, models

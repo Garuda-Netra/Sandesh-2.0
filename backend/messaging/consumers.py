@@ -2,8 +2,8 @@
 Messaging WebSocket Consumers
 
 Two consumers:
-  1. ChatConsumer  — real-time messaging
-  2. SignalingConsumer — WebRTC signaling for voice/video calls
+  1. ChatConsumer  -- real-time messaging
+  2. SignalingConsumer -- WebRTC signaling for voice/video calls
 """
 
 import json
@@ -658,6 +658,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'reaction': event['reaction']
         }))
 
+    async def update_moment_caption(self, event):
+        """Relay a moment caption update event to the client."""
+        await self.send(text_data=json.dumps({
+            'type': 'update_moment_caption',
+            'moment_id': event['moment_id'],
+            'user_id': event['user_id'],
+            'caption': event['caption'],
+        }))
+
     # ---- Utilities ---------------------------------------------------------
 
     async def send_error(self, message: str):
@@ -676,11 +685,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             me_profile = self.me.profile
             other_profile = self.other_user.profile
 
-            # I blocked them — I must unblock to send
+            # I blocked them -- I must unblock to send
             if me_profile.blocked_users.filter(id=other_profile.id).exists():
                 return True, 'Unblock this contact to send messages.'
 
-            # They blocked me — messages silently fail
+            # They blocked me -- messages silently fail
             if other_profile.blocked_users.filter(id=me_profile.id).exists():
                 return True, 'Message not delivered.'
         except Exception:
@@ -1319,7 +1328,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.user_group, self.channel_name)
         await self.accept()
         logger.info(
-            f'[Signal] {self.me.username} (id={self.me.id}) connected — '
+            f'[Signal] {self.me.username} (id={self.me.id}) connected -- '
             f'listening on group {self.user_group}'
         )
 
@@ -1351,7 +1360,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         to_username = data.get('to_user')
         if not to_username:
             logger.warning(
-                f'[Signal] "{sig_type}" from {self.me.username} missing to_user — dropped'
+                f'[Signal] "{sig_type}" from {self.me.username} missing to_user -- dropped'
             )
             return
 
@@ -1362,7 +1371,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         target_user = await self._resolve_user(to_username)
         if not target_user:
             logger.warning(
-                f'[Signal] Target user "{to_username}" not found — signal dropped'
+                f'[Signal] Target user "{to_username}" not found -- signal dropped'
             )
             return
 
@@ -1404,7 +1413,7 @@ class SignalingConsumer(AsyncWebsocketConsumer):
         payload = dict(event['payload'])
         # Stamp the sender's username so the browser knows who it came from
         payload['from'] = event['from_user']
-        # Strip the routing field — it is irrelevant to the receiver
+        # Strip the routing field -- it is irrelevant to the receiver
         payload.pop('to_user', None)
         await self.send(text_data=json.dumps(payload))
 
