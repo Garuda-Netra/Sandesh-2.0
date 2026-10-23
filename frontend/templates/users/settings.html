@@ -78,7 +78,7 @@
         <div class="flex-1 min-w-0">
           <span class="tab-title block text-slate-800 dark:text-divine-text truncate">Chats & Input</span>
           <span class="tab-desc block text-[11px] text-slate-500 dark:text-divine-muted/70 truncate">Keyboard enter,
-            chat lock</span>
+            effects, chat lock</span>
         </div>
       </button>
 
@@ -430,6 +430,32 @@
             </div>
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
               <input type="checkbox" id="enterIsSendToggle" class="sr-only peer" {% if settings.enter_is_send %}checked{% endif %} onchange="updateSetting('enter_is_send', this.checked)">
+              <div
+                class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Cursor Trail & Click Blasting Animation Toggle -->
+        <div
+          class="bg-white dark:bg-divine-card border border-slate-200/90 dark:border-divine-border rounded-2xl p-6 shadow-sm dark:shadow-xl space-y-4">
+          <div class="flex items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <h2 class="text-base font-bold text-slate-900 dark:text-divine-text">Cursor Trail & Blasting Animation</h2>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  ✨ Interactive Effect
+                </span>
+              </div>
+              <p class="text-xs text-slate-600 dark:text-divine-muted leading-relaxed max-w-lg">
+                Shows particle trail and click blasting effects across Sandesh. Enabled by default — turn off for a minimal interface or to save device battery.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="cursorBlastToggle" class="sr-only peer"
+                {% if settings.cursor_blast_enabled %}checked{% endif %}
+                onchange="updateSetting('cursor_blast_enabled', this.checked); if (window.SDH && SDH.setCursorBlast) SDH.setCursorBlast(this.checked);">
               <div
                 class="w-11 h-6 bg-slate-200 dark:bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-all peer-checked:bg-purple-600">
               </div>
@@ -962,6 +988,9 @@
       // Broadcast into local storage so any open chat window instantly syncs
       try {
         localStorage.setItem('sdh_user_settings', JSON.stringify(data.settings));
+        if (typeof data.settings?.cursor_blast_enabled !== 'undefined') {
+          localStorage.setItem('sdh_cursor_blast', data.settings.cursor_blast_enabled ? 'true' : 'false');
+        }
       } catch (e) { }
 
       setTimeout(() => showSaveIndicator(false), 1200);
@@ -1553,6 +1582,15 @@
     loadBlockedContacts();
     updateBrowserAlertsButton();
     initSettingsRingtoneUI();
+
+    // Sync cursor blast toggle state if overridden in localStorage
+    try {
+      const storedBlast = localStorage.getItem('sdh_cursor_blast');
+      const blastToggle = document.getElementById('cursorBlastToggle');
+      if (blastToggle && storedBlast !== null) {
+        blastToggle.checked = storedBlast === 'true';
+      }
+    } catch (e) {}
   });
 </script>
 {% endblock %}

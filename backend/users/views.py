@@ -1751,6 +1751,8 @@ def _serialize_settings(s):
         'media_auto_download': s.media_auto_download,
         'message_sound_enabled': s.message_sound_enabled,
         'enter_is_send': s.enter_is_send,
+        'cursor_blast_enabled': s.cursor_blast_enabled,
+        'cursor_trail_enabled': s.cursor_blast_enabled,
     }
 
 
@@ -1821,6 +1823,11 @@ def settings_api(request):
 
         if 'enter_is_send' in data:
             user_settings.enter_is_send = bool(data['enter_is_send'])
+
+        if 'cursor_blast_enabled' in data:
+            user_settings.cursor_blast_enabled = bool(data['cursor_blast_enabled'])
+        elif 'cursor_trail_enabled' in data:
+            user_settings.cursor_blast_enabled = bool(data['cursor_trail_enabled'])
 
         user_settings.save()
 

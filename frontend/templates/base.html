@@ -717,16 +717,60 @@
   <script src="{% static 'js/chatbot.js' %}?v=3"></script>
   {% endif %}
 
-  <!-- ── Global Cursor Trail Animation ── -->
+  <!-- ── Global Cursor Trail & Blasting Animation ── -->
   <canvas id="globalCursorTrail" class="fixed inset-0 pointer-events-none z-[40]"></canvas>
   <script>
     (function () {
       const canvas = document.getElementById('globalCursorTrail');
+      if (!canvas) return;
       const ctx = canvas.getContext('2d');
 
       let width, height;
       let particles = [];
       let mouse = { x: -1000, y: -1000, moved: false };
+      let animFrameId = null;
+
+      // Determine preference: localStorage > user.settings > default true
+      function getStoredState() {
+        try {
+          const ls = localStorage.getItem('sdh_cursor_blast');
+          if (ls !== null) return ls === 'true';
+        } catch (e) {}
+        {% if user.is_authenticated and user.settings %}
+          return {{ user.settings.cursor_blast_enabled|yesno:"true,false" }};
+        {% else %}
+          return true;
+        {% endif %}
+      }
+
+      let isEnabled = getStoredState();
+
+      window.SDH = window.SDH || {};
+      window.SDH.setCursorBlast = function (enabled) {
+        isEnabled = !!enabled;
+        try {
+          localStorage.setItem('sdh_cursor_blast', isEnabled ? 'true' : 'false');
+        } catch (e) {}
+
+        if (!isEnabled) {
+          particles = [];
+          if (ctx) ctx.clearRect(0, 0, width, height);
+          canvas.style.display = 'none';
+          if (animFrameId) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+          }
+        } else {
+          canvas.style.display = 'block';
+          if (!animFrameId) {
+            resize();
+            animate();
+          }
+        }
+      };
+      // Convenient aliases
+      window.SDH.setCursorTrail = window.SDH.setCursorBlast;
+      window.SDH.isCursorBlastEnabled = function () { return isEnabled; };
 
       const colors = [
         'rgba(245, 158, 11, 0.8)', // Amber
@@ -742,12 +786,14 @@
 
       window.addEventListener('resize', resize);
       window.addEventListener('mousemove', (e) => {
+        if (!isEnabled) return;
         mouse.x = e.clientX;
         mouse.y = e.clientY;
         mouse.moved = true;
         createParticles(mouse.x, mouse.y, 2);
       });
       window.addEventListener('touchmove', (e) => {
+        if (!isEnabled) return;
         if (e.touches.length > 0) {
           mouse.x = e.touches[0].clientX;
           mouse.y = e.touches[0].clientY;
@@ -755,6 +801,10 @@
           createParticles(mouse.x, mouse.y, 2);
         }
       }, { passive: true });
+      window.addEventListener('click', (e) => {
+        if (!isEnabled) return;
+        createParticles(e.clientX, e.clientY, 10);
+      });
 
       resize();
 
@@ -796,6 +846,10 @@
       }
 
       function animate() {
+        if (!isEnabled) {
+          animFrameId = null;
+          return;
+        }
         ctx.clearRect(0, 0, width, height);
 
         if (mouse.moved && Math.random() > 0.8) {
@@ -812,10 +866,21 @@
           }
         }
 
-        requestAnimationFrame(animate);
+        animFrameId = requestAnimationFrame(animate);
       }
 
-      animate();
+      if (!isEnabled) {
+        canvas.style.display = 'none';
+      } else {
+        animate();
+      }
+
+      // Synchronize across open tabs
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'sdh_cursor_blast') {
+          window.SDH.setCursorBlast(e.newValue === 'true');
+        }
+      });
     })();
   </script>
 

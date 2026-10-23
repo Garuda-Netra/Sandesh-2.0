@@ -410,6 +410,10 @@ class UserSettings(models.Model):
         default=True,
         help_text='Pressing Enter key sends the message immediately.'
     )
+    cursor_blast_enabled = models.BooleanField(
+        default=True,
+        help_text='Enable cursor click blasting particle animation.'
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
