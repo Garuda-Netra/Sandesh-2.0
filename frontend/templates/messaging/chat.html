@@ -947,26 +947,26 @@
     groups: JSON.parse(document.getElementById('sdh-groups-data')?.textContent || '[]'),
     userSettings: JSON.parse(document.getElementById('sdh-user-settings-data')?.textContent || '{}'),
     // Chat Lock & Security Data
-    hasSecurityPin: {{ has_security_pin | yesno: "true,false" }},
-  biometricEnabled: { { biometric_enabled | yesno: "true,false" } },
-  isSessionUnlocked: { { is_session_unlocked | yesno: "true,false" } },
-  lockedUserIds: JSON.parse(document.getElementById('sdh-locked-user-ids-data')?.textContent || '[]'),
+    hasSecurityPin: {{ has_security_pin|yesno:"true,false" }},
+    biometricEnabled: {{ biometric_enabled|yesno:"true,false" }},
+    isSessionUnlocked: {{ is_session_unlocked|yesno:"true,false" }},
+    lockedUserIds: JSON.parse(document.getElementById('sdh-locked-user-ids-data')?.textContent || '[]'),
     lockedUsers: JSON.parse(document.getElementById('sdh-locked-users-data')?.textContent || '[]'),
-      lockedGroupIds: JSON.parse(document.getElementById('sdh-locked-group-ids-data')?.textContent || '[]'),
-        isSavedMessagesLocked: { { is_saved_messages_locked | yesno: "true,false" } },
-  lockedChatsCount: { { locked_chats_count } },
-  chatLockToggleUrl: "{% url 'messaging:toggle_chat_lock' %}",
+    lockedGroupIds: JSON.parse(document.getElementById('sdh-locked-group-ids-data')?.textContent || '[]'),
+    isSavedMessagesLocked: {{ is_saved_messages_locked|yesno:"true,false" }},
+    lockedChatsCount: {{ locked_chats_count|default:0 }},
+    chatLockToggleUrl: "{% url 'messaging:toggle_chat_lock' %}",
     chatLockStatusUrl: "{% url 'messaging:get_locked_chats_status' %}",
-      chatLockNowUrl: "{% url 'messaging:lock_session_now' %}",
-        chatLockUnlockClearUrl: "{% url 'messaging:unlock_and_clear_chat' %}",
-          setupPinUrl: "{% url 'messaging:setup_security_pin' %}",
-            verifyPinUrl: "{% url 'messaging:verify_security_pin' %}",
-              webauthnRegOptionsUrl: "{% url 'messaging:webauthn_register_options' %}",
-                webauthnRegVerifyUrl: "{% url 'messaging:webauthn_register_verify' %}",
-                  webauthnAuthOptionsUrl: "{% url 'messaging:webauthn_auth_options' %}",
-                    webauthnAuthVerifyUrl: "{% url 'messaging:webauthn_auth_verify' %}",
-                      e2ePublicKeySaveUrl: "{% url 'messaging:e2e_save_public_key' %}",
-                        e2ePublicKeyGetUrl: "/messaging/api/e2e/public-key/"
+    chatLockNowUrl: "{% url 'messaging:lock_session_now' %}",
+    chatLockUnlockClearUrl: "{% url 'messaging:unlock_and_clear_chat' %}",
+    setupPinUrl: "{% url 'messaging:setup_security_pin' %}",
+    verifyPinUrl: "{% url 'messaging:verify_security_pin' %}",
+    webauthnRegOptionsUrl: "{% url 'messaging:webauthn_register_options' %}",
+    webauthnRegVerifyUrl: "{% url 'messaging:webauthn_register_verify' %}",
+    webauthnAuthOptionsUrl: "{% url 'messaging:webauthn_auth_options' %}",
+    webauthnAuthVerifyUrl: "{% url 'messaging:webauthn_auth_verify' %}",
+    e2ePublicKeySaveUrl: "{% url 'messaging:e2e_save_public_key' %}",
+    e2ePublicKeyGetUrl: "/messaging/api/e2e/public-key/"
   };
 
   window.SDH_SETTINGS = window.SDH_DATA.userSettings || {};
@@ -1120,8 +1120,7 @@
                 class="text-xs font-bold text-divine-text group-hover:text-purple-300 transition-colors flex items-center gap-1.5">
                 Locked Chats
                 <span id="lockedChatsBadge"
-                  class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono">{{
-                  locked_chats_count }}</span>
+                  class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono">{{ locked_chats_count|default:0 }}</span>
               </span>
               <p class="text-[10px] text-divine-muted">Biometrics / PIN protected</p>
             </div>
