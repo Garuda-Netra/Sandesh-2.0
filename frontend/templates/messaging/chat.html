@@ -1246,10 +1246,13 @@
       <div id="dmsContainer">
         {% if users %}
         {% for item in users %}
-        <div id="user-item-{{ item.user.username }}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5
-          group/usr" data-username="{{ item.user.username }}" data-userid="{{ item.user.id }}" {% if item.is_self_chat
-          %}data-self="1" {% endif %} {% if item.is_blocked %}data-blocked="1" {% endif %} {% if item.is_chat_blocked
-          %}data-chat-blocked="1" {% endif %} {% if item.is_friend %}data-friendship="friend" {% endif %}>
+        <div id="user-item-{{ item.user.username }}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5 group/usr"
+          data-username="{{ item.user.username }}"
+          data-userid="{{ item.user.id }}"
+          {% if item.is_self_chat %}data-self="1"{% endif %}
+          {% if item.is_blocked %}data-blocked="1"{% endif %}
+          {% if item.is_chat_blocked %}data-chat-blocked="1"{% endif %}
+          {% if item.is_friend %}data-friendship="friend"{% endif %}>
 
           <!-- Clickable main area -->
           <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"

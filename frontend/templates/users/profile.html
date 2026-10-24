@@ -277,8 +277,7 @@
     <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Account Scheduled for Deletion</h2>
     <p class="text-slate-700 dark:text-zinc-300 text-sm mb-3">
       Your account is currently deactivated and scheduled for permanent deletion on
-      <strong class="text-amber-900 dark:text-amber-300 font-bold">{{ profile.deletion_deadline|date:"F j, Y"
-        }}</strong>
+      <strong class="text-amber-900 dark:text-amber-300 font-bold">{{ profile.deletion_deadline|date:"F j, Y" }}</strong>
       ({{ profile.days_until_deletion }} days remaining).
     </p>
     <p class="text-slate-600 dark:text-zinc-400 text-xs mb-5">
@@ -348,8 +347,7 @@
       class="p-3.5 sm:p-4 bg-amber-50 dark:bg-red-950/20 border border-amber-200 dark:border-red-900/40 rounded-xl mb-6 text-xs text-slate-700 dark:text-zinc-300 text-center leading-relaxed">
       You have a <strong class="text-slate-900 dark:text-white font-bold">30-day grace period</strong>. Your account and
       all personal messages, moments, and media will be permanently purged on
-      <strong class="text-red-600 dark:text-red-400 font-bold">{% if deletion_deadline_preview %}{{
-        deletion_deadline_preview|date:"F j, Y" }}{% else %}in 30 days{% endif %}</strong>.
+      <strong class="text-red-600 dark:text-red-400 font-bold">{% if deletion_deadline_preview %}{{ deletion_deadline_preview|date:"F j, Y" }}{% else %}in 30 days{% endif %}</strong>.
       You can cancel anytime by logging back in.
     </div>
 

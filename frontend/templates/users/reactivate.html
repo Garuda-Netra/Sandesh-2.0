@@ -34,8 +34,7 @@
         Scheduled for Deletion</h1>
       <p class="text-slate-600 dark:text-zinc-400 text-xs sm:text-sm mt-2 break-words">
         Signed in as <strong class="text-slate-900 dark:text-zinc-200">{{ request.user.username }}</strong>
-        {% if request.user.email %}<span class="block sm:inline sm:ml-1 text-slate-500 dark:text-zinc-400 break-all">({{
-          request.user.email }})</span>{% endif %}
+        {% if request.user.email %}<span class="block sm:inline sm:ml-1 text-slate-500 dark:text-zinc-400 break-all">({{ request.user.email }})</span>{% endif %}
       </p>
     </div>
 
