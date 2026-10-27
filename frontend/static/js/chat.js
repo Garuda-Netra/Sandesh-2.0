@@ -441,13 +441,13 @@ SDH.Chat = (() => {
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.type = 'sine';
-      // Harmonic pleasant two-tone notification chime (D5 -> A5)
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      // Minimal Dewdrop water drop acoustic sweep (1350Hz -> 2150Hz over 24ms)
+      osc.frequency.setValueAtTime(1350, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(2150, ctx.currentTime + 0.024);
+      gain.gain.setValueAtTime(0.22, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
       osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.35);
+      osc.stop(ctx.currentTime + 0.28);
     } catch { /* AudioContext suppressed by browser policy -- fail silently */ }
   }
 
