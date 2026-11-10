@@ -1032,8 +1032,13 @@ SDH.Chat = (() => {
         }
         const badge = document.getElementById(`pin-badge-group_${gId}`) || (groupEl && groupEl.querySelector('.sdh-pin-badge'));
         if (badge) {
-          if (isNowPinned) badge.classList.remove('hidden');
-          else badge.classList.add('hidden');
+          if (isNowPinned) {
+            badge.classList.remove('hidden');
+            badge.style.display = 'inline-flex';
+          } else {
+            badge.classList.add('hidden');
+            badge.style.display = 'none';
+          }
         }
         const sidebarText = document.getElementById(`sidebarPinGroupText-${gId}`);
         if (sidebarText) {
@@ -1059,8 +1064,13 @@ SDH.Chat = (() => {
         const badge = document.getElementById(`pin-badge-${uname}`)
           || (userEl ? userEl.querySelector('.sdh-pin-badge') : null);
         if (badge) {
-          if (isNowPinned) badge.classList.remove('hidden');
-          else badge.classList.add('hidden');
+          if (isNowPinned) {
+            badge.classList.remove('hidden');
+            badge.style.display = 'inline-flex';
+          } else {
+            badge.classList.add('hidden');
+            badge.style.display = 'none';
+          }
         }
         const pinBtn = document.getElementById(`pin-btn-${uname}`) || (userEl && userEl.querySelector('.sdh-pin-btn'));
         if (pinBtn) {
@@ -1086,8 +1096,13 @@ SDH.Chat = (() => {
         if (pinGroupBtnText) pinGroupBtnText.textContent = isNowPinned ? 'Unpin Group' : 'Pin Group';
         const headerPinBadge = document.getElementById('chatHeaderPinBadge');
         if (headerPinBadge) {
-          if (isNowPinned) headerPinBadge.classList.remove('hidden');
-          else headerPinBadge.classList.add('hidden');
+          if (isNowPinned) {
+            headerPinBadge.classList.remove('hidden');
+            headerPinBadge.style.display = 'inline-flex';
+          } else {
+            headerPinBadge.classList.add('hidden');
+            headerPinBadge.style.display = 'none';
+          }
         }
       }
 
@@ -1163,7 +1178,7 @@ SDH.Chat = (() => {
             <div class="flex items-center justify-between gap-2">
               <span class="sdh-user-name text-sm font-semibold truncate" style="color:var(--c-text)">${displayName}</span>
               <div class="flex items-center gap-1.5 flex-shrink-0">
-                <span id="pin-badge-${username}" class="sdh-pin-badge ${isPinned ? '' : 'hidden'} flex-shrink-0" title="Pinned chat">
+                <span id="pin-badge-${username}" class="sdh-pin-badge ${isPinned ? '' : 'hidden'} flex-shrink-0" ${isPinned ? '' : 'style="display: none !important;"'} title="Pinned chat">
                   <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.13 3.13a5.922 5.922 0 0 1 .16 1.013c.046.702-.032 1.487-.445 2.188a.5.5 0 0 1-.765.115l-3.29-3.29-3.793 3.793a.5.5 0 0 1-.707-.707l3.793-3.793-3.29-3.29a.5.5 0 0 1 .115-.765c.701-.413 1.486-.491 2.188-.445.334.022.68.08 1.013.16l3.13-3.13a4.015 4.015 0 0 1-.04-.46c0-.43.109-1.023.589-1.503a.5.5 0 0 1 .353-.146z"/>
                   </svg>
@@ -3590,8 +3605,13 @@ SDH.Chat = (() => {
     const isPinned = isChatPinned(username, false) || (userId && isChatPinned(userId, false));
     const headerPin = document.getElementById('chatHeaderPinBadge');
     if (headerPin) {
-      if (isPinned) headerPin.classList.remove('hidden');
-      else headerPin.classList.add('hidden');
+      if (isPinned) {
+        headerPin.classList.remove('hidden');
+        headerPin.style.display = 'inline-flex';
+      } else {
+        headerPin.classList.add('hidden');
+        headerPin.style.display = 'none';
+      }
     }
     const pinChatBtnText = document.getElementById('pinChatBtnText');
     if (pinChatBtnText) pinChatBtnText.textContent = isPinned ? 'Unpin Chat' : 'Pin Chat';
@@ -6956,8 +6976,13 @@ SDH.Chat = (() => {
     const isPinned = isChatPinned(groupId, true);
     const headerPin = document.getElementById('chatHeaderPinBadge');
     if (headerPin) {
-      if (isPinned) headerPin.classList.remove('hidden');
-      else headerPin.classList.add('hidden');
+      if (isPinned) {
+        headerPin.classList.remove('hidden');
+        headerPin.style.display = 'inline-flex';
+      } else {
+        headerPin.classList.add('hidden');
+        headerPin.style.display = 'none';
+      }
     }
     const pinGroupBtnText = document.getElementById('pinGroupBtnText');
     if (pinGroupBtnText) pinGroupBtnText.textContent = isPinned ? 'Unpin Group' : 'Pin Group';
