@@ -3,7 +3,7 @@ Messaging Admin
 """
 
 from django.contrib import admin
-from .models import Message, CallLog, Group, GroupMembership, GroupMessage, GroupMessageRead, GroupMessageDelivery, GroupE2EKey, StarredMessage
+from .models import Message, CallLog, Group, GroupMembership, GroupMessage, GroupMessageRead, GroupMessageDelivery, GroupE2EKey, StarredMessage, PinnedChat
 
 
 @admin.register(Message)
@@ -66,4 +66,14 @@ class StarredMessageAdmin(admin.ModelAdmin):
     search_fields = ('user__username',)
     readonly_fields = ('created_at',)
     ordering = ('-created_at',)
+
+
+@admin.register(PinnedChat)
+class PinnedChatAdmin(admin.ModelAdmin):
+    list_display = ('user', 'pinned_user', 'pinned_group', 'is_self_chat', 'pinned_at')
+    list_filter = ('is_self_chat', 'pinned_at')
+    search_fields = ('user__username', 'pinned_user__username', 'pinned_group__name')
+    readonly_fields = ('pinned_at',)
+    ordering = ('-pinned_at',)
+
 

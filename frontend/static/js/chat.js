@@ -872,6 +872,31 @@ SDH.Chat = (() => {
       `;
   }
 
+  // ── Chat Pin State & Helpers (WhatsApp-style) ─────────────────────────
+  const pinnedChats = {
+    userIds: new Set((window.SDH_DATA?.pinnedUserIds || []).map(id => Number(id))),
+    usernames: new Set(window.SDH_DATA?.pinnedUsers || []),
+    groupIds: new Set((window.SDH_DATA?.pinnedGroupIds || []).map(id => Number(id))),
+    isSavedPinned: Boolean(window.SDH_DATA?.isSavedMessagesPinned),
+  };
+
+  function isChatPinned(target, isGroup = false) {
+    if (!target) return false;
+    if (isGroup) {
+      const gId = String(target).replace('group_', '');
+      return pinnedChats.groupIds.has(Number(gId)) || pinnedChats.groupIds.has(gId);
+    }
+    if (target === 'saved' || _isSelfChat(target)) {
+      return Boolean(pinnedChats.isSavedPinned);
+    }
+    if (pinnedChats.usernames.has(target)) return true;
+    if (pinnedChats.userIds.has(Number(target))) return true;
+
+    const item = document.getElementById(`user-item-${target}`);
+    if (item && item.dataset.pinned === '1') return true;
+    return false;
+  }
+
   // ── Contact Sidebar Helpers ─────────────────────────────────────────
   function _moveContactToTop(targetUsername) {
     if (!targetUsername || _isSelfChat(targetUsername) || targetUsername.startsWith('group_')) return;
@@ -884,14 +909,207 @@ SDH.Chat = (() => {
     const container = targetItem.parentNode || document.getElementById('dmsContainer') || document.getElementById('userList');
     if (!container) return;
 
+    const isPinned = targetItem.dataset.pinned === '1';
     const savedMsgItem = container.querySelector('[data-self="1"]');
-    if (savedMsgItem && savedMsgItem !== targetItem) {
-      if (savedMsgItem.nextSibling !== targetItem) {
-        container.insertBefore(targetItem, savedMsgItem.nextSibling);
+    const isSavedPinned = savedMsgItem?.dataset?.pinned === '1';
+
+    if (isPinned) {
+      // Pinned chat: move to the top of pinned section
+      if (savedMsgItem && isSavedPinned) {
+        if (savedMsgItem.nextSibling !== targetItem) {
+          container.insertBefore(targetItem, savedMsgItem.nextSibling);
+        }
+      } else {
+        container.insertBefore(targetItem, container.firstChild);
       }
-    } else if (!savedMsgItem) {
-      container.prepend(targetItem);
+    } else {
+      // Unpinned chat: MUST stay BELOW all pinned chats
+      const allPinned = Array.from(container.querySelectorAll('.user-item[data-pinned="1"]'));
+      let insertAfterEl = null;
+
+      if (allPinned.length > 0) {
+        insertAfterEl = allPinned[allPinned.length - 1];
+      } else if (savedMsgItem && savedMsgItem !== targetItem) {
+        insertAfterEl = savedMsgItem;
+      }
+
+      if (insertAfterEl && insertAfterEl !== targetItem) {
+        if (insertAfterEl.nextSibling !== targetItem) {
+          container.insertBefore(targetItem, insertAfterEl.nextSibling);
+        }
+      } else if (!insertAfterEl) {
+        container.prepend(targetItem);
+      }
     }
+  }
+
+  function _moveGroupToTop(groupId) {
+    const cleanId = String(groupId).replace('group_', '');
+    const targetItem = document.getElementById(`group-item-${cleanId}`);
+    if (!targetItem) return;
+    const container = targetItem.parentNode || document.getElementById('groupsContainer');
+    if (!container) return;
+    const isPinned = targetItem.dataset.pinned === '1';
+
+    if (isPinned) {
+      container.insertBefore(targetItem, container.firstChild);
+    } else {
+      const allPinned = Array.from(container.querySelectorAll('.user-item[data-pinned="1"]'));
+      if (allPinned.length > 0) {
+        const lastPinned = allPinned[allPinned.length - 1];
+        if (lastPinned !== targetItem && lastPinned.nextSibling !== targetItem) {
+          container.insertBefore(targetItem, lastPinned.nextSibling);
+        }
+      } else {
+        container.prepend(targetItem);
+      }
+    }
+  }
+
+  async function togglePinChat(chatType, targetId, displayName = null) {
+    if (chatType === 'user') chatType = 'direct';
+
+    if (!targetId && displayName) targetId = displayName;
+    if (!displayName) {
+      if (chatType === 'saved' || targetId === 'saved') {
+        displayName = 'Saved Messages';
+      } else if (chatType === 'group') {
+        displayName = `Group #${targetId}`;
+      } else {
+        const uObj = window.SDH_DATA?.users?.find(u => String(u.id) === String(targetId) || u.username === targetId);
+        displayName = uObj?.username || targetId;
+      }
+    }
+
+    const currentlyPinned = isChatPinned(targetId, chatType === 'group') || (displayName && isChatPinned(displayName, chatType === 'group'));
+    const nextPinned = !currentlyPinned;
+
+    try {
+      const resp = await fetch(window.SDH_DATA.chatPinToggleUrl || '/messaging/api/chat-pin/toggle/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': window.SDH_DATA.csrfToken,
+        },
+        body: JSON.stringify({
+          chat_type: chatType,
+          target_id: targetId,
+          pinned: nextPinned,
+        }),
+      });
+
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        showToast(data.error || 'Failed to update pin status.', 'error');
+        return;
+      }
+
+      // Synchronize internal state
+      if (data.pinned_user_ids) {
+        pinnedChats.userIds = new Set(data.pinned_user_ids.map(id => Number(id)));
+      }
+      if (data.pinned_users) {
+        pinnedChats.usernames = new Set(data.pinned_users);
+      }
+      if (data.pinned_group_ids) {
+        pinnedChats.groupIds = new Set(data.pinned_group_ids.map(id => Number(id)));
+      }
+      if (typeof data.is_saved_messages_pinned === 'boolean') {
+        pinnedChats.isSavedPinned = data.is_saved_messages_pinned;
+      }
+
+      const isNowPinned = Boolean(data.is_pinned);
+
+      // Update DOM
+      if (chatType === 'group') {
+        const gId = String(targetId).replace('group_', '');
+        const groupEl = document.getElementById(`group-item-${gId}`);
+        if (groupEl) {
+          if (isNowPinned) groupEl.setAttribute('data-pinned', '1');
+          else groupEl.removeAttribute('data-pinned');
+        }
+        const badge = document.getElementById(`pin-badge-group_${gId}`);
+        if (badge) {
+          if (isNowPinned) badge.classList.remove('hidden');
+          else badge.classList.add('hidden');
+        }
+        const sidebarText = document.getElementById(`sidebarPinGroupText-${gId}`);
+        if (sidebarText) {
+          sidebarText.textContent = isNowPinned ? 'Unpin Group' : 'Pin Group';
+        }
+        _moveGroupToTop(gId);
+      } else {
+        // Direct or saved
+        const uname = (chatType === 'saved' || targetId === 'saved' || _isSelfChat(targetId) || _isSelfChat(displayName))
+          ? window.SDH_DATA.currentUser
+          : (displayName || targetId);
+
+        const userEl = document.getElementById(`user-item-${uname}`);
+        if (userEl) {
+          if (isNowPinned) userEl.setAttribute('data-pinned', '1');
+          else userEl.removeAttribute('data-pinned');
+        }
+        const badge = document.getElementById(`pin-badge-${uname}`);
+        if (badge) {
+          if (isNowPinned) badge.classList.remove('hidden');
+          else badge.classList.add('hidden');
+        }
+        const pinBtn = document.getElementById(`pin-btn-${uname}`) || (userEl && userEl.querySelector('.sdh-pin-btn'));
+        if (pinBtn) {
+          const pinText = pinBtn.querySelector('.sdh-pin-btn-text');
+          if (pinText) {
+            pinText.textContent = isNowPinned ? 'Unpin Chat' : 'Pin Chat';
+          }
+        }
+        _moveContactToTop(uname);
+      }
+
+      // Update active chat header kebab menu if active chat was affected
+      const isGroup = activeUser && activeUser.startsWith('group_');
+      const activeIsThis = isGroup
+        ? (chatType === 'group' && String(targetId).replace('group_', '') === activeUser.replace('group_', ''))
+        : (chatType !== 'group' && (targetId === activeUser || displayName === activeUser || (_isSelfChat(activeUser) && chatType === 'saved')));
+
+      if (activeIsThis) {
+        const pinChatBtnText = document.getElementById('pinChatBtnText');
+        const pinGroupBtnText = document.getElementById('pinGroupBtnText');
+        if (pinChatBtnText) pinChatBtnText.textContent = isNowPinned ? 'Unpin Chat' : 'Pin Chat';
+        if (pinGroupBtnText) pinGroupBtnText.textContent = isNowPinned ? 'Unpin Group' : 'Pin Group';
+      }
+
+      _reorderSidebar();
+
+      showToast(isNowPinned ? `${displayName || 'Chat'} pinned 📌` : `${displayName || 'Chat'} unpinned`, 'success');
+    } catch (err) {
+      showToast('Network error updating pin: ' + err.message, 'error');
+    }
+  }
+
+  function toggleCurrentChatPin() {
+    const active = activeUser || sessionStorage.getItem('ndm_last_chat');
+    const activeId = activeUserId || sessionStorage.getItem('ndm_last_chat_id');
+    const activeName = (document.getElementById('chatUsername')?.textContent || active || '').trim();
+
+    if (!active) {
+      showToast('Please select a chat first.', 'info');
+      return;
+    }
+
+    let chatType = 'direct';
+    let targetId = active;
+
+    if (active.startsWith('group_')) {
+      chatType = 'group';
+      targetId = active.replace('group_', '');
+    } else if (_isSelfChat(active)) {
+      chatType = 'saved';
+      targetId = 'saved';
+    } else {
+      chatType = 'direct';
+      targetId = activeId || active;
+    }
+
+    togglePinChat(chatType, targetId, activeName);
   }
 
   function _ensureUserInSidebar(username, userId) {
@@ -915,9 +1133,10 @@ SDH.Chat = (() => {
 
     const initial = _getAttractiveInitials(username);
     const displayName = _displayNameFor(username);
+    const isPinned = isChatPinned(username, false);
     const itemHTML = `
       <div id="user-item-${username}" class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5 group/usr"
-           data-username="${username}" data-userid="${userId || ''}" data-friendship="friend">
+           data-username="${username}" data-userid="${userId || ''}" data-friendship="friend" ${isPinned ? 'data-pinned="1"' : ''}>
         <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
              onclick="SDH.Chat.selectUser('${username}', '${userId || ''}')">
           <div class="relative flex-shrink-0 cursor-pointer" onclick="event.stopPropagation(); SDH.Chat.showUserProfile('${username}', '${userId || ''}')">
@@ -929,7 +1148,14 @@ SDH.Chat = (() => {
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-2">
               <span class="sdh-user-name text-sm font-semibold truncate" style="color:var(--c-text)">${displayName}</span>
-              <span id="unread-${username}" class="sdh-unread-badge hidden flex-shrink-0 text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full"></span>
+              <div class="flex items-center gap-1.5 flex-shrink-0">
+                <span id="pin-badge-${username}" class="sdh-pin-badge ${isPinned ? '' : 'hidden'} text-divine-gold/90 flex-shrink-0" title="Pinned chat">
+                  <svg class="w-3.5 h-3.5 rotate-45" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.13 3.13a5.922 5.922 0 0 1 .16 1.013c.046.702-.032 1.487-.445 2.188a.5.5 0 0 1-.765.115l-3.29-3.29-3.793 3.793a.5.5 0 0 1-.707-.707l3.793-3.793-3.29-3.29a.5.5 0 0 1 .115-.765c.701-.413 1.486-.491 2.188-.445.334.022.68.08 1.013.16l3.13-3.13a4.015 4.015 0 0 1-.04-.46c0-.43.109-1.023.589-1.503a.5.5 0 0 1 .353-.146z"/>
+                  </svg>
+                </span>
+                <span id="unread-${username}" class="sdh-unread-badge hidden flex-shrink-0 text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full"></span>
+              </div>
             </div>
             <p id="last-seen-${username}" class="text-[11px] truncate mt-0.5 sdh-status-offline">Ready to chat</p>
           </div>
@@ -940,6 +1166,13 @@ SDH.Chat = (() => {
             <button onclick="SDH.Chat.showUserProfile('${username}', '${userId || ''}')" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
               View Profile
+            </button>
+            <button onclick="SDH.Chat.togglePinChat('direct', '${userId || username}', '${username}'); SDH.Chat._closeAllUserMenus();" class="sdh-pin-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-gold hover:bg-divine-surface transition-colors text-left" id="pin-btn-${username}">
+              <svg class="w-3.5 h-3.5 flex-shrink-0 sdh-pin-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <line x1="12" y1="17" x2="12" y2="22"></line>
+                <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+              </svg>
+              <span class="sdh-pin-btn-text">${isPinned ? 'Unpin Chat' : 'Pin Chat'}</span>
             </button>
             <button onclick="SDH.ChatLock.toggleLockFromItem('direct', '${userId || username}', '${username}'); SDH.Chat._closeAllUserMenus();" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-400/90 hover:text-purple-300 hover:bg-divine-surface transition-colors text-left">
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
@@ -1098,6 +1331,8 @@ SDH.Chat = (() => {
       const targetUserId = isFromMe ? data.receiver_id : data.sender_id;
       _ensureUserInSidebar(chatTarget, targetUserId);
       _moveContactToTop(chatTarget);
+    } else if (isGroupMsg && data.group_id) {
+      _moveGroupToTop(data.group_id);
     }
 
     // Immediately send delivered receipt upon message arrival on this client device
@@ -1154,9 +1389,13 @@ SDH.Chat = (() => {
         showToast(`${notifTitle}: ${previewText}`, 'info', clickHandler);
         playNotificationSound();
 
-        // Move contact to top under Saved Messages only if not locked
+        // Move contact or group to top only if not locked
         if (!isLocked) {
-          _moveContactToTop(chatTarget);
+          if (isGroupMsg) {
+            _moveGroupToTop(data.group_id);
+          } else {
+            _moveContactToTop(chatTarget);
+          }
         }
       }
       return;
@@ -1608,6 +1847,16 @@ SDH.Chat = (() => {
 
     // Show it (remove hidden) so we can measure
     dropdown.classList.remove('hidden');
+
+    // Update pin button text dynamically to reflect current state
+    const row = btn.closest('.user-item');
+    if (row) {
+      const isPinned = row.dataset.pinned === '1';
+      const pinText = dropdown.querySelector('.sdh-pin-btn-text');
+      if (pinText) {
+        pinText.textContent = isPinned ? 'Unpin Chat' : 'Pin Chat';
+      }
+    }
 
     // Position fixed relative to the button
     const rect = btn.getBoundingClientRect();
@@ -3197,14 +3446,19 @@ SDH.Chat = (() => {
   }
 
   function _reorderSidebar() {
-    // Reorder direct messages
+    // Reorder direct messages (pinned items first, then self, then online, then alphabetical)
     const dmList = document.getElementById('dmsContainer');
     if (dmList) {
       const items = Array.from(dmList.querySelectorAll('.user-item'));
       items.sort((a, b) => {
+        const aPinned = a.dataset.pinned === '1' ? 0 : 1;
+        const bPinned = b.dataset.pinned === '1' ? 0 : 1;
+        if (aPinned !== bPinned) return aPinned - bPinned;
+
         const aSelf = a.dataset.self === '1' ? 0 : 1;
         const bSelf = b.dataset.self === '1' ? 0 : 1;
         if (aSelf !== bSelf) return aSelf - bSelf;
+
         const aO = document.getElementById(`online-dot-${a.dataset.username}`)?.classList.contains('sdh-online-dot--on') ? 0 : 1;
         const bO = document.getElementById(`online-dot-${b.dataset.username}`)?.classList.contains('sdh-online-dot--on') ? 0 : 1;
         return aO !== bO ? aO - bO : (a.dataset.username || '').localeCompare(b.dataset.username || '');
@@ -3212,11 +3466,15 @@ SDH.Chat = (() => {
       items.forEach(el => dmList.appendChild(el));
     }
 
-    // Reorder groups
+    // Reorder groups (pinned groups first, then alphabetical)
     const groupList = document.getElementById('groupsContainer');
     if (groupList) {
       const gItems = Array.from(groupList.querySelectorAll('.user-item'));
       gItems.sort((a, b) => {
+        const aPinned = a.dataset.pinned === '1' ? 0 : 1;
+        const bPinned = b.dataset.pinned === '1' ? 0 : 1;
+        if (aPinned !== bPinned) return aPinned - bPinned;
+
         const aName = a.querySelector('.sdh-user-name')?.textContent.trim() || '';
         const bName = b.querySelector('.sdh-user-name')?.textContent.trim() || '';
         return aName.localeCompare(bName);
@@ -6349,16 +6607,27 @@ SDH.Chat = (() => {
     const dropdown = document.getElementById('kebabDropdown');
     if (dropdown) {
       dropdown.classList.toggle('hidden');
-      if (!dropdown.classList.contains('hidden') && window.SDH?.ChatLock) {
+      if (!dropdown.classList.contains('hidden')) {
         const isGroup = activeUser && activeUser.startsWith('group_');
-        const locked = window.SDH.ChatLock.isChatLocked(activeUser, isGroup);
-        const lockChatBtnText = document.getElementById('lockChatBtnText');
-        const lockGroupBtnText = document.getElementById('lockGroupBtnText');
-        if (lockChatBtnText) {
-          lockChatBtnText.textContent = locked ? 'Unlock Chat' : 'Lock Chat';
+        if (window.SDH?.ChatLock) {
+          const locked = window.SDH.ChatLock.isChatLocked(activeUser, isGroup);
+          const lockChatBtnText = document.getElementById('lockChatBtnText');
+          const lockGroupBtnText = document.getElementById('lockGroupBtnText');
+          if (lockChatBtnText) {
+            lockChatBtnText.textContent = locked ? 'Unlock Chat' : 'Lock Chat';
+          }
+          if (lockGroupBtnText) {
+            lockGroupBtnText.textContent = locked ? 'Unlock Group' : 'Lock Group';
+          }
         }
-        if (lockGroupBtnText) {
-          lockGroupBtnText.textContent = locked ? 'Unlock Group' : 'Lock Group';
+        const pinned = isChatPinned(activeUser, isGroup);
+        const pinChatBtnText = document.getElementById('pinChatBtnText');
+        const pinGroupBtnText = document.getElementById('pinGroupBtnText');
+        if (pinChatBtnText) {
+          pinChatBtnText.textContent = pinned ? 'Unpin Chat' : 'Pin Chat';
+        }
+        if (pinGroupBtnText) {
+          pinGroupBtnText.textContent = pinned ? 'Unpin Group' : 'Pin Group';
         }
       }
     }
@@ -6926,7 +7195,16 @@ SDH.Chat = (() => {
       if (el.id !== `sidebarKebab-${groupId}`) el.classList.add('hidden');
     });
     const dropdown = document.getElementById(`sidebarKebab-${groupId}`);
-    if (dropdown) dropdown.classList.toggle('hidden');
+    if (dropdown) {
+      dropdown.classList.toggle('hidden');
+      if (!dropdown.classList.contains('hidden')) {
+        const isPinned = isChatPinned(groupId, true);
+        const pinText = document.getElementById(`sidebarPinGroupText-${groupId}`);
+        if (pinText) {
+          pinText.textContent = isPinned ? 'Unpin Group' : 'Pin Group';
+        }
+      }
+    }
   }
 
   async function deleteGroupFromSidebar(groupId) {
@@ -7339,6 +7617,11 @@ SDH.Chat = (() => {
     removeTempMessage: (tempId) => { if (tempId) pendingAckMap.delete(tempId); },
     _setAvatarInitial: (el, name) => _setAvatarInitial(el, name),
     _getAttractiveInitials: (name) => _getAttractiveInitials(name),
+    // Chat Pinning (WhatsApp-style)
+    togglePinChat,
+    toggleCurrentChatPin,
+    isChatPinned,
+    pinnedChats,
   };
 
 })();

@@ -839,3 +839,60 @@ class ChatLock(models.Model):
         )
         return f"{self.user.username} locked {target}"
 
+
+# ---------------------------------------------------------------------------
+# Pinned Chat Models (WhatsApp-style)
+# ---------------------------------------------------------------------------
+class PinnedChat(models.Model):
+    """
+    Tracks pinned chats for a specific user.
+    Each user can pin direct chats, group chats, or saved messages to keep them at the top.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='pinned_chats'
+    )
+    pinned_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='+'
+    )
+    pinned_group = models.ForeignKey(
+        'Group',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='+'
+    )
+    is_self_chat = models.BooleanField(
+        default=False,
+        help_text="True if the user has pinned their Saved Messages"
+    )
+    pinned_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Pinned Chat'
+        verbose_name_plural = 'Pinned Chats'
+        ordering = ['-pinned_at']
+        unique_together = [
+            ('user', 'pinned_user'),
+            ('user', 'pinned_group'),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'pinned_user']),
+            models.Index(fields=['user', 'pinned_group']),
+            models.Index(fields=['user', '-pinned_at']),
+        ]
+
+    def __str__(self):
+        target = "Saved Messages" if self.is_self_chat else (
+            self.pinned_user.username if self.pinned_user else (
+                self.pinned_group.name if self.pinned_group else "Unknown"
+            )
+        )
+        return f"{self.user.username} pinned {target} at {self.pinned_at}"
+
+

@@ -634,6 +634,32 @@
     color: #fca5a5 !important;
   }
 
+  /* ─── Pinned Chat Badge & Options (WhatsApp-style) ─── */
+  .sdh-pin-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  .sdh-pin-badge svg {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+  }
+  [data-theme="light"] .sdh-pin-badge {
+    color: #b45309 !important;
+  }
+  .dark .sdh-pin-badge,
+  [data-theme="dark"] .sdh-pin-badge {
+    color: rgba(212, 175, 55, 0.95) !important;
+  }
+  [data-theme="light"] .sdh-pin-btn:hover {
+    color: #b45309 !important;
+    background-color: rgba(217, 119, 6, 0.1) !important;
+  }
+  [data-theme="light"] .sdh-pin-btn:hover svg {
+    stroke: #b45309 !important;
+  }
+
+
   /* ══════════════════════════════════════════════════════════════
      VIEW ONCE BUTTON (COMPOSER)
      ══════════════════════════════════════════════════════════════ */
@@ -907,6 +933,9 @@
 {{ locked_users|json_script:"sdh-locked-users-data" }}
 {{ locked_user_ids|json_script:"sdh-locked-user-ids-data" }}
 {{ locked_group_ids|json_script:"sdh-locked-group-ids-data" }}
+{{ pinned_users|json_script:"sdh-pinned-users-data" }}
+{{ pinned_user_ids|json_script:"sdh-pinned-user-ids-data" }}
+{{ pinned_group_ids|json_script:"sdh-pinned-group-ids-data" }}
 
 <!-- Hidden data for JS -->
 <script>
@@ -965,6 +994,14 @@
     webauthnRegVerifyUrl: "{% url 'messaging:webauthn_register_verify' %}",
     webauthnAuthOptionsUrl: "{% url 'messaging:webauthn_auth_options' %}",
     webauthnAuthVerifyUrl: "{% url 'messaging:webauthn_auth_verify' %}",
+    // Chat Pin Data (WhatsApp-style)
+    pinnedUserIds: JSON.parse(document.getElementById('sdh-pinned-user-ids-data')?.textContent || '[]'),
+    pinnedUsers: JSON.parse(document.getElementById('sdh-pinned-users-data')?.textContent || '[]'),
+    pinnedGroupIds: JSON.parse(document.getElementById('sdh-pinned-group-ids-data')?.textContent || '[]'),
+    isSavedMessagesPinned: {{ is_saved_messages_pinned|yesno:"true,false" }},
+    pinnedChatsCount: {{ pinned_chats_count|default:0 }},
+    chatPinToggleUrl: "{% url 'messaging:toggle_chat_pin' %}",
+    chatPinStatusUrl: "{% url 'messaging:get_pinned_chats_status' %}",
     e2ePublicKeySaveUrl: "{% url 'messaging:e2e_save_public_key' %}",
     e2ePublicKeyGetUrl: "/messaging/api/e2e/public-key/"
   };
@@ -1160,7 +1197,8 @@
         {% for group in groups %}
         <div id="group-item-{{ group.id }}"
           class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5 group/usr" data-group="1"
-          data-groupid="{{ group.id }}" data-role="{{ group.role }}">
+          data-groupid="{{ group.id }}" data-role="{{ group.role }}"
+          {% if group.is_pinned %}data-pinned="1"{% endif %}>
           <!-- Clickable main area -->
           <div class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer"
             onclick="SDH.Chat.selectGroup('{{ group.id }}', '{{ group.name|escapejs }}')">
@@ -1186,9 +1224,16 @@
                 <span class="sdh-user-name text-sm font-semibold truncate" style="color:var(--c-text)">
                   {{ group.name }}
                 </span>
-                <span id="unread-group_{{ group.id }}"
-                  class="sdh-unread-badge hidden flex-shrink-0 text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full bg-divine-gold text-divine-deep">
-                </span>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <span id="pin-badge-group_{{ group.id }}" class="sdh-pin-badge {% if not group.is_pinned %}hidden{% endif %} text-divine-gold/90 flex-shrink-0" title="Pinned group">
+                    <svg class="w-3.5 h-3.5 rotate-45" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.13 3.13a5.922 5.922 0 0 1 .16 1.013c.046.702-.032 1.487-.445 2.188a.5.5 0 0 1-.765.115l-3.29-3.29-3.793 3.793a.5.5 0 0 1-.707-.707l3.793-3.793-3.29-3.29a.5.5 0 0 1 .115-.765c.701-.413 1.486-.491 2.188-.445.334.022.68.08 1.013.16l3.13-3.13a4.015 4.015 0 0 1-.04-.46c0-.43.109-1.023.589-1.503a.5.5 0 0 1 .353-.146z"/>
+                    </svg>
+                  </span>
+                  <span id="unread-group_{{ group.id }}"
+                    class="sdh-unread-badge hidden flex-shrink-0 text-[10px] font-bold leading-none px-1.5 py-0.5 rounded-full bg-divine-gold text-divine-deep">
+                  </span>
+                </div>
               </div>
               <p class="text-[11px] truncate mt-0.5 text-divine-muted/60">
                 {% if group.description %}{{ group.description }}{% else %}Group chat{% endif %}
@@ -1197,7 +1242,6 @@
           </div>
 
           <!-- Sidebar Group Kebab Menu Button -->
-          {% if group.role == 'owner' %}
           <div
             class="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover/usr:opacity-100 focus-within:opacity-100 transition-opacity z-50 sdh-sidebar-kebab">
             <button onclick="event.stopPropagation(); SDH.Chat.toggleSidebarKebab(event, '{{ group.id }}')"
@@ -1211,7 +1255,18 @@
 
             <!-- Dropdown -->
             <div id="sidebarKebab-{{ group.id }}"
-              class="hidden absolute right-0 mt-1 w-36 bg-divine-card border border-divine-border rounded-lg shadow-xl overflow-hidden z-[60]">
+              class="hidden absolute right-0 mt-1 w-44 bg-divine-card border border-divine-border rounded-lg shadow-xl overflow-hidden z-[60]">
+              <!-- Pin / Unpin Group -->
+              <button
+                onclick="event.stopPropagation(); SDH.Chat.togglePinChat('group', '{{ group.id }}', '{{ group.name|escapejs }}'); SDH.Chat._closeAllUserMenus();"
+                class="w-full text-left px-4 py-2.5 text-sm text-divine-muted hover:text-divine-gold hover:bg-divine-surface transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                  <line x1="12" y1="17" x2="12" y2="22"></line>
+                  <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+                </svg>
+                <span id="sidebarPinGroupText-{{ group.id }}">{% if group.is_pinned %}Unpin Group{% else %}Pin Group{% endif %}</span>
+              </button>
+              <!-- Lock / Unlock Group -->
               <button
                 onclick="event.stopPropagation(); SDH.ChatLock.toggleLockFromItem('group', '{{ group.id }}', '{{ group.name|escapejs }}'); SDH.Chat._closeAllUserMenus();"
                 class="w-full text-left px-4 py-2.5 text-sm text-purple-400 hover:bg-purple-500/10 transition-colors flex items-center gap-2">
@@ -1221,6 +1276,7 @@
                 </svg>
                 Lock / Unlock
               </button>
+              {% if group.role == 'owner' %}
               <button onclick="event.stopPropagation(); SDH.Chat.deleteGroupFromSidebar('{{ group.id }}')"
                 class="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1229,9 +1285,9 @@
                 </svg>
                 Delete Group
               </button>
+              {% endif %}
             </div>
           </div>
-          {% endif %}
         </div>
         {% endfor %}
       </div>
@@ -1250,6 +1306,7 @@
           data-username="{{ item.user.username }}"
           data-userid="{{ item.user.id }}"
           {% if item.is_self_chat %}data-self="1"{% endif %}
+          {% if item.is_pinned %}data-pinned="1"{% endif %}
           {% if item.is_blocked %}data-blocked="1"{% endif %}
           {% if item.is_chat_blocked %}data-chat-blocked="1"{% endif %}
           {% if item.is_friend %}data-friendship="friend"{% endif %}>
@@ -1300,13 +1357,21 @@
                 <span class="sdh-user-name text-sm font-semibold truncate" style="color:var(--c-text)">
                   {% if item.is_self_chat %}Saved Messages{% else %}{{ item.user.username }}{% endif %}
                 </span>
-                {% if item.is_blocked %}
-                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                  style="background:rgba(239,68,68,0.15);color:rgba(239,68,68,0.7);">Blocked</span>
-                {% endif %}
-                <span id="unread-{{ item.user.username }}" class="sdh-unread-badge hidden flex-shrink-0 text-[10px] font-bold leading-none
-                           px-1.5 py-0.5 rounded-full">
-                </span>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <!-- Pin badge indicator (WhatsApp style) -->
+                  <span id="pin-badge-{{ item.user.username }}" class="sdh-pin-badge {% if not item.is_pinned %}hidden{% endif %} text-divine-gold/90 flex-shrink-0" title="Pinned chat">
+                    <svg class="w-3.5 h-3.5 rotate-45" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.13 3.13a5.922 5.922 0 0 1 .16 1.013c.046.702-.032 1.487-.445 2.188a.5.5 0 0 1-.765.115l-3.29-3.29-3.793 3.793a.5.5 0 0 1-.707-.707l3.793-3.793-3.29-3.29a.5.5 0 0 1 .115-.765c.701-.413 1.486-.491 2.188-.445.334.022.68.08 1.013.16l3.13-3.13a4.015 4.015 0 0 1-.04-.46c0-.43.109-1.023.589-1.503a.5.5 0 0 1 .353-.146z"/>
+                    </svg>
+                  </span>
+                  {% if item.is_blocked %}
+                  <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                    style="background:rgba(239,68,68,0.15);color:rgba(239,68,68,0.7);">Blocked</span>
+                  {% endif %}
+                  <span id="unread-{{ item.user.username }}" class="sdh-unread-badge hidden flex-shrink-0 text-[10px] font-bold leading-none
+                             px-1.5 py-0.5 rounded-full">
+                  </span>
+                </div>
               </div>
               {% if item.is_self_chat %}
               <p id="last-seen-{{ item.user.username }}" class="text-[11px] truncate mt-0.5 sdh-status-online">
@@ -1331,7 +1396,6 @@
           </div><!-- /clickable area -->
 
           <!-- Three-dot context menu (visible on hover) -->
-          {% if not item.is_self_chat %}
           <div class="user-ctx-wrap relative flex-shrink-0 z-10
                     opacity-100 sm:opacity-0 sm:group-hover/usr:opacity-100 transition-opacity duration-150"
             onclick="event.stopPropagation()">
@@ -1342,6 +1406,7 @@
             <div class="user-ctx-dropdown hidden z-[9999]
                       w-52 bg-divine-card border border-divine-border/80 rounded-xl
                       shadow-2xl overflow-hidden py-1">
+              {% if not item.is_self_chat %}
               <!-- View Profile -->
               <button onclick="SDH.Chat.showUserProfile('{{ item.user.username|escapejs }}', '{{ item.user.id }}')"
                 class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm
@@ -1353,9 +1418,24 @@
                 </svg>
                 View Profile
               </button>
+              {% endif %}
+
+              <!-- Pin / Unpin Chat (WhatsApp-style) -->
+              <button onclick="SDH.Chat.togglePinChat('{% if item.is_self_chat %}saved{% else %}direct{% endif %}', '{% if item.is_self_chat %}saved{% else %}{{ item.user.id }}{% endif %}', '{{ item.user.username|escapejs }}'); SDH.Chat._closeAllUserMenus();"
+                class="sdh-pin-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm
+                           text-divine-muted hover:text-divine-gold hover:bg-divine-surface
+                           transition-colors text-left"
+                id="pin-btn-{{ item.user.username }}">
+                <svg class="w-3.5 h-3.5 flex-shrink-0 sdh-pin-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                  <line x1="12" y1="17" x2="12" y2="22"></line>
+                  <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+                </svg>
+                <span class="sdh-pin-btn-text">{% if item.is_pinned %}Unpin Chat{% else %}Pin Chat{% endif %}</span>
+              </button>
+
               <!-- Lock / Unlock Chat -->
               <button
-                onclick="SDH.ChatLock.toggleLockFromItem('direct', '{{ item.user.id }}', '{{ item.user.username|escapejs }}'); SDH.Chat._closeAllUserMenus();"
+                onclick="SDH.ChatLock.toggleLockFromItem('{% if item.is_self_chat %}saved{% else %}direct{% endif %}', '{% if item.is_self_chat %}saved{% else %}{{ item.user.id }}{% endif %}', '{{ item.user.username|escapejs }}'); SDH.Chat._closeAllUserMenus();"
                 class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm
                            text-purple-400/90 hover:text-purple-300 hover:bg-divine-surface
                            transition-colors text-left">
@@ -1365,6 +1445,8 @@
                 </svg>
                 Lock / Unlock Chat
               </button>
+
+              {% if not item.is_self_chat %}
               <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
               {% if not item.is_blocked and item.is_friend %}
               <!-- Unfriend (only shown for confirmed friends who are not blocked) -->
@@ -1389,9 +1471,9 @@
                 </svg>
                 Remove from My List
               </button>
+              {% endif %}
             </div>
           </div><!-- /context menu -->
-          {% endif %}
 
         </div><!-- /user-item -->
         {% endfor %}
@@ -1535,6 +1617,16 @@
 
               <!-- USER OPTIONS -->
               <div id="kebabUserOptions">
+                <!-- Pin / Unpin Chat (WhatsApp-style) -->
+                <button id="pinChatBtn" onclick="SDH.Chat.toggleCurrentChatPin(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
+                  <svg class="w-4 h-4 text-divine-gold" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                    <line x1="12" y1="17" x2="12" y2="22"></line>
+                    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+                  </svg>
+                  <span id="pinChatBtnText">Pin Chat</span>
+                </button>
+
                 <!-- Lock / Unlock Chat -->
                 <button id="lockChatBtn" onclick="SDH.ChatLock.toggleCurrentChatLock(); SDH.Chat.toggleKebabMenu();"
                   class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
@@ -1618,6 +1710,16 @@
 
               <!-- GROUP OPTIONS -->
               <div id="kebabGroupOptions" class="hidden">
+                <!-- Pin / Unpin Group (WhatsApp-style) -->
+                <button id="pinGroupBtn" onclick="SDH.Chat.toggleCurrentChatPin(); SDH.Chat.toggleKebabMenu();"
+                  class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
+                  <svg class="w-4 h-4 text-divine-gold" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                    <line x1="12" y1="17" x2="12" y2="22"></line>
+                    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+                  </svg>
+                  <span id="pinGroupBtnText">Pin Group</span>
+                </button>
+
                 <!-- Lock / Unlock Group -->
                 <button id="lockGroupBtn" onclick="SDH.ChatLock.toggleCurrentChatLock(); SDH.Chat.toggleKebabMenu();"
                   class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">

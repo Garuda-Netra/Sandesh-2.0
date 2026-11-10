@@ -31,7 +31,7 @@ import secrets
 import time
 from django.contrib.auth.hashers import make_password, check_password
 
-from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead, ChatLock, UserSecurityCredential, Moment, MomentPrivacySetting, GroupE2EKey
+from .models import Message, Group, GroupMembership, GroupMessage, GroupMessageRead, ChatLock, UserSecurityCredential, Moment, MomentPrivacySetting, GroupE2EKey, PinnedChat
 from .chatbot import generate_chatbot_reply
 from .file_security import validate_uploaded_file
 from users.models import UserProfile, Friendship, UserSettings
@@ -225,6 +225,15 @@ def chat_view(request):
     locked_group_ids = set(locked_chat_records.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True))
     is_saved_messages_locked = locked_chat_records.filter(is_self_chat=True).exists()
 
+    # Pinned chats state (WhatsApp-style)
+    pinned_chat_records = PinnedChat.objects.filter(user=request.user).order_by('-pinned_at')
+    pinned_user_ids = set(pinned_chat_records.filter(pinned_user__isnull=False).values_list('pinned_user_id', flat=True))
+    pinned_usernames = list(pinned_chat_records.filter(pinned_user__isnull=False).values_list('pinned_user__username', flat=True))
+    pinned_group_ids = set(pinned_chat_records.filter(pinned_group__isnull=False).values_list('pinned_group_id', flat=True))
+    is_saved_messages_pinned = pinned_chat_records.filter(is_self_chat=True).exists()
+    user_pin_order = {p.pinned_user_id: p.pinned_at for p in pinned_chat_records.filter(pinned_user__isnull=False)}
+    group_pin_order = {p.pinned_group_id: p.pinned_at for p in pinned_chat_records.filter(pinned_group__isnull=False)}
+
     # Build user list with online status and last_seen
     user_data = []
 
@@ -237,6 +246,7 @@ def chat_view(request):
         'is_blocked': False,
         'is_chat_blocked': False,
         'is_locked': is_saved_messages_locked,
+        'is_pinned': is_saved_messages_pinned,
     })
 
     my_settings = UserSettings.get_for_user(request.user)
@@ -292,10 +302,21 @@ def chat_view(request):
             'is_chat_blocked': is_chat_blocked,
             'is_friend': u.id in friend_user_ids,
             'is_locked': u.id in locked_user_ids,
+            'is_pinned': u.id in pinned_user_ids,
         })
 
-    # Put self first, then online users
-    user_data.sort(key=lambda x: (not x.get('is_self_chat', False), not x['is_online'], x['user'].username.lower()))
+    # Sort WhatsApp-style: pinned chats first (ordered by pin timestamp), then unpinned (saved messages, online, username)
+    def _user_sort_key(x):
+        is_pinned = x.get('is_pinned', False)
+        is_self = x.get('is_self_chat', False)
+        if is_pinned:
+            pin_time = user_pin_order.get(x['user'].id) if not is_self else None
+            pin_ts = pin_time.timestamp() if pin_time else (float('inf') if is_self else 0)
+            return (0, -pin_ts, not is_self, not x.get('is_online', False), x['user'].username.lower())
+        else:
+            return (1, 0, not is_self, not x.get('is_online', False), x['user'].username.lower())
+
+    user_data.sort(key=_user_sort_key)
 
     # Build serializable users list for JS to avoid IDE syntax/parsing issues in HTML template
     serializable_users = []
@@ -323,6 +344,7 @@ def chat_view(request):
             'last_seen': (contact.get('last_seen').isoformat() if contact.get('last_seen') else None),
             'is_friend': contact.get('is_friend', False),
             'is_locked': u.id in locked_user_ids,
+            'is_pinned': u.id in pinned_user_ids,
         })
 
     # Fetch groups the user is a member of
@@ -342,7 +364,17 @@ def chat_view(request):
             'avatar_url': avatar_url,
             'role': m.role,
             'is_locked': m.group.id in locked_group_ids,
+            'is_pinned': m.group.id in pinned_group_ids,
         })
+
+    # Sort groups: pinned groups first (most recently pinned on top), then by name
+    def _group_sort_key(g):
+        is_pinned = g.get('is_pinned', False)
+        pin_time = group_pin_order.get(g['id'])
+        pin_ts = pin_time.timestamp() if pin_time else 0
+        return (not is_pinned, -pin_ts if is_pinned else 0, g['name'].lower())
+
+    user_groups.sort(key=_group_sort_key)
 
     user_settings_data = {
         'last_seen_visibility': my_settings.last_seen_visibility,
@@ -370,6 +402,11 @@ def chat_view(request):
         'locked_group_ids': list(locked_group_ids),
         'is_saved_messages_locked': is_saved_messages_locked,
         'locked_chats_count': len(locked_user_ids) + len(locked_group_ids) + (1 if is_saved_messages_locked else 0),
+        'pinned_user_ids': list(pinned_user_ids),
+        'pinned_users': pinned_usernames,
+        'pinned_group_ids': list(pinned_group_ids),
+        'is_saved_messages_pinned': is_saved_messages_pinned,
+        'pinned_chats_count': len(pinned_user_ids) + len(pinned_group_ids) + (1 if is_saved_messages_pinned else 0),
         'user_settings': my_settings,
         'user_settings_json': user_settings_data,
     }
@@ -3443,6 +3480,139 @@ def get_locked_chats_status(request):
         'locked_group_ids': list(locks.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True)),
         'is_saved_messages_locked': locks.filter(is_self_chat=True).exists(),
     })
+
+
+# ---------------------------------------------------------------------------
+# Chat Pinning Views (WhatsApp-style)
+# ---------------------------------------------------------------------------
+MAX_PINNED_CHATS = 5
+
+@login_required
+@require_POST
+def toggle_chat_pin(request):
+    """Toggle chat pin for direct user, group, or saved messages (WhatsApp-style)."""
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    chat_type = data.get('chat_type')  # 'direct', 'group', 'saved'
+    if chat_type == 'user':
+        chat_type = 'direct'
+    target_id = data.get('target_id')
+    explicit_pin = data.get('pinned')  # optional boolean
+
+    is_currently_pinned = False
+
+    if chat_type == 'saved':
+        existing = PinnedChat.objects.filter(user=request.user, is_self_chat=True)
+        should_pin = explicit_pin is True or (explicit_pin is None and not existing.exists())
+        if should_pin:
+            if not existing.exists() and PinnedChat.objects.filter(user=request.user).count() >= MAX_PINNED_CHATS:
+                return JsonResponse({'error': f'You can only pin up to {MAX_PINNED_CHATS} chats.'}, status=400)
+            PinnedChat.objects.get_or_create(user=request.user, is_self_chat=True)
+            is_currently_pinned = True
+        else:
+            existing.delete()
+            is_currently_pinned = False
+
+    elif chat_type == 'group':
+        if not target_id:
+            return JsonResponse({'error': 'Group ID is required.'}, status=400)
+        group = get_object_or_404(Group, id=target_id)
+        if not GroupMembership.objects.filter(group=group, user=request.user).exists():
+            return JsonResponse({'error': 'You are not a member of this group.'}, status=403)
+        existing = PinnedChat.objects.filter(user=request.user, pinned_group=group)
+        should_pin = explicit_pin is True or (explicit_pin is None and not existing.exists())
+        if should_pin:
+            if not existing.exists() and PinnedChat.objects.filter(user=request.user).count() >= MAX_PINNED_CHATS:
+                return JsonResponse({'error': f'You can only pin up to {MAX_PINNED_CHATS} chats.'}, status=400)
+            PinnedChat.objects.get_or_create(user=request.user, pinned_group=group)
+            is_currently_pinned = True
+        else:
+            existing.delete()
+            is_currently_pinned = False
+
+    elif chat_type == 'direct':
+        if not target_id:
+            return JsonResponse({'error': 'Target user is required.'}, status=400)
+        if str(target_id).isdigit():
+            target_user = get_object_or_404(User, id=int(target_id))
+        else:
+            target_user = get_object_or_404(User, username=target_id)
+
+        if target_user == request.user:
+            existing = PinnedChat.objects.filter(user=request.user, is_self_chat=True)
+            should_pin = explicit_pin is True or (explicit_pin is None and not existing.exists())
+            if should_pin:
+                if not existing.exists() and PinnedChat.objects.filter(user=request.user).count() >= MAX_PINNED_CHATS:
+                    return JsonResponse({'error': f'You can only pin up to {MAX_PINNED_CHATS} chats.'}, status=400)
+                PinnedChat.objects.get_or_create(user=request.user, is_self_chat=True)
+                is_currently_pinned = True
+            else:
+                existing.delete()
+                is_currently_pinned = False
+            chat_type = 'saved'
+        else:
+            existing = PinnedChat.objects.filter(user=request.user, pinned_user=target_user)
+            should_pin = explicit_pin is True or (explicit_pin is None and not existing.exists())
+            if should_pin:
+                if not existing.exists() and PinnedChat.objects.filter(user=request.user).count() >= MAX_PINNED_CHATS:
+                    return JsonResponse({'error': f'You can only pin up to {MAX_PINNED_CHATS} chats.'}, status=400)
+                PinnedChat.objects.get_or_create(user=request.user, pinned_user=target_user)
+                is_currently_pinned = True
+            else:
+                existing.delete()
+                is_currently_pinned = False
+    else:
+        return JsonResponse({'error': 'Invalid chat_type.'}, status=400)
+
+    pins = PinnedChat.objects.filter(user=request.user)
+    pinned_user_ids = list(pins.filter(pinned_user__isnull=False).values_list('pinned_user_id', flat=True))
+    pinned_usernames = list(pins.filter(pinned_user__isnull=False).values_list('pinned_user__username', flat=True))
+    pinned_group_ids = list(pins.filter(pinned_group__isnull=False).values_list('pinned_group_id', flat=True))
+    is_saved_messages_pinned = pins.filter(is_self_chat=True).exists()
+    pinned_count = len(pinned_user_ids) + len(pinned_group_ids) + (1 if is_saved_messages_pinned else 0)
+
+    resp = {
+        'status': 'ok',
+        'is_pinned': is_currently_pinned,
+        'chat_type': chat_type,
+        'target_id': str(target_id),
+        'pinned_user_ids': pinned_user_ids,
+        'pinned_users': pinned_usernames,
+        'pinned_group_ids': pinned_group_ids,
+        'is_saved_messages_pinned': is_saved_messages_pinned,
+        'pinned_count': pinned_count,
+        'message': f"Chat {'pinned' if is_currently_pinned else 'unpinned'} successfully."
+    }
+    if chat_type == 'direct' and 'target_user' in locals():
+        resp['target_user_id'] = target_user.id
+        resp['target_username'] = target_user.username
+    elif chat_type == 'group' and 'group' in locals():
+        resp['group_id'] = group.id
+
+    return JsonResponse(resp)
+
+
+@login_required
+@require_GET
+def get_pinned_chats_status(request):
+    """Return list of pinned chats for the logged in user."""
+    pins = PinnedChat.objects.filter(user=request.user).order_by('-pinned_at')
+    pinned_user_ids = list(pins.filter(pinned_user__isnull=False).values_list('pinned_user_id', flat=True))
+    pinned_usernames = list(pins.filter(pinned_user__isnull=False).values_list('pinned_user__username', flat=True))
+    pinned_group_ids = list(pins.filter(pinned_group__isnull=False).values_list('pinned_group_id', flat=True))
+    is_saved_messages_pinned = pins.filter(is_self_chat=True).exists()
+
+    return JsonResponse({
+        'pinned_user_ids': pinned_user_ids,
+        'pinned_users': pinned_usernames,
+        'pinned_group_ids': pinned_group_ids,
+        'is_saved_messages_pinned': is_saved_messages_pinned,
+        'pinned_count': len(pinned_user_ids) + len(pinned_group_ids) + (1 if is_saved_messages_pinned else 0),
+    })
+
 
 
 @login_required

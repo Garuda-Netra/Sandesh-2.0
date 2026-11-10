@@ -117,6 +117,18 @@ SDH.UserSearch = (() => {
               </svg>
               View Profile
             </button>
+            <!-- Pin / Unpin Chat (WhatsApp-style) -->
+            <button onclick="SDH.Chat.togglePinChat('direct', '${userId}', '${username}'); SDH.Chat._closeAllUserMenus();"
+                    class="sdh-pin-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm
+                           text-divine-muted hover:text-divine-gold hover:bg-divine-surface
+                           transition-colors text-left"
+                    id="pin-btn-${username}">
+              <svg class="w-3.5 h-3.5 flex-shrink-0 sdh-pin-icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <line x1="12" y1="17" x2="12" y2="22"></line>
+                <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"></path>
+              </svg>
+              <span class="sdh-pin-btn-text">${window.SDH?.Chat?.isChatPinned?.(username, false) ? 'Unpin Chat' : 'Pin Chat'}</span>
+            </button>
             <!-- Lock / Unlock Chat -->
             <button onclick="SDH.ChatLock.toggleLockFromItem('direct', '${userId}', '${username}'); SDH.Chat._closeAllUserMenus();"
                     class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm
@@ -191,12 +203,15 @@ SDH.UserSearch = (() => {
     const rowCursorClass = isClickable ? 'cursor-pointer' : 'cursor-default';
     const rowClickAttr = isClickable ? `onclick="SDH.Chat.selectUser('${username}', ${userId})"` : '';
 
+    const isPinned = window.SDH?.Chat?.isChatPinned?.(username, false);
+
     return `
       <div id="user-item-${username}"
            class="sdh-user-item user-item relative w-full flex items-center gap-3 px-4 py-3.5
                   group/usr transition-all hover:bg-divine-card/70 border-b border-divine-border/30"
            data-username="${username}"
-           data-userid="${userId}">
+           data-userid="${userId}"
+           ${isPinned ? 'data-pinned="1"' : ''}>
 
         <!-- Main area -->
         <div class="flex items-center gap-3 flex-1 min-w-0 ${rowCursorClass}" ${rowClickAttr}>
@@ -211,10 +226,17 @@ SDH.UserSearch = (() => {
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-2">
               <span class="sdh-user-name text-sm font-medium text-divine-text truncate">${username}</span>
-              <span id="unread-${username}"
-                    class="hidden flex-shrink-0 text-xs bg-divine-gold text-divine-deep
-                           rounded-full px-1.5 py-0.5 font-bold leading-none">
-              </span>
+              <div class="flex items-center gap-1.5 flex-shrink-0">
+                <span id="pin-badge-${username}" class="sdh-pin-badge ${isPinned ? '' : 'hidden'} text-divine-gold/90 flex-shrink-0" title="Pinned chat">
+                  <svg class="w-3.5 h-3.5 rotate-45" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.13 3.13a5.922 5.922 0 0 1 .16 1.013c.046.702-.032 1.487-.445 2.188a.5.5 0 0 1-.765.115l-3.29-3.29-3.793 3.793a.5.5 0 0 1-.707-.707l3.793-3.793-3.29-3.29a.5.5 0 0 1 .115-.765c.701-.413 1.486-.491 2.188-.445.334.022.68.08 1.013.16l3.13-3.13a4.015 4.015 0 0 1-.04-.46c0-.43.109-1.023.589-1.503a.5.5 0 0 1 .353-.146z"/>
+                  </svg>
+                </span>
+                <span id="unread-${username}"
+                      class="hidden flex-shrink-0 text-xs bg-divine-gold text-divine-deep
+                             rounded-full px-1.5 py-0.5 font-bold leading-none">
+                </span>
+              </div>
             </div>
             ${statusHTML}
           </div>
