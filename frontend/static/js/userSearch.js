@@ -227,8 +227,8 @@ SDH.UserSearch = (() => {
             <div class="flex items-center justify-between gap-2">
               <span class="sdh-user-name text-sm font-medium text-divine-text truncate">${username}</span>
               <div class="flex items-center gap-1.5 flex-shrink-0">
-                <span id="pin-badge-${username}" class="sdh-pin-badge ${isPinned ? '' : 'hidden'} text-divine-gold/90 flex-shrink-0" title="Pinned chat">
-                  <svg class="w-3.5 h-3.5 rotate-45" fill="currentColor" viewBox="0 0 20 20">
+                <span id="pin-badge-${username}" class="sdh-pin-badge ${isPinned ? '' : 'hidden'} flex-shrink-0" title="Pinned chat">
+                  <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.13 3.13a5.922 5.922 0 0 1 .16 1.013c.046.702-.032 1.487-.445 2.188a.5.5 0 0 1-.765.115l-3.29-3.29-3.793 3.793a.5.5 0 0 1-.707-.707l3.793-3.793-3.29-3.29a.5.5 0 0 1 .115-.765c.701-.413 1.486-.491 2.188-.445.334.022.68.08 1.013.16l3.13-3.13a4.015 4.015 0 0 1-.04-.46c0-.43.109-1.023.589-1.503a.5.5 0 0 1 .353-.146z"/>
                   </svg>
                 </span>

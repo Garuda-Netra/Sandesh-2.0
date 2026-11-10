@@ -787,7 +787,9 @@ SDH.Chat = (() => {
   }
 
   function _isSelfChat(username) {
-    return !!username && username === window.SDH_DATA?.currentUser;
+    if (!username) return false;
+    const str = String(username).trim();
+    return str === window.SDH_DATA?.currentUser || str === 'Saved Messages' || str === 'saved';
   }
 
   function _displayNameFor(username) {
@@ -1028,7 +1030,7 @@ SDH.Chat = (() => {
           if (isNowPinned) groupEl.setAttribute('data-pinned', '1');
           else groupEl.removeAttribute('data-pinned');
         }
-        const badge = document.getElementById(`pin-badge-group_${gId}`);
+        const badge = document.getElementById(`pin-badge-group_${gId}`) || (groupEl && groupEl.querySelector('.sdh-pin-badge'));
         if (badge) {
           if (isNowPinned) badge.classList.remove('hidden');
           else badge.classList.add('hidden');
@@ -1040,16 +1042,22 @@ SDH.Chat = (() => {
         _moveGroupToTop(gId);
       } else {
         // Direct or saved
-        const uname = (chatType === 'saved' || targetId === 'saved' || _isSelfChat(targetId) || _isSelfChat(displayName))
+        const isSaved = chatType === 'saved' || targetId === 'saved' || _isSelfChat(targetId) || _isSelfChat(displayName);
+        const uname = isSaved
           ? window.SDH_DATA.currentUser
-          : (displayName || targetId);
+          : (data.target_username || displayName || targetId);
 
-        const userEl = document.getElementById(`user-item-${uname}`);
+        const userEl = document.getElementById(`user-item-${uname}`)
+          || (data.target_user_id ? document.querySelector(`.user-item[data-userid="${data.target_user_id}"]`) : null)
+          || (isSaved ? document.querySelector('.user-item[data-self="1"]') : null)
+          || document.querySelector(`.user-item[data-username="${uname}"]`);
+
         if (userEl) {
           if (isNowPinned) userEl.setAttribute('data-pinned', '1');
           else userEl.removeAttribute('data-pinned');
         }
-        const badge = document.getElementById(`pin-badge-${uname}`);
+        const badge = document.getElementById(`pin-badge-${uname}`)
+          || (userEl ? userEl.querySelector('.sdh-pin-badge') : null);
         if (badge) {
           if (isNowPinned) badge.classList.remove('hidden');
           else badge.classList.add('hidden');
@@ -1061,20 +1069,26 @@ SDH.Chat = (() => {
             pinText.textContent = isNowPinned ? 'Unpin Chat' : 'Pin Chat';
           }
         }
-        _moveContactToTop(uname);
+        const actualUname = (userEl && userEl.dataset.username) ? userEl.dataset.username : uname;
+        _moveContactToTop(actualUname);
       }
 
-      // Update active chat header kebab menu if active chat was affected
+      // Update active chat header if active chat was affected
       const isGroup = activeUser && activeUser.startsWith('group_');
       const activeIsThis = isGroup
         ? (chatType === 'group' && String(targetId).replace('group_', '') === activeUser.replace('group_', ''))
-        : (chatType !== 'group' && (targetId === activeUser || displayName === activeUser || (_isSelfChat(activeUser) && chatType === 'saved')));
+        : (chatType !== 'group' && (targetId === activeUser || displayName === activeUser || (_isSelfChat(activeUser) && (chatType === 'saved' || isSaved))));
 
       if (activeIsThis) {
         const pinChatBtnText = document.getElementById('pinChatBtnText');
         const pinGroupBtnText = document.getElementById('pinGroupBtnText');
         if (pinChatBtnText) pinChatBtnText.textContent = isNowPinned ? 'Unpin Chat' : 'Pin Chat';
         if (pinGroupBtnText) pinGroupBtnText.textContent = isNowPinned ? 'Unpin Group' : 'Pin Group';
+        const headerPinBadge = document.getElementById('chatHeaderPinBadge');
+        if (headerPinBadge) {
+          if (isNowPinned) headerPinBadge.classList.remove('hidden');
+          else headerPinBadge.classList.add('hidden');
+        }
       }
 
       _reorderSidebar();
@@ -1149,8 +1163,8 @@ SDH.Chat = (() => {
             <div class="flex items-center justify-between gap-2">
               <span class="sdh-user-name text-sm font-semibold truncate" style="color:var(--c-text)">${displayName}</span>
               <div class="flex items-center gap-1.5 flex-shrink-0">
-                <span id="pin-badge-${username}" class="sdh-pin-badge ${isPinned ? '' : 'hidden'} text-divine-gold/90 flex-shrink-0" title="Pinned chat">
-                  <svg class="w-3.5 h-3.5 rotate-45" fill="currentColor" viewBox="0 0 20 20">
+                <span id="pin-badge-${username}" class="sdh-pin-badge ${isPinned ? '' : 'hidden'} flex-shrink-0" title="Pinned chat">
+                  <svg class="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.13 3.13a5.922 5.922 0 0 1 .16 1.013c.046.702-.032 1.487-.445 2.188a.5.5 0 0 1-.765.115l-3.29-3.29-3.793 3.793a.5.5 0 0 1-.707-.707l3.793-3.793-3.29-3.29a.5.5 0 0 1 .115-.765c.701-.413 1.486-.491 2.188-.445.334.022.68.08 1.013.16l3.13-3.13a4.015 4.015 0 0 1-.04-.46c0-.43.109-1.023.589-1.503a.5.5 0 0 1 .353-.146z"/>
                   </svg>
                 </span>
@@ -1932,6 +1946,7 @@ SDH.Chat = (() => {
 
     document.getElementById('callButtons')?.classList.add('hidden');
     document.getElementById('inputBar')?.classList.add('hidden');
+    document.getElementById('chatHeaderPinBadge')?.classList.add('hidden');
     document.getElementById('kebabUserOptions')?.classList.add('hidden');
     document.getElementById('kebabGroupOptions')?.classList.add('hidden');
     document.getElementById('kebabDropdown')?.classList.add('hidden');
@@ -3571,6 +3586,15 @@ SDH.Chat = (() => {
     if (avatarEl) _setAvatarInitial(avatarEl, username);
     const usernameEl = document.getElementById('chatUsername');
     if (usernameEl) usernameEl.textContent = _displayNameFor(username);
+
+    const isPinned = isChatPinned(username, false) || (userId && isChatPinned(userId, false));
+    const headerPin = document.getElementById('chatHeaderPinBadge');
+    if (headerPin) {
+      if (isPinned) headerPin.classList.remove('hidden');
+      else headerPin.classList.add('hidden');
+    }
+    const pinChatBtnText = document.getElementById('pinChatBtnText');
+    if (pinChatBtnText) pinChatBtnText.textContent = isPinned ? 'Unpin Chat' : 'Pin Chat';
 
     _setHeaderStatus('Connecting...', 'reconnecting');
     document.getElementById('inputBar')?.classList.remove('hidden');
@@ -6928,6 +6952,15 @@ SDH.Chat = (() => {
     if (avatarEl) avatarEl.textContent = (groupName && groupName[0] ? groupName[0] : 'G').toUpperCase(); // fallback
     const usernameEl = document.getElementById('chatUsername');
     if (usernameEl) usernameEl.textContent = groupName;
+
+    const isPinned = isChatPinned(groupId, true);
+    const headerPin = document.getElementById('chatHeaderPinBadge');
+    if (headerPin) {
+      if (isPinned) headerPin.classList.remove('hidden');
+      else headerPin.classList.add('hidden');
+    }
+    const pinGroupBtnText = document.getElementById('pinGroupBtnText');
+    if (pinGroupBtnText) pinGroupBtnText.textContent = isPinned ? 'Unpin Group' : 'Pin Group';
 
     _setHeaderStatus('Connecting...', 'reconnecting');
     document.getElementById('inputBar')?.classList.remove('hidden');
