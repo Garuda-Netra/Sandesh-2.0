@@ -2016,39 +2016,44 @@ SDH.Chat = (() => {
         _setMsgStatus(msgId, data.tick_status || 'delivered');
       } else {
         // Recipient side:
-        // If recipient is viewing this chat actively and page has focus, send read receipt
-        const isCurrentChat = (activeUser === data.sender || (data.is_group && activeUser === `group_${data.group_id}`));
+        const isCurrentChat = (activeUser && (
+          activeUser.toLowerCase() === (data.sender || '').toLowerCase() ||
+          (data.is_group && activeUser === `group_${data.group_id}`)
+        ));
         if (isCurrentChat && SDH.WS && SDH.WS.isOpen()) {
-          const isViewingNow = (document.visibilityState === 'visible' && document.hasFocus());
-          if (isViewingNow) {
-            setTimeout(() => {
-              if (activeUser && !activeUser.startsWith('group_')) {
-                if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
-                  SDH.WS.sendMessage({ type: 'read_receipt' });
-                }
-              } else if (activeUser) {
-                SDH.WS.sendMessage({ type: 'mark_read', message_id: msgId });
-              }
-            }, 300);
+          // Send read receipt so sender's double tick transitions to orange in real time
+          if (!activeUser.startsWith('group_')) {
+            if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+              SDH.WS.sendMessage({ type: 'read_receipt' });
+            }
           } else {
-            const onFocusOnce = () => {
-              window.removeEventListener('focus', onFocusOnce);
-              if (activeUser && SDH.WS && SDH.WS.isOpen()) {
-                if (!activeUser.startsWith('group_')) {
-                  if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
-                    SDH.WS.sendMessage({ type: 'read_receipt' });
-                  }
-                } else {
-                  SDH.WS.sendMessage({ type: 'mark_read', message_id: msgId });
-                }
-              }
-            };
-            window.addEventListener('focus', onFocusOnce, { once: true });
+            SDH.WS.sendMessage({ type: 'mark_read', message_id: msgId });
           }
         }
       }
     }
   }
+
+  // Send read receipts when switching back to tab or focusing window
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && activeUser && SDH.WS && SDH.WS.isOpen()) {
+      if (!activeUser.startsWith('group_')) {
+        if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+          SDH.WS.sendMessage({ type: 'read_receipt' });
+        }
+      }
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (activeUser && SDH.WS && SDH.WS.isOpen()) {
+      if (!activeUser.startsWith('group_')) {
+        if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+          SDH.WS.sendMessage({ type: 'read_receipt' });
+        }
+      }
+    }
+  });
 
   // Close open dropdowns and menus on outside click (single unified delegated listener)
   document.addEventListener('click', (e) => {

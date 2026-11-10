@@ -490,9 +490,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         read_ids = await self.mark_messages_read_get_ids()
-        target_groups = {f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
-        for msg_id in read_ids:
-            for grp in target_groups:
+        target_groups = {self.room_group, f"user_chat_{self.me.id}"}
+        if hasattr(self, 'other_user_id') and self.other_user_id:
+            target_groups.add(f"user_chat_{self.other_user_id}")
+
+        for grp in target_groups:
+            await self.channel_layer.group_send(
+                grp,
+                {
+                    'type': 'broadcast_read_receipt',
+                    'reader': self.me.username,
+                    'read_ids': read_ids,
+                }
+            )
+            for msg_id in read_ids:
                 await self.channel_layer.group_send(
                     grp,
                     {
@@ -563,6 +574,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'type': 'typing',
             'sender': event['sender'],
             'is_typing': event['is_typing'],
+        }))
+
+    async def broadcast_read_receipt(self, event):
+        """Relay read_receipt event so all outgoing ticks turn saffron/orange in real time."""
+        await self.send(text_data=json.dumps({
+            'type': 'read_receipt',
+            'reader': event.get('reader'),
+            'read_ids': event.get('read_ids', []),
         }))
 
     async def broadcast_message_status(self, event):
@@ -1262,11 +1281,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
         from .models import Message
         from django.utils import timezone
         try:
-            other = User.objects.get(username=self.other_username)
+            other_id = getattr(self, 'other_user_id', None)
+            if not other_id and hasattr(self, 'other_user') and self.other_user:
+                other_id = self.other_user.id
+            if not other_id and hasattr(self, 'other_username') and self.other_username:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                other_id = User.objects.filter(username=self.other_username).values_list('id', flat=True).first()
+
+            if not other_id:
+                return []
+
             now = timezone.now()
             ids = list(
                 Message.objects.filter(
-                    sender=other,
+                    sender_id=other_id,
                     receiver=self.me,
                     is_read=False,
                 ).values_list('id', flat=True)
@@ -1279,7 +1308,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     read_at=now,
                 )
             return ids
-        except Exception:
+        except Exception as exc:
+            logger.warning(f'[WS] mark_messages_read_get_ids error: {exc}')
             return []
 
     @database_sync_to_async
