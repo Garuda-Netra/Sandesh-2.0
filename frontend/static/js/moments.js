@@ -113,7 +113,29 @@ SDH.Moments = (function() {
             if (!res.ok) return;
             const json = await res.json();
             if (json.status === 'ok') {
-                momentsData = json.data;
+                // Merge server data with existing client data to prevent
+                // overwriting a valid media_url with null when the server
+                // hasn't fully synced the file yet (e.g. Cloudinary upload).
+                const serverData = json.data;
+                serverData.forEach(serverGroup => {
+                    serverGroup.moments.forEach(sm => {
+                        if (!sm.media_url) {
+                            // Check if the client already holds a valid URL
+                            const clientGroup = momentsData.find(
+                                g => g.user_id === serverGroup.user_id
+                            );
+                            if (clientGroup) {
+                                const clientMoment = clientGroup.moments.find(
+                                    cm => cm.id === sm.id
+                                );
+                                if (clientMoment && clientMoment.media_url) {
+                                    sm.media_url = clientMoment.media_url;
+                                }
+                            }
+                        }
+                    });
+                });
+                momentsData = serverData;
                 renderTray();
             }
         } catch (e) {
@@ -598,7 +620,10 @@ SDH.Moments = (function() {
                 document.getElementById('momentUploadModal').classList.add('hidden');
                 // The new moment will arrive via WS, but we can also handle it directly
                 handleNewMomentEvent(json.moment);
-                fetchMoments();
+                // Delay the full refresh so the upload response's valid media_url
+                // is not immediately overwritten by a server fetch that may still
+                // be syncing the file to storage (race condition fix).
+                setTimeout(() => fetchMoments(), 2000);
                 window.SDH?.Chat?.showToast?.('Story posted successfully! ✨', 'success');
             } else {
                 alert(json.error || 'Upload failed');

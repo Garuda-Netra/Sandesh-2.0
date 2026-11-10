@@ -1883,11 +1883,22 @@ def get_moments(request):
         media_url = None
         if m.media and hasattr(m.media, 'name') and m.media.name:
             try:
-                if hasattr(m.media, 'path'):
-                    import os
-                    if os.path.exists(m.media.path):
+                # Determine whether storage is local (FileSystemStorage) or
+                # remote (Cloudinary / S3).  Remote backends raise
+                # NotImplementedError from .path(), so we must guard against it.
+                is_local = False
+                try:
+                    local_path = m.media.path      # raises on remote backends
+                    is_local = True
+                except (NotImplementedError, AttributeError):
+                    pass
+
+                if is_local:
+                    if os.path.exists(local_path):
                         media_url = m.media.url
+                    # else: file was deleted (container restart) → stays None
                 else:
+                    # Remote storage – file is persisted in the cloud
                     media_url = m.media.url
             except Exception:
                 try:
@@ -2112,12 +2123,33 @@ def upload_moment(request):
         except Exception:
             my_avatar = None
 
+    # Resolve media URL safely (same logic as get_moments)
+    upload_media_url = None
+    if moment.media and hasattr(moment.media, 'name') and moment.media.name:
+        try:
+            is_local = False
+            try:
+                local_path = moment.media.path
+                is_local = True
+            except (NotImplementedError, AttributeError):
+                pass
+
+            if is_local:
+                upload_media_url = moment.media.url if os.path.exists(local_path) else None
+            else:
+                upload_media_url = moment.media.url
+        except Exception:
+            try:
+                upload_media_url = moment.media.url
+            except Exception:
+                upload_media_url = None
+
     moment_data = {
         'id': moment.id,
         'user_id': request.user.id,
         'username': request.user.username,
         'avatar_url': my_avatar,
-        'media_url': moment.media.url if moment.media else None,
+        'media_url': upload_media_url,
         'text_content': moment.text_content,
         'caption': moment.caption,
         'moment_type': moment.moment_type,
