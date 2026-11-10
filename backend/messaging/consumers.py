@@ -133,6 +133,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, code):
         if hasattr(self, 'room_group'):
+            if hasattr(self, 'me') and hasattr(self, 'other_username') and getattr(self, 'other_user_id', None) != getattr(self.me, 'id', None):
+                try:
+                    await self.channel_layer.group_send(
+                        self.room_group,
+                        {
+                            'type': 'broadcast_typing',
+                            'sender': self.me.username,
+                            'receiver': self.other_username,
+                            'is_typing': False,
+                        }
+                    )
+                except Exception:
+                    pass
             await self.channel_layer.group_discard(self.room_group, self.channel_name)
 
         # Leave the global presence group
@@ -423,6 +436,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def handle_typing(self, data: dict):
         """Broadcasts typing indicator to the other party."""
+        # Never broadcast typing in self-chat (Saved Messages)
+        if getattr(self, 'other_user_id', None) == getattr(self.me, 'id', None):
+            return
         blocked, _ = await self.is_chat_blocked()
         if blocked:
             return
@@ -431,6 +447,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             {
                 'type': 'broadcast_typing',
                 'sender': self.me.username,
+                'receiver': self.other_username,
                 'is_typing': bool(data.get('is_typing', False)),
             }
         )
@@ -573,6 +590,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'typing',
             'sender': event['sender'],
+            'receiver': event.get('receiver', ''),
             'is_typing': event['is_typing'],
         }))
 
@@ -1672,9 +1690,20 @@ class GroupChatConsumer(ChatConsumer):
 
     async def disconnect(self, code):
         if hasattr(self, 'room_group'):
+            if hasattr(self, 'me') and hasattr(self, 'group_id'):
+                try:
+                    await self.channel_layer.group_send(
+                        self.room_group,
+                        {
+                            'type': 'broadcast_typing',
+                            'sender': self.me.username,
+                            'group_id': self.group_id,
+                            'is_typing': False,
+                        }
+                    )
+                except Exception:
+                    pass
             await self.channel_layer.group_discard(self.room_group, self.channel_name)
-            
-        await self.channel_layer.group_discard('presence_all', self.channel_name)
         if hasattr(self, 'personal_group'):
             await self.channel_layer.group_discard(self.personal_group, self.channel_name)
             

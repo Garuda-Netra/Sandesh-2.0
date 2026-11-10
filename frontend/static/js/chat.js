@@ -1885,6 +1885,7 @@ SDH.Chat = (() => {
 
   /** Cancel message editing state and clear input banner. */
   function cancelEditMessage() {
+    stopTyping();
     editingMessageId = null;
     const banner = document.getElementById('editMessageBanner');
     const preview = document.getElementById('editMessagePreview');
@@ -1894,13 +1895,13 @@ SDH.Chat = (() => {
     if (input) {
       input.value = '';
       input.style.height = 'auto';
-      input.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
 
   /** Submits message edit to both WebSocket and backend API for guaranteed real-time delivery. */
   async function executeEditMessage(msgId, newText) {
     if (!msgId || !newText) return;
+    stopTyping();
     try {
       let payloadBody = { message: newText };
       if (activeUser && window.SDH?.E2E) {
@@ -2034,15 +2035,21 @@ SDH.Chat = (() => {
     }
   }
 
-  // Send read receipts when switching back to tab or focusing window
+  // Send read receipts when switching back to tab or focusing window; stop typing when leaving
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && activeUser && SDH.WS && SDH.WS.isOpen()) {
+    if (document.hidden) {
+      stopTyping();
+    } else if (document.visibilityState === 'visible' && activeUser && SDH.WS && SDH.WS.isOpen()) {
       if (!activeUser.startsWith('group_')) {
         if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
           SDH.WS.sendMessage({ type: 'read_receipt' });
         }
       }
     }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    stopTyping();
   });
 
   window.addEventListener('focus', () => {
@@ -2166,6 +2173,8 @@ SDH.Chat = (() => {
   }
 
   function _resetConversationPanel() {
+    stopTyping();
+    _hideTypingBubble();
     cancelEditMessage();
     activeUser = null;
     activeUserId = null;
@@ -3335,6 +3344,7 @@ SDH.Chat = (() => {
         showToast('Message cannot be empty.', 'warning');
         return;
       }
+      stopTyping();
       await executeEditMessage(editingMessageId, rawText);
       return;
     }
@@ -3667,18 +3677,45 @@ SDH.Chat = (() => {
 
   //  Typing indicator
   // ──────────────────────────────────────────────────────────────────────────
+  let typingDisplayTimer = null;
+
+  function _hideTypingBubble() {
+    if (typingDisplayTimer) {
+      clearTimeout(typingDisplayTimer);
+      typingDisplayTimer = null;
+    }
+    const bubble = document.getElementById('typingBubble');
+    if (bubble) bubble.classList.add('hidden');
+    _setDefaultHeaderStatus();
+  }
+
   function sendTyping(state) {
-    if (SDH.WS.isOpen()) SDH.WS.sendMessage({ type: 'typing', is_typing: state });
+    if (!activeUser || _isSelfChat(activeUser)) return;
+    if (SDH.WS && SDH.WS.isOpen()) {
+      SDH.WS.sendMessage({
+        type: 'typing',
+        is_typing: Boolean(state),
+        receiver: activeUser
+      });
+    }
   }
 
   function stopTyping() {
-    if (isTyping) { isTyping = false; sendTyping(false); }
-    clearTimeout(typingTimer);
+    if (isTyping) {
+      isTyping = false;
+      sendTyping(false);
+    }
+    if (typingTimer) {
+      clearTimeout(typingTimer);
+      typingTimer = null;
+    }
   }
 
   function handleTypingIndicator(data) {
+    if (!data || !data.sender) return;
     if (_isSelfChat(activeUser)) return;
     if (data.sender === window.SDH_DATA.currentUser) return;
+    if (data.receiver && data.receiver !== window.SDH_DATA.currentUser) return;
 
     // Prevent cross-display of typing indicators
     if (data.group_id) {
@@ -3690,11 +3727,25 @@ SDH.Chat = (() => {
     const bubble = document.getElementById('typingBubble');
     const name = document.getElementById('typingName');
     if (!bubble) return;
+
+    if (typingDisplayTimer) {
+      clearTimeout(typingDisplayTimer);
+      typingDisplayTimer = null;
+    }
+
     if (data.is_typing) {
       if (name) name.textContent = data.sender;
       bubble.classList.remove('hidden');
       _setHeaderStatus(`${data.sender} is typing...`, 'typing');
       scrollToBottom();
+
+      // Auto-hide safety timeout (4 seconds): ensures typing indicator never gets stuck
+      // even if network drops, user disconnects, or tab closes
+      typingDisplayTimer = setTimeout(() => {
+        bubble.classList.add('hidden');
+        _setDefaultHeaderStatus();
+        typingDisplayTimer = null;
+      }, 4000);
     } else {
       bubble.classList.add('hidden');
       _setDefaultHeaderStatus();
@@ -3824,6 +3875,8 @@ SDH.Chat = (() => {
   // â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
   async function selectUser(username, userId) {
     if (window.innerWidth < 640) closeSidebar();
+    stopTyping();
+    _hideTypingBubble();
     if (!userId) {
       const uObj = window.SDH_DATA?.users?.find(u => u.username === username);
       if (uObj?.id) userId = uObj.id;
@@ -4102,7 +4155,8 @@ SDH.Chat = (() => {
   function onInput(el) {
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 128) + 'px';
-    if (!isTyping && activeUser) { isTyping = true; sendTyping(true); }
+    if (!activeUser || _isSelfChat(activeUser)) return;
+    if (!isTyping) { isTyping = true; sendTyping(true); }
     clearTimeout(typingTimer);
     typingTimer = setTimeout(() => { isTyping = false; sendTyping(false); }, TYPING_TIMEOUT);
   }
@@ -7237,6 +7291,8 @@ SDH.Chat = (() => {
 
   async function selectGroup(groupId, groupName) {
     if (window.innerWidth < 640) closeSidebar();
+    stopTyping();
+    _hideTypingBubble();
 
     // Chat Lock Verification
     if (window.SDH?.ChatLock?.isChatLocked?.(`group_${groupId}`, true)) {
