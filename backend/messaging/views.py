@@ -1883,28 +1883,9 @@ def get_moments(request):
         media_url = None
         if m.media and hasattr(m.media, 'name') and m.media.name:
             try:
-                # Determine whether storage is local (FileSystemStorage) or
-                # remote (Cloudinary / S3).  Remote backends raise
-                # NotImplementedError from .path(), so we must guard against it.
-                is_local = False
-                try:
-                    local_path = m.media.path      # raises on remote backends
-                    is_local = True
-                except (NotImplementedError, AttributeError):
-                    pass
-
-                if is_local:
-                    if os.path.exists(local_path):
-                        media_url = m.media.url
-                    # else: file was deleted (container restart) → stays None
-                else:
-                    # Remote storage – file is persisted in the cloud
-                    media_url = m.media.url
+                media_url = m.media.url
             except Exception:
-                try:
-                    media_url = m.media.url
-                except Exception:
-                    media_url = None
+                media_url = None
 
         moment_data = {
             'id': m.id,
@@ -2123,26 +2104,12 @@ def upload_moment(request):
         except Exception:
             my_avatar = None
 
-    # Resolve media URL safely (same logic as get_moments)
     upload_media_url = None
     if moment.media and hasattr(moment.media, 'name') and moment.media.name:
         try:
-            is_local = False
-            try:
-                local_path = moment.media.path
-                is_local = True
-            except (NotImplementedError, AttributeError):
-                pass
-
-            if is_local:
-                upload_media_url = moment.media.url if os.path.exists(local_path) else None
-            else:
-                upload_media_url = moment.media.url
+            upload_media_url = moment.media.url
         except Exception:
-            try:
-                upload_media_url = moment.media.url
-            except Exception:
-                upload_media_url = None
+            upload_media_url = None
 
     moment_data = {
         'id': moment.id,

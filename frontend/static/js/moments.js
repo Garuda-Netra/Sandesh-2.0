@@ -863,6 +863,11 @@ SDH.Moments = (function() {
                     }
                 }
             } else {
+                img.onload = function() {
+                    const errCard = document.getElementById('mvImageErrorCard');
+                    if (errCard) errCard.classList.add('hidden');
+                    this.classList.remove('hidden');
+                };
                 img.onerror = function() {
                     console.error("Failed to load moment image:", moment.media_url);
                     this.classList.add('hidden');
@@ -878,7 +883,6 @@ SDH.Moments = (function() {
                     }
                 };
                 img.src = moment.media_url;
-                img.classList.remove('hidden');
             }
             if (activeBarFill) activeBarFill.style.animationDuration = `${displayDuration}ms`;
             startCountdown(displayDuration);
@@ -1165,10 +1169,11 @@ SDH.Moments = (function() {
         if (errCard) errCard.classList.add('hidden');
         if (moment.moment_type === 'image') {
             const img = document.getElementById('mvImage');
-            if (img) {
+            if (img && moment.media_url) {
                 const buster = (moment.media_url.includes('?') ? '&' : '?') + 't=' + Date.now();
                 img.src = moment.media_url + buster;
-                img.classList.remove('hidden');
+            } else {
+                fetchMoments().then(() => playMoment());
             }
         }
     }

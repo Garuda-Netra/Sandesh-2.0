@@ -14,9 +14,20 @@ class SmartMediaCloudinaryStorage(MediaCloudinaryStorage):
     """
 
     def _get_resource_type(self, name):
-        ext = (name.rsplit('.', 1)[-1] if '.' in name else '').lower()
-        if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'ico'):
+        name_str = str(name or '')
+        ext = (name_str.rsplit('.', 1)[-1] if '.' in name_str else '').lower()
+        if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'ico', 'heic', 'heif', 'svg'):
             return RESOURCE_TYPES['IMAGE']
         if ext in ('mp4', 'webm', 'ogg', 'mov', 'm4v', 'mkv'):
             return RESOURCE_TYPES['VIDEO']
-        return RESOURCE_TYPES['RAW']
+        if ext in ('pdf', 'doc', 'docx', 'txt', 'zip', 'tar', 'gz', 'mp3', 'wav', 'aac', 'm4a', 'flac'):
+            return RESOURCE_TYPES['RAW']
+        # If name has no extension (e.g. Cloudinary public_id stored without extension):
+        # Inspect folder/path hints:
+        name_lower = name_str.lower()
+        if any(v in name_lower for v in ('video', 'videos')):
+            return RESOURCE_TYPES['VIDEO']
+        if any(r in name_lower for r in ('song', 'audio', 'doc', 'file', 'attachment')):
+            return RESOURCE_TYPES['RAW']
+        # Default for all media (moments, avatars, photos) in a media storage class is IMAGE:
+        return RESOURCE_TYPES['IMAGE']
