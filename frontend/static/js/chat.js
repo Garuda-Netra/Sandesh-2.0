@@ -1898,7 +1898,7 @@ SDH.Chat = (() => {
     }
   }
 
-  /** Submits message edit to the backend API. */
+  /** Submits message edit to both WebSocket and backend API for guaranteed real-time delivery. */
   async function executeEditMessage(msgId, newText) {
     if (!msgId || !newText) return;
     try {
@@ -1910,32 +1910,53 @@ SDH.Chat = (() => {
         payloadBody.encryption_iv = encResult.encryption_iv;
       }
 
-      const res = await fetch(`/messaging/api/message/${msgId}/edit/`, {
+      // 1. Send immediately over WebSocket for instantaneous zero-latency delivery
+      if (SDH.WS && SDH.WS.isOpen()) {
+        SDH.WS.sendMessage({
+          type: 'edit_message',
+          message_id: Number(msgId),
+          message: payloadBody.message,
+          is_encrypted: Boolean(payloadBody.is_encrypted),
+          encryption_iv: payloadBody.encryption_iv || '',
+        });
+      }
+
+      // 2. Also send HTTP POST for database persistence and cross-worker broadcast
+      const csrf = window.SDH_DATA?.csrfToken || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+      fetch(`/messaging/api/message/${msgId}/edit/`, {
         method: 'POST',
         headers: {
-          'X-CSRFToken': window.SDH_DATA.csrfToken,
+          'X-CSRFToken': csrf,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payloadBody),
-      });
+      }).catch(err => console.warn('[Chat] HTTP edit fallback warning:', err));
 
-      const resData = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(resData.error || res.statusText);
-      }
-
-      // Immediately update local message UI for the sender!
+      // 3. Immediately update local message UI for the sender!
       const bubble = document.getElementById(`msg-${msgId}`);
       if (bubble) {
         bubble.dataset.rawText = newText;
-        const textEl = bubble.querySelector('.msg-text');
+        const textEl = bubble.querySelector('.msg-text') || bubble.querySelector('.msg-bubble p') || bubble.querySelector('.msg-bubble');
         if (textEl) {
           textEl.innerHTML = _formatMessageText(newText);
         }
-        const editedTag = bubble.querySelector('.msg-edited-tag');
-        if (editedTag) editedTag.classList.remove('hidden');
+        let editedTag = bubble.querySelector('.msg-edited-tag');
+        if (!editedTag) {
+          const timeContainer = bubble.querySelector('.flex.items-center.gap-1') || bubble;
+          editedTag = document.createElement('span');
+          editedTag.className = 'msg-edited-tag text-[10px] text-divine-muted/50 italic select-none ml-0.5';
+          editedTag.textContent = '(edited)';
+          const tickEl = bubble.querySelector('.msg-status-tick');
+          if (tickEl && tickEl.parentNode) {
+            tickEl.parentNode.insertBefore(editedTag, tickEl);
+          } else {
+            timeContainer.appendChild(editedTag);
+          }
+        } else {
+          editedTag.classList.remove('hidden');
+        }
         // Reset tick to grey double tick (delivered) until recipient sees it!
-        _setMsgStatus(msgId, resData.tick_status || 'delivered');
+        _setMsgStatus(msgId, 'delivered');
       }
 
       cancelEditMessage();
@@ -1952,12 +1973,15 @@ SDH.Chat = (() => {
     if (!msgId) return;
 
     let content = data.new_message || data.message;
+    const isSender = (data.sender === window.SDH_DATA.currentUser);
+    const peerName = isSender ? (data.receiver || activeUser) : data.sender;
+
     if (data.is_encrypted && data.encryption_iv && window.SDH?.E2E) {
       try {
         if (data.is_group && data.group_id) {
           content = await window.SDH.E2E.decryptGroupMessage(content, data.encryption_iv, data.group_id);
-        } else if (data.sender) {
-          content = await window.SDH.E2E.decrypt(content, data.encryption_iv, data.sender);
+        } else if (peerName) {
+          content = await window.SDH.E2E.decrypt(content, data.encryption_iv, peerName);
         }
       } catch (e) {
         console.warn('[E2EE] Could not decrypt edited message:', e);
@@ -1967,14 +1991,26 @@ SDH.Chat = (() => {
     const bubble = document.getElementById(`msg-${msgId}`);
     if (bubble) {
       bubble.dataset.rawText = content;
-      const textEl = bubble.querySelector('.msg-text');
+      const textEl = bubble.querySelector('.msg-text') || bubble.querySelector('.msg-bubble p') || bubble.querySelector('.msg-bubble');
       if (textEl) {
         textEl.innerHTML = _formatMessageText(content);
       }
-      const editedTag = bubble.querySelector('.msg-edited-tag');
-      if (editedTag) editedTag.classList.remove('hidden');
+      let editedTag = bubble.querySelector('.msg-edited-tag');
+      if (!editedTag) {
+        const timeContainer = bubble.querySelector('.flex.items-center.gap-1') || bubble;
+        editedTag = document.createElement('span');
+        editedTag.className = 'msg-edited-tag text-[10px] text-divine-muted/50 italic select-none ml-0.5';
+        editedTag.textContent = '(edited)';
+        const tickEl = bubble.querySelector('.msg-status-tick');
+        if (tickEl && tickEl.parentNode) {
+          tickEl.parentNode.insertBefore(editedTag, tickEl);
+        } else {
+          timeContainer.appendChild(editedTag);
+        }
+      } else {
+        editedTag.classList.remove('hidden');
+      }
 
-      const isSender = (data.sender === window.SDH_DATA.currentUser);
       if (isSender) {
         // Sender sees grey double tick until seen by recipient
         _setMsgStatus(msgId, data.tick_status || 'delivered');
@@ -1993,7 +2029,7 @@ SDH.Chat = (() => {
               } else if (activeUser) {
                 SDH.WS.sendMessage({ type: 'mark_read', message_id: msgId });
               }
-            }, 500);
+            }, 300);
           } else {
             const onFocusOnce = () => {
               window.removeEventListener('focus', onFocusOnce);

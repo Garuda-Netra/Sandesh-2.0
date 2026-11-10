@@ -202,6 +202,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.handle_group_delivered_receipt(data)
         elif msg_type == 'read_receipt':
             await self.handle_read_receipt(data)
+        elif msg_type == 'edit_message':
+            await self.handle_edit_message(data)
         elif msg_type == 'ping':
             await self._verify_and_restore_online_status()
             await self.send(text_data=json.dumps({'type': 'pong'}))
@@ -500,6 +502,36 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
+    async def handle_edit_message(self, data: dict):
+        """Handles real-time message editing over WebSocket."""
+        message_id = data.get('message_id')
+        new_text = data.get('message', '').strip()
+        if not message_id or not new_text:
+            return
+
+        result = await self.update_message_content(int(message_id), new_text, data)
+        if not result:
+            return
+
+        payload = {
+            'type': 'message_edited',
+            'message_id': int(message_id),
+            'new_message': new_text,
+            'is_edited': True,
+            'edited_at': result['edited_at'],
+            'sender': self.me.username,
+            'receiver': getattr(self, 'other_username', ''),
+            'is_read': False,
+            'tick_status': result['tick_status'],
+            'is_group': False,
+            'is_encrypted': data.get('is_encrypted', False),
+            'encryption_iv': data.get('encryption_iv', ''),
+        }
+
+        target_groups = {self.room_group, f"user_chat_{self.me.id}", f"user_chat_{self.other_user_id}"}
+        for grp in target_groups:
+            await self.channel_layer.group_send(grp, payload)
+
     async def handle_retention_update(self, data: dict):
         """Broadcasts retention setting changes to the room."""
         retention_days = data.get('retention_days')
@@ -775,6 +807,75 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return result
         except Exception as exc:
             logger.error(f'[WS] save_message error: {exc}')
+            return None
+
+    @database_sync_to_async
+    def update_message_content(self, message_id: int, new_text: str, data: dict) -> dict | None:
+        from .models import Message
+        from django.utils import timezone
+        try:
+            msg = Message.objects.filter(pk=message_id).first()
+            if not msg or msg.sender != self.me:
+                return None
+            if getattr(msg, 'is_deleted_for_all', False) or msg.message == 'This message has been deleted.':
+                return None
+            now = timezone.now()
+            if (now - msg.timestamp).total_seconds() > 24 * 3600:
+                return None
+            if getattr(msg, 'is_view_once', False) or msg.message_type in ('call', 'location'):
+                return None
+
+            msg.message = new_text
+            msg.is_edited = True
+            msg.edited_at = now
+            if 'is_encrypted' in data:
+                msg.is_encrypted = bool(data.get('is_encrypted'))
+                msg.encryption_iv = data.get('encryption_iv', '')
+            is_self = (msg.sender_id == msg.receiver_id)
+            if not is_self:
+                msg.is_read = False
+                msg.read_at = None
+            msg.save(update_fields=['message', 'is_edited', 'edited_at', 'is_read', 'read_at', 'is_encrypted', 'encryption_iv'])
+
+            tick_status = 'read' if is_self else ('delivered' if msg.is_delivered else 'sent')
+            return {
+                'edited_at': msg.edited_at.isoformat(),
+                'tick_status': tick_status,
+            }
+        except Exception as e:
+            logger.warning(f'[WS] update_message_content error: {e}')
+            return None
+
+    @database_sync_to_async
+    def update_group_message_content(self, message_id: int, new_text: str, data: dict) -> dict | None:
+        from .models import GroupMessage, GroupMessageRead
+        from django.utils import timezone
+        try:
+            msg = GroupMessage.objects.filter(pk=message_id).first()
+            if not msg or msg.sender != self.me:
+                return None
+            if getattr(msg, 'is_deleted_for_all', False) or msg.message == 'This message has been deleted.':
+                return None
+            now = timezone.now()
+            if (now - msg.timestamp).total_seconds() > 24 * 3600:
+                return None
+            if getattr(msg, 'is_view_once', False) or msg.message_type in ('call', 'location'):
+                return None
+
+            msg.message = new_text
+            msg.is_edited = True
+            msg.edited_at = now
+            if 'is_encrypted' in data:
+                msg.is_encrypted = bool(data.get('is_encrypted'))
+                msg.encryption_iv = data.get('encryption_iv', '')
+            msg.save(update_fields=['message', 'is_edited', 'edited_at', 'is_encrypted', 'encryption_iv'])
+            GroupMessageRead.objects.filter(message=msg).exclude(user=self.me).delete()
+
+            return {
+                'edited_at': msg.edited_at.isoformat(),
+            }
+        except Exception as e:
+            logger.warning(f'[WS] update_group_message_content error: {e}')
             return None
 
     @database_sync_to_async
@@ -1577,6 +1678,8 @@ class GroupChatConsumer(ChatConsumer):
             await self.handle_mark_read(data)
         elif msg_type == 'group_delivered_receipt':
             await self.handle_group_delivered_receipt(data)
+        elif msg_type == 'edit_message':
+            await self.handle_group_edit_message(data)
         elif msg_type == 'ping':
             await self._verify_and_restore_online_status()
             await self.send(text_data=json.dumps({'type': 'pong'}))
@@ -1703,6 +1806,33 @@ class GroupChatConsumer(ChatConsumer):
     def _get_group_member_ids(self):
         from .models import GroupMembership
         return list(GroupMembership.objects.filter(group_id=self.group_id).values_list('user_id', flat=True))
+
+    async def handle_group_edit_message(self, data):
+        """Handle group message edit over WebSocket."""
+        message_id = data.get('message_id')
+        new_text = data.get('message', '').strip()
+        if not message_id or not new_text:
+            return
+
+        result = await self.update_group_message_content(int(message_id), new_text, data)
+        if not result:
+            return
+
+        payload = {
+            'type': 'message_edited',
+            'message_id': int(message_id),
+            'new_message': new_text,
+            'is_edited': True,
+            'edited_at': result['edited_at'],
+            'sender': self.me.username,
+            'group_id': self.group_id,
+            'is_group': True,
+            'tick_status': 'delivered',
+            'is_encrypted': data.get('is_encrypted', False),
+            'encryption_iv': data.get('encryption_iv', ''),
+        }
+
+        await self.channel_layer.group_send(self.room_group, payload)
 
     async def handle_typing(self, data):
         """Broadcast typing indicator to all group members."""
