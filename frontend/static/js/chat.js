@@ -872,7 +872,7 @@ SDH.Chat = (() => {
       `;
   }
 
-  // ── Chat Pin State & Helpers (WhatsApp-style) ─────────────────────────
+  // ── Chat Pin State & Helpers ─────────────────────────────────────────
   const pinnedChats = {
     userIds: new Set((window.SDH_DATA?.pinnedUserIds || []).map(id => Number(id))),
     usernames: new Set(window.SDH_DATA?.pinnedUsers || []),
@@ -7617,7 +7617,7 @@ SDH.Chat = (() => {
     removeTempMessage: (tempId) => { if (tempId) pendingAckMap.delete(tempId); },
     _setAvatarInitial: (el, name) => _setAvatarInitial(el, name),
     _getAttractiveInitials: (name) => _getAttractiveInitials(name),
-    // Chat Pinning (WhatsApp-style)
+    // Chat Pinning
     togglePinChat,
     toggleCurrentChatPin,
     isChatPinned,

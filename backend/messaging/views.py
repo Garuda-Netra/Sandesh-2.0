@@ -225,7 +225,7 @@ def chat_view(request):
     locked_group_ids = set(locked_chat_records.filter(locked_group__isnull=False).values_list('locked_group_id', flat=True))
     is_saved_messages_locked = locked_chat_records.filter(is_self_chat=True).exists()
 
-    # Pinned chats state (WhatsApp-style)
+    # Pinned chats state
     pinned_chat_records = PinnedChat.objects.filter(user=request.user).order_by('-pinned_at')
     pinned_user_ids = set(pinned_chat_records.filter(pinned_user__isnull=False).values_list('pinned_user_id', flat=True))
     pinned_usernames = list(pinned_chat_records.filter(pinned_user__isnull=False).values_list('pinned_user__username', flat=True))
@@ -305,7 +305,7 @@ def chat_view(request):
             'is_pinned': u.id in pinned_user_ids,
         })
 
-    # Sort WhatsApp-style: pinned chats first (ordered by pin timestamp), then unpinned (saved messages, online, username)
+    # Sort order: pinned chats first (ordered by pin timestamp), then unpinned (saved messages, online, username)
     def _user_sort_key(x):
         is_pinned = x.get('is_pinned', False)
         is_self = x.get('is_self_chat', False)
@@ -3483,14 +3483,14 @@ def get_locked_chats_status(request):
 
 
 # ---------------------------------------------------------------------------
-# Chat Pinning Views (WhatsApp-style)
+# Chat Pinning Views
 # ---------------------------------------------------------------------------
 MAX_PINNED_CHATS = 5
 
 @login_required
 @require_POST
 def toggle_chat_pin(request):
-    """Toggle chat pin for direct user, group, or saved messages (WhatsApp-style)."""
+    """Toggle chat pin for direct user, group, or saved messages."""
     try:
         data = json.loads(request.body)
     except Exception:

@@ -117,7 +117,7 @@ SDH.UserSearch = (() => {
               </svg>
               View Profile
             </button>
-            <!-- Pin / Unpin Chat (WhatsApp-style) -->
+            <!-- Pin / Unpin Chat -->
             <button onclick="SDH.Chat.togglePinChat('direct', '${userId}', '${username}'); SDH.Chat._closeAllUserMenus();"
                     class="sdh-pin-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm
                            text-divine-muted hover:text-divine-gold hover:bg-divine-surface

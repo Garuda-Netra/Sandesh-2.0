@@ -841,7 +841,7 @@ class ChatLock(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# Pinned Chat Models (WhatsApp-style)
+# Pinned Chat Models
 # ---------------------------------------------------------------------------
 class PinnedChat(models.Model):
     """

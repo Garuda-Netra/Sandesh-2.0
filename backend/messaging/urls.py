@@ -35,7 +35,7 @@ urlpatterns = [
     path('api/chat-lock/status/', views.get_locked_chats_status, name='get_locked_chats_status'),
     path('api/chat-lock/lock-now/', views.lock_session_now, name='lock_session_now'),
     path('api/chat-lock/unlock-clear/', views.unlock_and_clear_chat, name='unlock_and_clear_chat'),
-    # ── Sandesh Chat Pinning (WhatsApp-style) ─────────────────────
+    # ── Sandesh Chat Pinning ──────────────────────────────────────
     path('api/chat-pin/toggle/', views.toggle_chat_pin, name='toggle_chat_pin'),
     path('api/chat-pin/status/', views.get_pinned_chats_status, name='get_pinned_chats_status'),
     # Professional message deletion

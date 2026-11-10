@@ -634,7 +634,7 @@
     color: #fca5a5 !important;
   }
 
-  /* ─── Pinned Chat Badge & Options (WhatsApp-style) ─── */
+  /* ─── Pinned Chat Badge & Options ─── */
   .sdh-pin-badge {
     display: inline-flex;
     align-items: center;
@@ -994,7 +994,7 @@
     webauthnRegVerifyUrl: "{% url 'messaging:webauthn_register_verify' %}",
     webauthnAuthOptionsUrl: "{% url 'messaging:webauthn_auth_options' %}",
     webauthnAuthVerifyUrl: "{% url 'messaging:webauthn_auth_verify' %}",
-    // Chat Pin Data (WhatsApp-style)
+    // Chat Pin Data
     pinnedUserIds: JSON.parse(document.getElementById('sdh-pinned-user-ids-data')?.textContent || '[]'),
     pinnedUsers: JSON.parse(document.getElementById('sdh-pinned-users-data')?.textContent || '[]'),
     pinnedGroupIds: JSON.parse(document.getElementById('sdh-pinned-group-ids-data')?.textContent || '[]'),
@@ -1358,7 +1358,7 @@
                   {% if item.is_self_chat %}Saved Messages{% else %}{{ item.user.username }}{% endif %}
                 </span>
                 <div class="flex items-center gap-1.5 flex-shrink-0">
-                  <!-- Pin badge indicator (WhatsApp style) -->
+                  <!-- Pin badge indicator -->
                   <span id="pin-badge-{{ item.user.username }}" class="sdh-pin-badge {% if not item.is_pinned %}hidden{% endif %} text-divine-gold/90 flex-shrink-0" title="Pinned chat">
                     <svg class="w-3.5 h-3.5 rotate-45" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M9.828.722a.5.5 0 0 1 .354.146l4.95 4.95a.5.5 0 0 1 0 .707c-.48.48-1.072.588-1.503.588-.177 0-.335-.018-.46-.039l-3.13 3.13a5.922 5.922 0 0 1 .16 1.013c.046.702-.032 1.487-.445 2.188a.5.5 0 0 1-.765.115l-3.29-3.29-3.793 3.793a.5.5 0 0 1-.707-.707l3.793-3.793-3.29-3.29a.5.5 0 0 1 .115-.765c.701-.413 1.486-.491 2.188-.445.334.022.68.08 1.013.16l3.13-3.13a4.015 4.015 0 0 1-.04-.46c0-.43.109-1.023.589-1.503a.5.5 0 0 1 .353-.146z"/>
@@ -1420,7 +1420,7 @@
               </button>
               {% endif %}
 
-              <!-- Pin / Unpin Chat (WhatsApp-style) -->
+              <!-- Pin / Unpin Chat -->
               <button onclick="SDH.Chat.togglePinChat('{% if item.is_self_chat %}saved{% else %}direct{% endif %}', '{% if item.is_self_chat %}saved{% else %}{{ item.user.id }}{% endif %}', '{{ item.user.username|escapejs }}'); SDH.Chat._closeAllUserMenus();"
                 class="sdh-pin-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm
                            text-divine-muted hover:text-divine-gold hover:bg-divine-surface
@@ -1617,7 +1617,7 @@
 
               <!-- USER OPTIONS -->
               <div id="kebabUserOptions">
-                <!-- Pin / Unpin Chat (WhatsApp-style) -->
+                <!-- Pin / Unpin Chat -->
                 <button id="pinChatBtn" onclick="SDH.Chat.toggleCurrentChatPin(); SDH.Chat.toggleKebabMenu();"
                   class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
                   <svg class="w-4 h-4 text-divine-gold" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
@@ -1710,7 +1710,7 @@
 
               <!-- GROUP OPTIONS -->
               <div id="kebabGroupOptions" class="hidden">
-                <!-- Pin / Unpin Group (WhatsApp-style) -->
+                <!-- Pin / Unpin Group -->
                 <button id="pinGroupBtn" onclick="SDH.Chat.toggleCurrentChatPin(); SDH.Chat.toggleKebabMenu();"
                   class="sdh-kebab-item w-full flex items-center gap-3 px-4 py-3 text-sm text-divine-text hover:bg-divine-surface transition-colors">
                   <svg class="w-4 h-4 text-divine-gold" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
