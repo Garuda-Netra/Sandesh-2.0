@@ -400,6 +400,7 @@ SDH.Chat = (() => {
   let unreadCounts = {};
   const toastQueue = [];
   let isShowingToast = false;
+  let editingMessageId = null;
 
   // Maps tempId â†’ null until server echo assigns real id
   const pendingAckMap = new Map();
@@ -552,6 +553,7 @@ SDH.Chat = (() => {
       case 'message_removed': handleMessageRemoved(data); break;
       case 'message_starred': handleMessageStarred(data); break;
       case 'chat_cleared': handleChatCleared(data); break;
+      case 'message_edited': await handleMessageEdited(data); break;
       case 'live_location_updated':
         window.SDH?.LocationShare?.handleIncomingLiveUpdate?.(data);
         break;
@@ -1465,6 +1467,8 @@ SDH.Chat = (() => {
       isViewOnce: isViewOnce,
       viewOnceOpened: viewOnceOpened,
       isStarred: Boolean(data.is_starred),
+      isEdited: Boolean(data.is_edited),
+      editedAt: data.edited_at,
     });
     scrollToBottom();
 
@@ -1821,6 +1825,195 @@ SDH.Chat = (() => {
     } catch (err) { showToast('Could not delete message: ' + err.message, 'error'); }
   }
 
+  function _linkifyHtml(html) {
+    if (!html) return '';
+    const urlPattern = /(?:https?:\/\/|www\.)[^\s<>"']+|[a-zA-Z0-9][-a-zA-Z0-9]*\.(?:com|org|net|edu|gov|io|co|in|ai|me|app|dev|link|info)(?:\/[^\s<>"']*)?/gi;
+    return html.replace(urlPattern, (match) => {
+      const cleanUrl = match.replace(/[.,!?:;)"']+$/, '');
+      const trailing = match.slice(cleanUrl.length);
+      const href = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
+        ? cleanUrl
+        : `https://${cleanUrl}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="sdh-chat-link underline underline-offset-2 break-all transition-colors" onclick="event.stopPropagation()">${cleanUrl}</a>${trailing}`;
+    });
+  }
+
+  function _formatMessageText(content) {
+    let formatted = window.SDH?.Mentions?.format
+      ? window.SDH.Mentions.format(content || '')
+      : escapeHtml(content || '');
+    return _linkifyHtml(formatted);
+  }
+
+  /** Start editing a message: populates input, shows banner, stores message ID. */
+  function _startEditMessage(btn) {
+    const dropdown = btn.closest('.msg-dropdown');
+    const bubble = dropdown?._targetBubble || (dropdown?._originalParent || btn).closest('[data-message-id]');
+    const msgId = bubble?.dataset?.messageId;
+    if (!msgId || msgId.startsWith('temp_')) return;
+    _closeAllMsgMenus();
+
+    // Enforce 24-hour limit
+    const msgTs = bubble.dataset.timestamp;
+    if (msgTs) {
+      const msgTime = new Date(msgTs).getTime();
+      if (!isNaN(msgTime) && (Date.now() - msgTime > 24 * 3600 * 1000)) {
+        showToast('Messages can only be edited within 24 hours.', 'error');
+        return;
+      }
+    }
+
+    const rawText = bubble.dataset.rawText !== undefined
+      ? bubble.dataset.rawText
+      : (bubble.querySelector('.msg-text')?.innerText || '').trim();
+
+    editingMessageId = msgId;
+
+    const banner = document.getElementById('editMessageBanner');
+    const preview = document.getElementById('editMessagePreview');
+    const input = document.getElementById('messageInput');
+    if (banner && preview) {
+      preview.textContent = rawText.length > 60 ? rawText.substring(0, 60) + '...' : rawText;
+      banner.classList.remove('hidden');
+    }
+    if (input) {
+      input.value = rawText;
+      input.focus();
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  /** Cancel message editing state and clear input banner. */
+  function cancelEditMessage() {
+    editingMessageId = null;
+    const banner = document.getElementById('editMessageBanner');
+    const preview = document.getElementById('editMessagePreview');
+    const input = document.getElementById('messageInput');
+    if (banner) banner.classList.add('hidden');
+    if (preview) preview.textContent = '';
+    if (input) {
+      input.value = '';
+      input.style.height = 'auto';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
+  /** Submits message edit to the backend API. */
+  async function executeEditMessage(msgId, newText) {
+    if (!msgId || !newText) return;
+    try {
+      let payloadBody = { message: newText };
+      if (activeUser && window.SDH?.E2E) {
+        const encResult = await _encryptOutgoingText(newText, activeUser);
+        payloadBody.message = encResult.message;
+        payloadBody.is_encrypted = encResult.is_encrypted;
+        payloadBody.encryption_iv = encResult.encryption_iv;
+      }
+
+      const res = await fetch(`/messaging/api/message/${msgId}/edit/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': window.SDH_DATA.csrfToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payloadBody),
+      });
+
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(resData.error || res.statusText);
+      }
+
+      // Immediately update local message UI for the sender!
+      const bubble = document.getElementById(`msg-${msgId}`);
+      if (bubble) {
+        bubble.dataset.rawText = newText;
+        const textEl = bubble.querySelector('.msg-text');
+        if (textEl) {
+          textEl.innerHTML = _formatMessageText(newText);
+        }
+        const editedTag = bubble.querySelector('.msg-edited-tag');
+        if (editedTag) editedTag.classList.remove('hidden');
+        // Reset tick to grey double tick (delivered) until recipient sees it!
+        _setMsgStatus(msgId, resData.tick_status || 'delivered');
+      }
+
+      cancelEditMessage();
+      showToast('Message edited', 'success');
+    } catch (err) {
+      console.error('[Chat] Edit message error:', err);
+      showToast('Could not edit message: ' + err.message, 'error');
+    }
+  }
+
+  /** Handles incoming WebSocket message_edited notification. */
+  async function handleMessageEdited(data) {
+    const msgId = data.message_id;
+    if (!msgId) return;
+
+    let content = data.new_message || data.message;
+    if (data.is_encrypted && data.encryption_iv && window.SDH?.E2E) {
+      try {
+        if (data.is_group && data.group_id) {
+          content = await window.SDH.E2E.decryptGroupMessage(content, data.encryption_iv, data.group_id);
+        } else if (data.sender) {
+          content = await window.SDH.E2E.decrypt(content, data.encryption_iv, data.sender);
+        }
+      } catch (e) {
+        console.warn('[E2EE] Could not decrypt edited message:', e);
+      }
+    }
+
+    const bubble = document.getElementById(`msg-${msgId}`);
+    if (bubble) {
+      bubble.dataset.rawText = content;
+      const textEl = bubble.querySelector('.msg-text');
+      if (textEl) {
+        textEl.innerHTML = _formatMessageText(content);
+      }
+      const editedTag = bubble.querySelector('.msg-edited-tag');
+      if (editedTag) editedTag.classList.remove('hidden');
+
+      const isSender = (data.sender === window.SDH_DATA.currentUser);
+      if (isSender) {
+        // Sender sees grey double tick until seen by recipient
+        _setMsgStatus(msgId, data.tick_status || 'delivered');
+      } else {
+        // Recipient side:
+        // If recipient is viewing this chat actively and page has focus, send read receipt
+        const isCurrentChat = (activeUser === data.sender || (data.is_group && activeUser === `group_${data.group_id}`));
+        if (isCurrentChat && SDH.WS && SDH.WS.isOpen()) {
+          const isViewingNow = (document.visibilityState === 'visible' && document.hasFocus());
+          if (isViewingNow) {
+            setTimeout(() => {
+              if (activeUser && !activeUser.startsWith('group_')) {
+                if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+                  SDH.WS.sendMessage({ type: 'read_receipt' });
+                }
+              } else if (activeUser) {
+                SDH.WS.sendMessage({ type: 'mark_read', message_id: msgId });
+              }
+            }, 500);
+          } else {
+            const onFocusOnce = () => {
+              window.removeEventListener('focus', onFocusOnce);
+              if (activeUser && SDH.WS && SDH.WS.isOpen()) {
+                if (!activeUser.startsWith('group_')) {
+                  if (!window.SDH_SETTINGS || window.SDH_SETTINGS.read_receipts_enabled !== false) {
+                    SDH.WS.sendMessage({ type: 'read_receipt' });
+                  }
+                } else {
+                  SDH.WS.sendMessage({ type: 'mark_read', message_id: msgId });
+                }
+              }
+            };
+            window.addEventListener('focus', onFocusOnce, { once: true });
+          }
+        }
+      }
+    }
+  }
+
   // Close open dropdowns and menus on outside click (single unified delegated listener)
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.msg-menu-wrap')) {
@@ -1932,6 +2125,7 @@ SDH.Chat = (() => {
   }
 
   function _resetConversationPanel() {
+    cancelEditMessage();
     activeUser = null;
     activeUserId = null;
     SDH.WS?.connectWebSocket?.('global');
@@ -2527,7 +2721,7 @@ SDH.Chat = (() => {
       hasServerFile = false, fileId = null, fileData = null,
       isDelivered = false, isRead = false, repliedMoment = null,
       isViewOnce = false, viewOnceOpened = false, isStarred = false,
-      location = null
+      location = null, isEdited = false, editedAt = null
     } = opts;
 
     // ── Date separator ───────────────────────────────────────────────────
@@ -2601,6 +2795,21 @@ SDH.Chat = (() => {
             </button>
             <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>` : '';
 
+    const isEditable = isFromMe && !isTemp && messageType === 'text' && (
+      (Date.now() - new Date(timestamp || Date.now()).getTime()) <= 24 * 3600 * 1000
+    );
+
+    const editBtnHtml = isEditable ? `
+            <button onclick="SDH.Chat._startEditMessage(this)"
+                    class="msg-edit-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-text hover:bg-divine-surface transition-colors text-left font-medium">
+              <svg class="w-3.5 h-3.5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              <span>Edit Message</span>
+            </button>
+            <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>` : '';
+
     const menuHtml = isTemp ? '' : `
         <div class="msg-menu-wrap flex-shrink-0 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150 relative self-center">
           <button onclick="SDH.Chat._toggleMsgMenu(this)"
@@ -2616,6 +2825,7 @@ SDH.Chat = (() => {
               <span class="msg-star-text">${isStarred ? 'Unstar Message' : 'Star Message'}</span>
             </button>
             <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
+            ${editBtnHtml}
             <button onclick="SDH.Chat._removeFromMyView(this)"
                     class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
               <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2676,6 +2886,8 @@ SDH.Chat = (() => {
     bubble.id = `msg-${messageId}`;
     bubble.dataset.messageId = String(messageId);
     bubble.dataset.isStarred = isStarred ? '1' : '0';
+    if (timestamp) bubble.dataset.timestamp = String(timestamp);
+    if (content) bubble.dataset.rawText = String(content);
     bubble.className = `flex ${isFromMe ? 'justify-end' : 'justify-start'} items-center gap-1.5 px-1 mb-1.5 animate-msg-appear group/msg`;
     bubble.innerHTML = `
         ${isFromMe ? menuHtml : ''}
@@ -2691,6 +2903,7 @@ SDH.Chat = (() => {
           <div class="flex items-center gap-1 ${isFromMe ? 'justify-end pr-0.5' : 'justify-start pl-0.5'}">
             <span class="msg-star-indicator ${isStarred ? '' : 'hidden'} text-amber-400 text-xs select-none" title="Starred">★</span>
             <span class="text-[11px] text-divine-muted/40 select-none">${time}</span>
+            <span class="msg-edited-tag ${isEdited ? '' : 'hidden'} text-[10px] text-divine-muted/50 italic select-none ml-0.5">(edited)</span>
             ${isFromMe ? `<span class="msg-status-tick leading-none select-none">${_tickHtml(initTickStatus)}</span>` : ''}
             ${(isFromMe && activeUser && activeUser.startsWith('group_') && !isTemp) ? `<button onclick="SDH.Chat.showGroupMessageDetails(${messageId})" class="ml-1 w-4 h-4 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/50 hover:text-white/80 transition-colors" title="Message Details"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>` : ''}
           </div>
@@ -2806,7 +3019,7 @@ SDH.Chat = (() => {
         ? window.SDH.Mentions.format(content || '')
         : escapeHtml(content || '');
       formatted = _linkifyHtml(formatted);
-      return `<p class="text-sm leading-relaxed break-words whitespace-pre-wrap">${formatted}</p>`;
+      return `<p class="msg-text text-sm leading-relaxed break-words whitespace-pre-wrap">${formatted}</p>`;
     }
 
     if (messageType === 'image') {
@@ -3075,6 +3288,16 @@ SDH.Chat = (() => {
 
     const input = document.getElementById('messageInput');
     const rawText = input.value.trim();
+
+    if (editingMessageId) {
+      if (!rawText) {
+        showToast('Message cannot be empty.', 'warning');
+        return;
+      }
+      await executeEditMessage(editingMessageId, rawText);
+      return;
+    }
+
     if (!rawText && !pendingFiles.length) return;
 
     try {
@@ -3224,6 +3447,7 @@ SDH.Chat = (() => {
         if (bubble) {
           bubble.id = `msg-${realId}`;
           bubble.dataset.messageId = String(realId);
+          if (!bubble.dataset.timestamp) bubble.dataset.timestamp = new Date().toISOString();
           // Upgrade location card attributes if present
           const locCard = bubble.querySelector('.sdh-location-msg-card');
           if (locCard) {
@@ -3239,9 +3463,30 @@ SDH.Chat = (() => {
               stopBtn.setAttribute('onclick', `event.stopPropagation(); SDH.LocationShare.stopLiveLocation('${realId}', ${Boolean(activeUser && activeUser.startsWith('group_'))});`);
             }
           }
+          // Ensure edited tag exists in timestamp container
+          if (!bubble.querySelector('.msg-edited-tag')) {
+            const tickEl = bubble.querySelector('.msg-status-tick');
+            const editedSpan = document.createElement('span');
+            editedSpan.className = 'msg-edited-tag hidden text-[10px] text-divine-muted/50 italic select-none ml-0.5';
+            editedSpan.textContent = '(edited)';
+            if (tickEl && tickEl.parentNode) {
+              tickEl.parentNode.insertBefore(editedSpan, tickEl);
+            }
+          }
           // Inject the 3-dot menu now that we have a real ID
           const existingMenu = bubble.querySelector('.msg-menu-wrap');
           if (!existingMenu) {
+            const isText = Boolean(bubble.querySelector('.msg-text'));
+            const editBtnHtml = isText ? `
+                  <button onclick="SDH.Chat._startEditMessage(this)"
+                          class="msg-edit-btn w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-text hover:bg-divine-surface transition-colors text-left font-medium">
+                    <svg class="w-3.5 h-3.5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    <span>Edit Message</span>
+                  </button>
+                  <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>` : '';
             const fileImg = bubble.querySelector('[data-file-id]');
             const fileId = fileImg?.dataset?.fileId;
             const mimeType = fileImg?.dataset?.mime || 'application/octet-stream';
@@ -3280,6 +3525,7 @@ SDH.Chat = (() => {
                     <span class="msg-star-text">Star Message</span>
                   </button>
                   <div class="border-t border-divine-border/40 mx-2 my-0.5"></div>
+                  ${editBtnHtml}
                   <button onclick="SDH.Chat._removeFromMyView(this)"
                           class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-divine-muted hover:text-divine-text hover:bg-divine-surface transition-colors text-left">
                     <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3571,6 +3817,7 @@ SDH.Chat = (() => {
       return;
     }
     clearFiles();
+    cancelEditMessage();
     activeUser = username; activeUserId = userId;
     currentGroupMembers = [];
     sessionStorage.setItem('ndm_last_chat', username);
@@ -3772,6 +4019,8 @@ SDH.Chat = (() => {
           isViewOnce: Boolean(msg.is_view_once),
           viewOnceOpened: Boolean(msg.view_once_opened),
           isStarred: Boolean(msg.is_starred),
+          isEdited: Boolean(msg.is_edited),
+          editedAt: msg.edited_at,
         }, fragment);
       }
       if (container) container.appendChild(fragment);
@@ -3818,6 +4067,11 @@ SDH.Chat = (() => {
   }
 
   function onKeyDown(e) {
+    if (e.key === 'Escape' && editingMessageId) {
+      e.preventDefault();
+      cancelEditMessage();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       if (window.SDH_SETTINGS && window.SDH_SETTINGS.enter_is_send === false) {
         return;
@@ -6955,6 +7209,7 @@ SDH.Chat = (() => {
 
     if (activeUser === `group_${groupId}`) return;
     clearFiles();
+    cancelEditMessage();
     activeUser = `group_${groupId}`;
     activeUserId = groupId;
     sessionStorage.setItem('ndm_last_chat', activeUser);
@@ -7377,6 +7632,8 @@ SDH.Chat = (() => {
           isViewOnce: Boolean(msg.is_view_once),
           viewOnceOpened: Boolean(msg.view_once_opened),
           isStarred: Boolean(msg.is_starred),
+          isEdited: Boolean(msg.is_edited),
+          editedAt: msg.edited_at,
         }, fragment);
       }
       if (container) container.appendChild(fragment);
@@ -7680,6 +7937,11 @@ SDH.Chat = (() => {
     toggleCurrentChatPin,
     isChatPinned,
     pinnedChats,
+    // Message Editing
+    _startEditMessage,
+    cancelEditMessage,
+    executeEditMessage,
+    handleMessageEdited,
   };
 
 })();

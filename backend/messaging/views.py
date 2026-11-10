@@ -498,6 +498,8 @@ def message_history(request, username):
             'original_filename': m.original_filename or m.file_name or '',
             'mime_type': m.mime_type,
             'timestamp': m.timestamp.isoformat(),
+            'is_edited': getattr(m, 'is_edited', False),
+            'edited_at': m.edited_at.isoformat() if getattr(m, 'edited_at', None) else None,
             'is_delivered': m.is_delivered,
             'is_read': (m.is_read and can_show_read_receipts) if not is_self else True,
             'is_mine': m.sender == request.user,
@@ -1674,6 +1676,141 @@ def delete_for_all(request, message_id):
         pass
 
     return JsonResponse({'status': 'ok'})
+
+
+# ---------------------------------------------------------------------------
+# Edit Message (within 24 hours of sending)
+# ---------------------------------------------------------------------------
+@login_required
+@require_POST
+def edit_message(request, message_id):
+    """
+    Edits a previously sent message within a strict 24-hour window.
+    Only the original sender may edit their own message.
+    Resets the read status (is_read=False) so the sender sees grey double ticks
+    until the receiver views/reads the edited message again.
+    Broadcasts real-time WebSocket updates to all participants.
+    """
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON body.'}, status=400)
+
+    new_content = data.get('message', '').strip()
+    if not new_content:
+        return JsonResponse({'error': 'Message content cannot be empty.'}, status=400)
+
+    is_group = False
+    msg = Message.objects.filter(pk=message_id).first()
+    if not msg:
+        from .models import GroupMessage
+        msg = GroupMessage.objects.filter(pk=message_id).first()
+        is_group = True
+
+    if not msg:
+        return JsonResponse({'error': 'Message not found.'}, status=404)
+
+    if msg.sender != request.user:
+        return JsonResponse({'error': 'You can only edit your own messages.'}, status=403)
+
+    if getattr(msg, 'is_deleted_for_all', False) or msg.message == 'This message has been deleted.':
+        return JsonResponse({'error': 'Deleted messages cannot be edited.'}, status=400)
+
+    # 24-hour limit check
+    now = timezone.now()
+    if (now - msg.timestamp).total_seconds() > 24 * 3600:
+        return JsonResponse({'error': 'Messages can only be edited within 24 hours of sending.'}, status=400)
+
+    # Only text/normal messages can be edited (no call logs, live location)
+    if getattr(msg, 'is_view_once', False) or msg.message_type in ('call', 'location'):
+        return JsonResponse({'error': 'This message type cannot be edited.'}, status=400)
+
+    # Update message content and edit flags
+    msg.message = new_content
+    msg.is_edited = True
+    msg.edited_at = now
+    if 'is_encrypted' in data:
+        msg.is_encrypted = bool(data.get('is_encrypted'))
+        msg.encryption_iv = data.get('encryption_iv', '')
+
+    channel_layer = get_channel_layer()
+
+    if is_group:
+        msg.save(update_fields=['message', 'is_edited', 'edited_at', 'is_encrypted', 'encryption_iv'])
+        # Reset read receipts for other members so they must view/read the edited version
+        from .models import GroupMessageRead
+        GroupMessageRead.objects.filter(message=msg).exclude(user=request.user).delete()
+
+        payload = {
+            'type': 'message_edited',
+            'message_id': message_id,
+            'new_message': msg.message,
+            'is_edited': True,
+            'edited_at': msg.edited_at.isoformat(),
+            'sender': request.user.username,
+            'group_id': msg.group_id,
+            'is_group': True,
+            'tick_status': 'delivered',
+            'is_encrypted': msg.is_encrypted,
+            'encryption_iv': msg.encryption_iv,
+        }
+        try:
+            async_to_sync(channel_layer.group_send)(f'group_chat_{msg.group_id}', payload)
+            for member_id in msg.group.memberships.values_list('user_id', flat=True):
+                async_to_sync(channel_layer.group_send)(f'user_chat_{member_id}', payload)
+        except Exception:
+            pass
+
+        return JsonResponse({
+            'status': 'ok',
+            'message_id': message_id,
+            'new_message': msg.message,
+            'is_edited': True,
+            'edited_at': msg.edited_at.isoformat(),
+        })
+
+    # Direct 1-to-1 message:
+    # Reset is_read to False so ticks turn back to grey double ticks (✓✓)
+    is_self = (msg.sender_id == msg.receiver_id)
+    if not is_self:
+        msg.is_read = False
+        msg.read_at = None
+    msg.save(update_fields=['message', 'is_edited', 'edited_at', 'is_read', 'read_at', 'is_encrypted', 'encryption_iv'])
+
+    sender_tick_status = 'read' if is_self else ('delivered' if msg.is_delivered else 'sent')
+
+    lo, hi = sorted([msg.sender_id, msg.receiver_id])
+    room_group = f'chat_{lo}__{hi}'
+    payload = {
+        'type': 'message_edited',
+        'message_id': message_id,
+        'new_message': msg.message,
+        'is_edited': True,
+        'edited_at': msg.edited_at.isoformat(),
+        'sender': msg.sender.username,
+        'receiver': msg.receiver.username,
+        'is_read': msg.is_read,
+        'tick_status': sender_tick_status,
+        'is_group': False,
+        'is_encrypted': msg.is_encrypted,
+        'encryption_iv': msg.encryption_iv,
+    }
+
+    try:
+        async_to_sync(channel_layer.group_send)(room_group, payload)
+        async_to_sync(channel_layer.group_send)(f'user_chat_{msg.sender_id}', payload)
+        async_to_sync(channel_layer.group_send)(f'user_chat_{msg.receiver_id}', payload)
+    except Exception:
+        pass
+
+    return JsonResponse({
+        'status': 'ok',
+        'message_id': message_id,
+        'new_message': msg.message,
+        'is_edited': True,
+        'edited_at': msg.edited_at.isoformat(),
+        'tick_status': sender_tick_status,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -3088,6 +3225,8 @@ def group_message_history(request, group_id):
             'is_encrypted': getattr(msg, 'is_encrypted', False),
             'encryption_iv': getattr(msg, 'encryption_iv', ''),
             'timestamp': msg.timestamp.isoformat(),
+            'is_edited': getattr(msg, 'is_edited', False),
+            'edited_at': msg.edited_at.isoformat() if getattr(msg, 'edited_at', None) else None,
             'is_delivered': is_delivered,
             'is_read': is_read,
             'is_starred': msg.id in starred_msg_ids,

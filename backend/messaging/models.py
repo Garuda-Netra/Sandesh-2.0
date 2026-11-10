@@ -109,6 +109,17 @@ class Message(models.Model):
         help_text='True when sender deleted the message for all participants',
     )
 
+    # Message Editing (allowed within 24 hours of timestamp)
+    is_edited = models.BooleanField(
+        default=False,
+        help_text='True if the message has been edited by the sender',
+    )
+    edited_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp of the most recent edit',
+    )
+
     # ── End-to-End Encryption (AES-GCM-256) ────────────────────────────────
     is_encrypted = models.BooleanField(
         default=False,
@@ -561,6 +572,17 @@ class GroupMessage(models.Model):
     live_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
     is_live_ended = models.BooleanField(default=False)
     live_ended_at = models.DateTimeField(null=True, blank=True)
+
+    # Message Editing (allowed within 24 hours of timestamp)
+    is_edited = models.BooleanField(
+        default=False,
+        help_text='True if the group message has been edited by the sender',
+    )
+    edited_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Timestamp of the most recent edit',
+    )
 
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
